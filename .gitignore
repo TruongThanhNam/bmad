@@ -1,0 +1,12 @@
+# BMAD — personal install answers (never shared across the team)
+_bmad/config.user.toml
+
+# BMAD — generated planning/implementation artifacts
+_bmad-output/
+
+# Claude Code — machine-local settings
+.claude/settings.local.json
+
+# OS cruft
+.DS_Store
+Thumbs.db
