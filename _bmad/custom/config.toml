@@ -5,3 +5,8 @@
 #
 # [agents.bmad-agent-pm]
 # description = "Prefers short, bulleted PRDs over narrative drafts."
+
+[core]
+# Đổi từ "Sticky Notes" — sản phẩm không còn là sticky notes (không always-on-top,
+# không dán lên màn hình). Quyết định trong phiên product-brief ngày 2026-09-08.
+project_name = "Ghi chú hàng ngày"

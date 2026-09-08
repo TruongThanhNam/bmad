@@ -1,8 +1,11 @@
 # BMAD — personal install answers (never shared across the team)
 _bmad/config.user.toml
 
-# BMAD — generated planning/implementation artifacts
-_bmad-output/
+# BMAD — implementation artifacts (sprint status, build logs: trạng thái tạm, đổi liên tục)
+_bmad-output/implementation-artifacts/
+
+# Planning artifacts (brief, PRD, UX, architecture, epics/stories) ĐƯỢC track —
+# đó là documentation của dự án, không phải file sinh ra tự động.
 
 # Claude Code — machine-local settings
 .claude/settings.local.json
