@@ -14,6 +14,10 @@ const MONG_DOI = {
   DRAFT_STALE_MS: 30000,
   QUOTA_WARN_RATIO: 0.8,
   QUOTA_WARN_FREE_BYTES: 52428800,
+  LOCAL_STAMP_CHARS: 19,
+  LOCAL_DATE_CHARS: 10,
+  UTC_NOON_HOUR: 12,
+  MS_PER_DAY: 86400000,
 };
 
 // `APP_VERSION` cố tình KHÔNG bị ghim giá trị: README bắt bump nó ở mọi lần deploy, nên

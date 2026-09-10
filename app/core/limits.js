@@ -39,6 +39,22 @@ export const QUOTA_WARN_RATIO = 0.80;
  *  Viết dạng tích để đọc ra "50 MB" mà không phải đếm chữ số. */
 export const QUOTA_WARN_FREE_BYTES = 50 * 1024 * 1024;
 
+/** Độ dài khóa sắp xếp `localStamp` — `yyyy-MM-ddTHH:mm:ss` giờ tại chỗ, cắt bỏ phần offset
+ *  (AD-4). Dưới `app/`, `core/time.js` là nơi duy nhất tiêu thụ (test thì đọc thoải mái). */
+export const LOCAL_STAMP_CHARS = 19;
+
+/** Độ dài khóa lọc ngày `localDate` — `yyyy-MM-dd` (AD-4, AD-13).
+ *  Dưới `app/`, `core/time.js` là nơi duy nhất tiêu thụ (test thì đọc thoải mái). */
+export const LOCAL_DATE_CHARS = 10;
+
+/** Giờ UTC mà `daysBetween` neo hai mốc ngày vào — giữa trưa, để mọi lần đổi giờ mùa hè
+ *  (±1 giờ, lúc rạng sáng) không đẩy mốc qua ranh giới ngày. `core/time.js` tiêu thụ. */
+export const UTC_NOON_HOUR = 12;
+
+/** Số mili giây một ngày, viết dạng tích để đọc ra "24 giờ" mà không phải đếm chữ số.
+ *  `core/time.js` chia hiệu hai mốc cho hằng này. */
+export const MS_PER_DAY = 24 * 60 * 60 * 1000;
+
 /** Phiên bản app, bump TAY ở mọi lần deploy (AD-21, checklist trong README).
  *  AD-21 chỉ so bằng nhau: tab thấy giá trị khác của mình thì vào chế độ chỉ đọc. */
 export const APP_VERSION = '0.1.0';
