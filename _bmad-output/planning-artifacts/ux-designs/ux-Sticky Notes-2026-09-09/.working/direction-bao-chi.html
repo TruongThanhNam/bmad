@@ -1,0 +1,425 @@
+<title>Báo chí</title>
+<style>
+/* =====================================================================
+   HƯỚNG 4 — "BÁO CHÍ" (editorial / typographic)
+   ---------------------------------------------------------------------
+   TÍNH CÁCH: một trang bản in. Phân cấp làm HOÀN TOÀN bằng typography —
+   tương phản cỡ chữ mạnh (28px numeral vs 15.5px body vs 10px rubric),
+   một cột hanging bên trái cho giờ, và những đường hairline full-bleed
+   kiểu kẻ cột báo. Không thẻ, không nền phần tử, không bo góc, không bóng.
+   Register: hồ sơ đã in ra — "cái này đã được ghi lại", đúng nhu cầu
+   trưng bằng chứng của Nam khi bị hỏi lại.
+   Mật độ: TRUNG BÌNH-CAO ở phần chữ, nhưng có khoảng trắng lề rộng.
+   Độ đậm chữ: DẢI RỘNG NHẤT trong 4 hướng — 700 / 600 / 400 cùng màn hình.
+   Hàm ý chuyển động: không có; trang giấy in không động.
+   Hình dạng phần tử ghi chú: hai cột (giờ | nội dung), phân tách bằng
+   một hairline 1px chạy hết chiều ngang.
+
+   ---- FONT STACK ----
+   --font-display: "Segoe UI Variable Display", "Segoe UI Semibold",
+                   "Segoe UI", "Helvetica Neue", Arial, sans-serif
+       (giờ tạo cỡ lớn, tiêu đề ngày, rubric chữ hoa)
+   --font-body:    Cambria, Constantia, Georgia, "Times New Roman", serif
+       (nội dung ghi chú và ô soạn thảo — chữ đọc là chữ in)
+   --font-mono:    Consolas, "Cascadia Mono", monospace
+       (chỉ ô ngày dd/MM/yyyy)
+
+   ---- SPACING SCALE (base 4px) ----
+   --sp-1:4px  --sp-2:8px  --sp-3:12px  --sp-4:16px
+   --sp-5:24px --sp-6:36px --sp-7:56px
+   Lề trang = --sp-7 (56px) trái/phải. Cột giờ rộng 84px, gutter --sp-5.
+
+   ---- BORDER RADIUS ----
+   --r-0: 0 — TẤT CẢ, kể cả input. Không phần tử nào bo góc.
+
+   ---- RULES (kẻ) — thay cho mọi viền và nền ----
+   --rule-hair: 1px solid var(--rule)     giữa các ghi chú
+   --rule-heavy: 2px solid var(--ink)     dưới masthead ngày và dưới vùng lọc
+   --rule-thin-top: 1px solid var(--rule) trên chân trang
+
+   ---- TYPE SCALE (tương phản mạnh, tỉ lệ ~1.5) ----
+   --fs-rubric:   10px   weight 700, letter-spacing .18em, UPPERCASE
+   --fs-foot:     11px
+   --fs-ui:       13px
+   --fs-body:     15.5px / line-height 1.58   (nội dung ghi chú)
+   --fs-composer: 18px   / line-height 1.5    (ô soạn thảo — to nhất
+                  trong vùng gõ, đặt vị trí "lead paragraph")
+   --fs-time:     28px   weight 700, letter-spacing -.02em, line-height 1
+   --fs-masthead: 15px   weight 700, letter-spacing .02em
+
+   ---- LIGHT PALETTE ----
+   --bg:      #FFFFFF   nền trang, trắng bản in
+   --paper-2: #FAFAF9   nền ô soạn thảo (chỉ chìm 1 bậc, gần như không thấy)
+   --ink:     #111111   chữ nội dung, giờ, kẻ đậm
+   --ink-2:   #575757   rubric, nhãn lọc
+   --ink-3:   #8E8E8E   placeholder, chân trang, dấu "còn nữa"
+   --rule:    #DCDCDC   hairline
+   --focus:   #111111   viền focus = kẻ đậm 2px, không dùng màu nhấn
+   --danger:  #8C1D14
+   --hl:      #F0E4A8   highlight từ khóa khớp
+   Hướng này CỐ Ý không có màu nhấn (accent) nào — chỉ đen/trắng/xám,
+   nên không thể phân loại ghi chú bằng màu ngay cả khi muốn.
+
+   ---- DARK PALETTE ----
+   --bg:      #121212
+   --paper-2: #181818
+   --ink:     #EDEDED
+   --ink-2:   #A6A6A6
+   --ink-3:   #6F6F6F
+   --rule:    #2C2C2C
+   --focus:   #EDEDED
+   --danger:  #D2776C
+   --hl:      #4A4118
+   ===================================================================== */
+
+*{box-sizing:border-box}
+body{margin:0;background:#E8E8E6;font-family:"Segoe UI",system-ui,sans-serif;color:#111}
+.doc{max-width:820px;margin:0 auto;padding:48px 24px 8px}
+.doc h1{font-size:30px;font-weight:700;letter-spacing:-.01em;margin:0 0 12px}
+.doc p{font-family:Cambria,Georgia,serif;font-size:15.5px;line-height:1.7;max-width:68ch;margin:0 0 10px;color:#3A3A3A}
+.wrap{max-width:1360px;margin:0 auto;padding:24px}
+.lbl{font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#575757;margin:32px 0 10px}
+.row{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start}
+.col{flex:1 1 420px;min-width:380px}
+
+.browser{border:1px solid #C9C9C6;overflow:hidden;background:#fff}
+.chrome{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#DEDEDB;border-bottom:1px solid #C9C9C6}
+.dot{width:10px;height:10px;border-radius:50%;background:#BDBDB9}
+.addr{flex:1;margin-left:6px;font-size:11px;color:#575757;background:#F1F1EF;padding:3px 8px;font-family:Consolas,monospace}
+.hero .viewport{height:660px}
+.mini .viewport{height:420px}
+.viewport{overflow:hidden}
+
+/* ================= SẢN PHẨM ================= */
+.app{
+  --bg:#FFFFFF; --paper-2:#FAFAF9; --ink:#111111; --ink-2:#575757;
+  --ink-3:#8E8E8E; --rule:#DCDCDC; --focus:#111111; --danger:#8C1D14; --hl:#F0E4A8;
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:24px; --sp-6:36px; --sp-7:56px;
+  background:var(--bg);color:var(--ink);height:100%;display:flex;flex-direction:column;
+  font-family:"Segoe UI Variable Display","Segoe UI",Arial,sans-serif;
+}
+.app.dark{
+  --bg:#121212; --paper-2:#181818; --ink:#EDEDED; --ink-2:#A6A6A6;
+  --ink-3:#6F6F6F; --rule:#2C2C2C; --focus:#EDEDED; --danger:#D2776C; --hl:#4A4118;
+}
+.rubric{font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-2)}
+
+/* --- tầng 1: ô soạn thảo --- */
+.composer{padding:var(--sp-6) var(--sp-7) var(--sp-4);background:var(--bg)}
+.composer .field{
+  background:var(--paper-2);border:0;border-left:2px solid var(--rule);
+  padding:var(--sp-2) var(--sp-4);min-height:90px;
+  font-family:Cambria,Constantia,Georgia,serif;font-size:18px;line-height:1.5;
+  color:var(--ink);white-space:pre-wrap
+}
+.composer .field.focused{border-left:2px solid var(--focus)}
+.composer .field .ph{color:var(--ink-3)}
+.caret{display:inline-block;width:1.5px;height:1.05em;background:var(--ink);vertical-align:-2px}
+.composer .meta{display:flex;justify-content:space-between;margin-top:var(--sp-2)}
+.composer .meta span{font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3)}
+
+/* --- tầng 2: tìm kiếm + lọc ngày --- */
+.finder{
+  padding:var(--sp-3) var(--sp-7);border-top:1px solid var(--rule);
+  border-bottom:2px solid var(--ink);
+  display:flex;align-items:center;gap:var(--sp-3);flex-wrap:wrap
+}
+.finder .k{font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-2)}
+.finder .in{
+  background:transparent;border:0;border-bottom:1px solid var(--rule);
+  padding:3px 2px;color:var(--ink);font-family:inherit;font-size:13px
+}
+.finder .in.q{flex:1;min-width:140px}
+.finder .in.d{width:110px;font-family:Consolas,monospace;font-size:12.5px}
+.finder .in .ph{color:var(--ink-3)}
+.finder .in.on{border-bottom:2px solid var(--ink);font-weight:600}
+.cond{
+  padding:var(--sp-3) var(--sp-7);border-bottom:1px solid var(--rule);
+  display:flex;align-items:baseline;gap:var(--sp-4);flex-wrap:wrap
+}
+.cond .txt{font-family:Cambria,Georgia,serif;font-size:14px;color:var(--ink)}
+.cond .txt b{font-weight:700}
+.cond .reset{margin-left:auto;font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--ink);border-bottom:2px solid var(--ink);text-decoration:none;padding-bottom:1px}
+
+/* --- masthead ngày --- */
+.masthead{
+  padding:var(--sp-4) var(--sp-7) var(--sp-2);display:flex;align-items:baseline;gap:var(--sp-3);
+  border-bottom:2px solid var(--ink);margin:0 0 0
+}
+.masthead .d{font-size:15px;font-weight:700;letter-spacing:.02em}
+.masthead .c{margin-left:auto;font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3)}
+
+/* --- tầng 3: dòng ghi chú --- */
+.stream{flex:1;overflow:hidden;padding:0 var(--sp-7)}
+.note{display:flex;gap:var(--sp-5);padding:var(--sp-4) 0;border-bottom:1px solid var(--rule)}
+.note .time{
+  width:84px;flex:none;font-size:28px;font-weight:700;letter-spacing:-.02em;
+  line-height:1;color:var(--ink)
+}
+.note .main{flex:1;min-width:0}
+.note .body{
+  font-family:Cambria,Constantia,Georgia,serif;font-size:15.5px;line-height:1.58;
+  white-space:pre-wrap;max-height:calc(1.58em * 3);overflow:hidden
+}
+.note.open .body{max-height:none}
+.note .tools{display:flex;gap:var(--sp-4);margin-top:var(--sp-2)}
+.note .tools a,.note .tools span{
+  font-size:10px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--ink-3);text-decoration:none
+}
+.note .tools a.del{color:var(--ink-3);border-bottom:1px solid var(--rule)}
+mark{background:var(--hl);color:var(--ink)}
+
+/* --- tầng 4: chân trang --- */
+.foot{
+  padding:var(--sp-4) var(--sp-7) var(--sp-5);border-top:1px solid var(--rule);
+  display:flex;align-items:center;gap:var(--sp-4);font-size:11px;color:var(--ink-3)
+}
+.foot a{color:inherit;text-decoration:underline;text-underline-offset:3px}
+.foot .grow{flex:1}
+.theme{background:transparent;border:1px solid var(--rule);color:var(--ink-3);padding:3px 9px;font-family:inherit;font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase}
+</style>
+
+<div class="doc">
+  <h1>Hướng 4 — Báo chí</h1>
+  <p>Hướng này bỏ hẳn thẻ, nền và viền: phân cấp chỉ làm bằng typography — giờ tạo in cỡ 28px đậm ở cột hanging bên trái, nội dung là chữ serif 15.5px, mọi nhãn là chữ hoa 10px giãn ký tự. Đen trắng tuyệt đối, không một màu nhấn nào.</p>
+  <p>Register là "hồ sơ đã in ra", phục vụ đúng tình huống Nam bị hỏi lại và cần trưng ra bằng chứng có ngày giờ. Đánh đổi: cột giờ cỡ lớn hút mắt trước nội dung, và vì thang cỡ chữ rộng nên màn hình trông "có thiết kế" hơn là vô hình — đối lập trực tiếp với hướng Giấy trắng.</p>
+</div>
+
+<div class="wrap">
+
+<div class="lbl">Màn hình chính — Light · 09/09/2026</div>
+<div class="browser hero">
+  <div class="chrome"><i class="dot"></i><i class="dot"></i><i class="dot"></i><div class="addr">file:///C:/ghi-chu/index.html</div></div>
+  <div class="viewport">
+    <div class="app">
+      <div class="composer">
+        <div class="field focused"><span class="caret"></span></div>
+        <div class="meta"><span>Ctrl+Enter để chốt</span><span>09/09/2026</span></div>
+      </div>
+      <div class="finder">
+        <span class="k">Tìm</span><div class="in q"><span class="ph">&nbsp;</span></div>
+        <span class="k">Ngày</span><div class="in d"><span class="ph">dd/MM/yyyy</span></div>
+      </div>
+      <div class="masthead"><span class="d">Hôm nay · 09/09/2026</span><span class="c">4 ghi chú</span></div>
+      <div class="stream">
+        <div class="note">
+          <div class="time">14:22</div>
+          <div class="main">
+            <div class="body">Sếp hỏi lại vụ phan quyen API màn hình báo cáo. Đã confirm hôm 03/09 là được duyệt, có ghi chú.</div>
+            <div class="tools"><a class="del" href="#">Xóa</a></div>
+          </div>
+        </div>
+        <div class="note">
+          <div class="time">11:05</div>
+          <div class="main">
+            <div class="body">Biên bản họp sprint:
+- Hoãn màn hình export sang sprint sau
+- Hoàng nhận phần migration
+- Cần Minh review PR #412 trước thứ Năm
+- Staging bị lỗi timeout, chưa rõ nguyên nhân</div>
+            <div class="tools"><span>Còn 2 dòng ▾</span><a class="del" href="#">Xóa</a></div>
+          </div>
+        </div>
+        <div class="note">
+          <div class="time">10:14</div>
+          <div class="main">
+            <div class="body">Hỏi Hoàng về phan quyen API cho màn hình báo cáo</div>
+            <div class="tools"><a class="del" href="#">Xóa</a></div>
+          </div>
+        </div>
+        <div class="note">
+          <div class="time">09:32</div>
+          <div class="main">
+            <div class="body">Deploy staging xong, chờ QA</div>
+            <div class="tools"><a class="del" href="#">Xóa</a></div>
+          </div>
+        </div>
+      </div>
+      <div class="foot">
+        <a href="#">xuất sao lưu</a><a href="#">nạp lại</a>
+        <span class="grow"></span><button class="theme">Nền tối</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="lbl">Màn hình chính — Dark (vẫn đen trắng, đảo vai)</div>
+<div class="browser hero">
+  <div class="chrome"><i class="dot"></i><i class="dot"></i><i class="dot"></i><div class="addr">file:///C:/ghi-chu/index.html</div></div>
+  <div class="viewport">
+    <div class="app dark">
+      <div class="composer">
+        <div class="field focused"><span class="caret"></span></div>
+        <div class="meta"><span>Ctrl+Enter để chốt</span><span>09/09/2026</span></div>
+      </div>
+      <div class="finder">
+        <span class="k">Tìm</span><div class="in q"><span class="ph">&nbsp;</span></div>
+        <span class="k">Ngày</span><div class="in d"><span class="ph">dd/MM/yyyy</span></div>
+      </div>
+      <div class="masthead"><span class="d">Hôm nay · 09/09/2026</span><span class="c">4 ghi chú</span></div>
+      <div class="stream">
+        <div class="note">
+          <div class="time">14:22</div>
+          <div class="main">
+            <div class="body">Sếp hỏi lại vụ phan quyen API màn hình báo cáo. Đã confirm hôm 03/09 là được duyệt, có ghi chú.</div>
+            <div class="tools"><a class="del" href="#">Xóa</a></div>
+          </div>
+        </div>
+        <div class="note">
+          <div class="time">11:05</div>
+          <div class="main">
+            <div class="body">Biên bản họp sprint:
+- Hoãn màn hình export sang sprint sau
+- Hoàng nhận phần migration
+- Cần Minh review PR #412 trước thứ Năm
+- Staging bị lỗi timeout, chưa rõ nguyên nhân</div>
+            <div class="tools"><span>Còn 2 dòng ▾</span><a class="del" href="#">Xóa</a></div>
+          </div>
+        </div>
+        <div class="note">
+          <div class="time">10:14</div>
+          <div class="main">
+            <div class="body">Hỏi Hoàng về phan quyen API cho màn hình báo cáo</div>
+            <div class="tools"><a class="del" href="#">Xóa</a></div>
+          </div>
+        </div>
+        <div class="note">
+          <div class="time">09:32</div>
+          <div class="main">
+            <div class="body">Deploy staging xong, chờ QA</div>
+            <div class="tools"><a class="del" href="#">Xóa</a></div>
+          </div>
+        </div>
+      </div>
+      <div class="foot">
+        <a href="#">xuất sao lưu</a><a href="#">nạp lại</a>
+        <span class="grow"></span><button class="theme">Nền sáng</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="lbl">Biến thể trạng thái</div>
+<div class="row">
+
+  <div class="col">
+    <div class="lbl" style="margin-top:0">A — Trạng thái rỗng (10/09/2026)</div>
+    <div class="browser mini">
+      <div class="chrome"><i class="dot"></i><i class="dot"></i><i class="dot"></i><div class="addr">file:///C:/ghi-chu/index.html</div></div>
+      <div class="viewport">
+        <div class="app">
+          <div class="composer">
+            <div class="field focused"><span class="caret"></span></div>
+            <div class="meta"><span>Ctrl+Enter để chốt</span><span>10/09/2026</span></div>
+          </div>
+          <div class="finder">
+            <span class="k">Tìm</span><div class="in q"><span class="ph">&nbsp;</span></div>
+            <span class="k">Ngày</span><div class="in d"><span class="ph">dd/MM/yyyy</span></div>
+          </div>
+          <div class="stream"></div>
+          <div class="foot">
+            <a href="#">xuất sao lưu</a><a href="#">nạp lại</a>
+            <span class="grow"></span><button class="theme">Nền tối</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="lbl" style="margin-top:0">B — Tra cứu (UJ-2): "phan quyen" + 03/09/2026</div>
+    <div class="browser mini">
+      <div class="chrome"><i class="dot"></i><i class="dot"></i><i class="dot"></i><div class="addr">file:///C:/ghi-chu/index.html</div></div>
+      <div class="viewport">
+        <div class="app">
+          <div class="composer">
+            <div class="field"><span class="ph">gõ vào đây sẽ bỏ mọi điều kiện lọc</span></div>
+            <div class="meta"><span>Ctrl+Enter để chốt</span><span>09/09/2026</span></div>
+          </div>
+          <div class="finder">
+            <span class="k">Tìm</span><div class="in q on">phan quyen<span class="caret"></span></div>
+            <span class="k">Ngày</span><div class="in d on">03/09/2026</div>
+          </div>
+          <div class="cond">
+            <span class="txt">Đang lọc <b>“phan quyen”</b> trong ngày <b>03/09/2026</b> — 2 ghi chú</span>
+            <a class="reset" href="#">Về hôm nay</a>
+          </div>
+          <div class="stream">
+            <div class="note">
+              <div class="time">16:40</div>
+              <div class="main">
+                <div class="body">Được duyệt <mark>phan quyen</mark> API màn hình báo cáo. Sếp ok trong họp chiều.</div>
+                <div class="tools"><a class="del" href="#">Xóa</a></div>
+              </div>
+            </div>
+            <div class="note">
+              <div class="time">09:18</div>
+              <div class="main">
+                <div class="body">Gửi mail xin <mark>phan quyen</mark> API cho màn hình báo cáo</div>
+                <div class="tools"><a class="del" href="#">Xóa</a></div>
+              </div>
+            </div>
+          </div>
+          <div class="foot">
+            <a href="#">xuất sao lưu</a><a href="#">nạp lại</a>
+            <span class="grow"></span><button class="theme">Nền tối</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="col">
+    <div class="lbl" style="margin-top:0">C — Ghi chú dài 11:05 mở rộng tại chỗ</div>
+    <div class="browser mini">
+      <div class="chrome"><i class="dot"></i><i class="dot"></i><i class="dot"></i><div class="addr">file:///C:/ghi-chu/index.html</div></div>
+      <div class="viewport">
+        <div class="app dark">
+          <div class="composer">
+            <div class="field"><span class="ph">gõ vào đây sẽ bỏ mọi điều kiện lọc</span></div>
+            <div class="meta"><span>Ctrl+Enter để chốt</span><span>09/09/2026</span></div>
+          </div>
+          <div class="finder">
+            <span class="k">Tìm</span><div class="in q"><span class="ph">&nbsp;</span></div>
+            <span class="k">Ngày</span><div class="in d"><span class="ph">dd/MM/yyyy</span></div>
+          </div>
+          <div class="masthead"><span class="d">Hôm nay · 09/09/2026</span><span class="c">4 ghi chú</span></div>
+          <div class="stream">
+            <div class="note">
+              <div class="time">14:22</div>
+              <div class="main">
+                <div class="body">Sếp hỏi lại vụ phan quyen API màn hình báo cáo. Đã confirm hôm 03/09 là được duyệt, có ghi chú.</div>
+                <div class="tools"><a class="del" href="#">Xóa</a></div>
+              </div>
+            </div>
+            <div class="note open">
+              <div class="time">11:05</div>
+              <div class="main">
+                <div class="body">Biên bản họp sprint:
+- Hoãn màn hình export sang sprint sau
+- Hoàng nhận phần migration
+- Cần Minh review PR #412 trước thứ Năm
+- Staging bị lỗi timeout, chưa rõ nguyên nhân</div>
+                <div class="tools"><span>Thu lại ▴</span><a class="del" href="#">Xóa</a></div>
+              </div>
+            </div>
+            <div class="note">
+              <div class="time">10:14</div>
+              <div class="main">
+                <div class="body">Hỏi Hoàng về phan quyen API cho màn hình báo cáo</div>
+                <div class="tools"><a class="del" href="#">Xóa</a></div>
+              </div>
+            </div>
+          </div>
+          <div class="foot">
+            <a href="#">xuất sao lưu</a><a href="#">nạp lại</a>
+            <span class="grow"></span><button class="theme">Nền sáng</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</div>

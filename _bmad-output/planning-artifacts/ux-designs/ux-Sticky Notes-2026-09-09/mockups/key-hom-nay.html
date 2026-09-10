@@ -1,0 +1,394 @@
+<title>Key screen — Hôm nay</title>
+<style>
+/* =====================================================================
+   KEY SCREEN 1 — "HÔM NAY" (bề mặt vào chuẩn, UJ-1)
+   ---------------------------------------------------------------------
+   SECTION SPINE CHI PHỐI MÀN HÌNH NÀY:
+
+   EXPERIENCE.md · Key Flows · UJ-1 bước 3 (con trỏ đã nằm sẵn trong ô
+     soạn thảo, không bước nào ở giữa) và bước 6 (mẩu giấy mới ở ô
+     trên-cùng-trái, khung nhìn mặc định chỉ hiện HH:mm).
+   EXPERIENCE.md · State Patterns · dòng "Hôm nay có ghi chú"
+     (lưới 2–3 cột, mới nhất ô trên-cùng-trái, chỉ giờ HH:mm).
+   EXPERIENCE.md · State Patterns · dòng "Rỗng"
+     (lưới hoàn toàn trống — không một chữ nào; cột thứ hai của mock).
+   EXPERIENCE.md · Component Patterns · dòng "Ô soạn thảo",
+     dòng "Mẩu giấy", dòng "Nút xóa", dòng "Link xuất sao lưu",
+     dòng "Link nạp lại", dòng "Nút theme".
+   EXPERIENCE.md · Information Architecture · bảng bốn tầng
+     (tầng 1 ô soạn thảo → tầng 2 khay tìm kiếm → tầng 3 lưới → tầng 4 chân trang).
+   EXPERIENCE.md · Hướng đọc trong lưới (trái → phải, hết hàng xuống hàng).
+   DESIGN.md · Components (composer, finder-tray, search-input, date-input,
+     note-paper, note-time, note-delete, footer-link, theme-toggle).
+   DESIGN.md · Layout & Spacing (mật độ đã siết: 8/12px padding mẩu,
+     grid-gap 8px, page-gutter 16px) · Elevation & Depth · Shapes.
+
+   BỐ CỤC truy về: .working/direction-sticky-note.html (hướng đã chốt).
+   MÀU truy về: DESIGN.md front-matter (KHÔNG lấy từ file direction).
+   Lưới auto-fill truy về: .memlog.md entry "CSS grid AUTO-FILL".
+   ===================================================================== */
+
+/* ---- chrome tài liệu (không phải bề mặt sản phẩm) ---- */
+*{box-sizing:border-box}
+body{margin:0;background:#DED7C9;font-family:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;color:#2E2820}
+.doc{max-width:900px;margin:0 auto;padding:40px 24px 4px}
+.doc h1{font-size:24px;font-weight:600;margin:0 0 10px}
+.doc p{font-size:14px;line-height:1.7;max-width:70ch;margin:0 0 8px;color:#514734}
+.wrap{max-width:1560px;margin:0 auto;padding:16px 24px 56px}
+.lbl{font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:#6E6350;margin:30px 0 10px}
+.row{display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start}
+.col{flex:1 1 620px;min-width:520px}
+.browser{border:1px solid #C6BCA8;border-radius:8px;overflow:hidden;box-shadow:0 2px 6px rgba(60,48,28,.12)}
+.chrome{display:flex;align-items:center;gap:8px;padding:8px 10px;background:#D8D0BF;border-bottom:1px solid #C6BCA8}
+.dot{width:10px;height:10px;border-radius:50%;background:#B9AF9B}
+.tabname{font-size:11px;color:#4A4132;background:#EFE9DB;border-radius:4px 4px 0 0;padding:4px 10px;font-weight:600}
+.addr{flex:1;margin-left:6px;font-size:11px;color:#6E6350;background:#EFE9DB;border-radius:4px;padding:3px 8px;font-family:Consolas,"Cascadia Mono",monospace}
+.viewport{overflow:hidden;height:640px}
+.viewport.short{height:470px}
+.viewport.tiny{height:auto}
+
+/* ================= BỀ MẶT SẢN PHẨM ================= */
+/* Tất cả giá trị dưới đây lấy nguyên từ DESIGN.md front-matter. */
+.app{
+  /* LIGHT */
+  --bg:#EFEAE0; --paper:#FBF3DE; --paper-tape:#F3E8C9; --surface:#FFFDF7;
+  --ink:#2E2820; --ink-2:#6E6350; --ink-decor:#A79A83; --rule:#DCD3C2;
+  --focus:#8A6A22; --danger:#97392C; --chip-bg:#E4DAC2; --hl:#F2DD8F;
+  --sh-paper:0 1px 0 rgba(60,48,28,.10), 0 3px 8px rgba(60,48,28,.10);
+  --sh-composer:inset 0 1px 2px rgba(60,48,28,.07);
+  --sh-dialog:0 12px 32px rgba(60,48,28,.24);
+  --tape:inset 0 3px 0 var(--paper-tape);
+  --sp-1:4px; --sp-2:8px; --sp-3:12px; --sp-4:16px; --sp-5:20px; --sp-6:28px; --sp-7:40px;
+  --np-y:8px; --np-x:12px; --grid-gap:8px; --gutter:16px;
+  --r-paper:3px; --r-input:6px; --r-tray:8px; --r-full:9999px;
+  background:var(--bg);color:var(--ink);height:100%;
+  display:flex;flex-direction:column;
+  font-family:"Segoe UI Variable Text","Segoe UI",system-ui,sans-serif;
+}
+.app.dark{
+  --bg:#171613; --paper:#26241E; --paper-tape:#2E2B23; --surface:#1E1C18;
+  --ink:#E9E2D2; --ink-2:#A79A83; --ink-decor:#746A59; --rule:#302D26;
+  --focus:#D3B269; --danger:#D4816F; --chip-bg:#332F26; --hl:#4E4322;
+  --sh-paper:0 1px 0 rgba(0,0,0,.45), 0 4px 12px rgba(0,0,0,.35);
+  --sh-composer:inset 0 1px 2px rgba(0,0,0,.35);
+  --sh-dialog:0 12px 32px rgba(0,0,0,.55);
+}
+
+/* tầng 1 — ô soạn thảo */
+.composer{padding:var(--sp-5) var(--gutter) var(--sp-3)}
+.composer .field{
+  background:var(--surface);border:1px solid var(--rule);border-radius:var(--r-input);
+  box-shadow:var(--sh-composer);padding:var(--sp-3) var(--sp-4);
+  min-height:92px;font-size:15px;line-height:1.55;color:var(--ink);white-space:pre-wrap
+}
+.composer .field.focused{border-color:var(--focus);box-shadow:var(--sh-composer),0 0 0 3px rgba(138,106,34,.28)}
+.app.dark .composer .field.focused{box-shadow:var(--sh-composer),0 0 0 3px rgba(211,178,105,.28)}
+.composer .field .ph{color:var(--ink-2)}
+.caret{display:inline-block;width:1.5px;height:1.05em;background:var(--ink);vertical-align:-2px}
+.hint{font-size:11.5px;color:var(--ink-2);margin-top:var(--sp-2)}
+
+/* tầng 2 — khay tìm kiếm */
+.finder{
+  margin:0 var(--gutter) var(--sp-3);padding:var(--sp-3);
+  background:var(--chip-bg);border-radius:var(--r-tray);
+  display:flex;align-items:center;gap:var(--sp-2);flex-wrap:wrap;font-size:13px
+}
+.finder .k{color:var(--ink-2);font-size:12px}
+.finder .in{background:var(--surface);border:1px solid var(--rule);border-radius:var(--r-input);padding:5px 9px;color:var(--ink);font-size:13px}
+.finder .in.q{flex:1;min-width:140px}
+.finder .in.d{width:118px;font-family:Consolas,"Cascadia Mono",monospace;font-size:11.5px;font-weight:600;letter-spacing:.04em;display:flex;align-items:center;gap:6px}
+.finder .in .ph{color:var(--ink-2)}
+.cal{margin-left:auto;width:16px;height:16px;flex:none;display:block}
+.cal rect,.cal line{stroke:var(--ink-2);stroke-width:1.2;fill:none}
+
+/* tầng 3 — lưới mẩu giấy (auto-fill, không breakpoint cố định) */
+.grid{
+  flex:1;overflow:hidden;padding:0 var(--gutter);
+  display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
+  gap:var(--grid-gap);align-content:start
+}
+.grid.empty{display:block}
+.note{
+  background:var(--paper);border-radius:var(--r-paper);
+  box-shadow:var(--sh-paper),var(--tape);
+  padding:var(--np-y) var(--np-x);align-self:start
+}
+.note .head{display:flex;align-items:baseline;gap:var(--sp-3);margin-bottom:var(--sp-1)}
+.note .time{font-family:Consolas,"Cascadia Mono",monospace;font-size:11.5px;font-weight:600;letter-spacing:.04em;color:var(--ink-2)}
+.note .del{margin-left:auto;font-size:11.5px;color:var(--ink-2);text-decoration:none;border-bottom:1px dotted var(--ink-decor)}
+.note .body{font-size:14.5px;line-height:1.55;white-space:pre-wrap;max-height:calc(1.55em * 3);overflow:hidden}
+.note.open .body{max-height:none}
+.note .more{font-size:11.5px;color:var(--ink-2);margin-top:var(--sp-1)}
+
+/* tầng 4 — chân trang */
+.foot{padding:var(--sp-3) var(--gutter) var(--sp-4);display:flex;align-items:center;gap:var(--sp-4);font-size:11.5px;color:var(--ink-2)}
+.foot a{color:var(--ink-2);text-decoration:underline;text-underline-offset:2px}
+.foot .grow{flex:1}
+.theme{background:transparent;border:1px solid var(--rule);border-radius:var(--r-full);color:var(--ink-2);padding:3px 10px;font-family:inherit;font-size:11.5px}
+
+/* ---- section so sánh tương phản (khung tài liệu) ---- */
+.cmp{display:flex;gap:20px;flex-wrap:wrap}
+.cmpcell{flex:1 1 340px;min-width:300px}
+.cmphd{font-size:12px;font-weight:600;color:#2E2820;margin:0 0 6px}
+.cmpstage{padding:20px;border-radius:8px;border:1px solid #C6BCA8}
+.cmpstage.l{background:#EFEAE0}
+.cmpstage.d{background:#171613}
+.ratio{font-family:Consolas,"Cascadia Mono",monospace;font-size:11.5px;margin:10px 0 0;line-height:1.6}
+.cmpstage.l .ratio{color:#2E2820}
+.cmpstage.d .ratio{color:#E9E2D2}
+/* biến thể "màu mock gốc 3:1" — CHỈ dùng trong section so sánh này,
+   KHÔNG phải token sản phẩm. Hex gốc #7A6E58 từ file direction. */
+.orig .time,.orig .foot,.orig .foot a{color:#7A6E58}
+.orig .foot .theme{color:#7A6E58}
+.mini{--gutter:0px}
+.mini .foot{padding:var(--sp-3) 0 0}
+</style>
+
+<div class="doc">
+  <h1>Key screen 1 — Hôm nay</h1>
+  <p>Bề mặt vào chuẩn của UJ-1: con trỏ đã nằm sẵn trong ô soạn thảo, lưới mẩu giấy auto-fill bên dưới, mỗi mẩu chỉ mang giờ <code>HH:mm</code>. Light và dark đặt cạnh nhau; vì mock không có JavaScript, mỗi theme và mỗi trạng thái là một khối HTML tĩnh riêng.</p>
+  <p>Cuối trang là section <strong>So sánh tương phản</strong> — cùng một mẩu giấy, hai bộ màu chữ nhỏ, để quyết giữ sàn 4.5:1 hay hạ xuống 3:1.</p>
+</div>
+
+<div class="wrap">
+
+<div class="lbl">A — Hôm nay có ghi chú · Light · 09/09/2026</div>
+<div class="browser">
+  <div class="chrome"><i class="dot"></i><i class="dot"></i><i class="dot"></i><div class="tabname">4 - Ghi chú hàng ngày</div><div class="addr">https://namtt.github.io/ghi-chu/</div></div>
+  <div class="viewport">
+    <div class="app">
+      <div class="composer">
+        <div class="field focused"><span class="caret"></span></div>
+        <div class="hint">Ctrl+Enter để chốt</div>
+      </div>
+      <div class="finder">
+        <span class="k">tìm</span><div class="in q"><span class="ph">từ khóa</span></div>
+        <span class="k">ngày</span><div class="in d"><span class="ph">dd/MM/yyyy</span><svg class="cal" viewBox="0 0 16 16"><rect x="2" y="3.5" width="12" height="10" rx="1"></rect><line x1="2" y1="6.5" x2="14" y2="6.5"></line><line x1="5.5" y1="2" x2="5.5" y2="4.5"></line><line x1="10.5" y1="2" x2="10.5" y2="4.5"></line></svg></div>
+      </div>
+      <div class="grid">
+        <div class="note">
+          <div class="head"><span class="time">14:22</span><a class="del" href="#">xóa</a></div>
+          <div class="body">Sếp hỏi lại vụ phan quyen API màn hình báo cáo. Đã confirm hôm 03/09 là được duyệt, có ghi chú.</div>
+        </div>
+        <div class="note">
+          <div class="head"><span class="time">11:05</span><a class="del" href="#">xóa</a></div>
+          <div class="body">Biên bản họp sprint:
+- Hoãn màn hình export sang sprint sau
+- Hoàng nhận phần migration
+- Cần Minh review PR #412 trước thứ Năm
+- Staging bị lỗi timeout, chưa rõ nguyên nhân</div>
+          <div class="more">còn 2 dòng ▾</div>
+        </div>
+        <div class="note">
+          <div class="head"><span class="time">10:14</span><a class="del" href="#">xóa</a></div>
+          <div class="body">gọi lại cho anh Tuấn</div>
+        </div>
+        <div class="note">
+          <div class="head"><span class="time">09:32</span><a class="del" href="#">xóa</a></div>
+          <div class="body">Deploy staging xong, chờ QA</div>
+        </div>
+      </div>
+      <div class="foot">
+        <a href="#">xuất sao lưu</a><a href="#">nạp lại</a>
+        <span class="grow"></span><button class="theme">nền tối</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="lbl">B — Hôm nay có ghi chú · Dark (cùng dữ liệu, cùng một màu giấy)</div>
+<div class="browser">
+  <div class="chrome"><i class="dot"></i><i class="dot"></i><i class="dot"></i><div class="tabname">4 - Ghi chú hàng ngày</div><div class="addr">https://namtt.github.io/ghi-chu/</div></div>
+  <div class="viewport">
+    <div class="app dark">
+      <div class="composer">
+        <div class="field focused"><span class="caret"></span></div>
+        <div class="hint">Ctrl+Enter để chốt</div>
+      </div>
+      <div class="finder">
+        <span class="k">tìm</span><div class="in q"><span class="ph">từ khóa</span></div>
+        <span class="k">ngày</span><div class="in d"><span class="ph">dd/MM/yyyy</span><svg class="cal" viewBox="0 0 16 16"><rect x="2" y="3.5" width="12" height="10" rx="1"></rect><line x1="2" y1="6.5" x2="14" y2="6.5"></line><line x1="5.5" y1="2" x2="5.5" y2="4.5"></line><line x1="10.5" y1="2" x2="10.5" y2="4.5"></line></svg></div>
+      </div>
+      <div class="grid">
+        <div class="note">
+          <div class="head"><span class="time">14:22</span><a class="del" href="#">xóa</a></div>
+          <div class="body">Sếp hỏi lại vụ phan quyen API màn hình báo cáo. Đã confirm hôm 03/09 là được duyệt, có ghi chú.</div>
+        </div>
+        <div class="note">
+          <div class="head"><span class="time">11:05</span><a class="del" href="#">xóa</a></div>
+          <div class="body">Biên bản họp sprint:
+- Hoãn màn hình export sang sprint sau
+- Hoàng nhận phần migration
+- Cần Minh review PR #412 trước thứ Năm
+- Staging bị lỗi timeout, chưa rõ nguyên nhân</div>
+          <div class="more">còn 2 dòng ▾</div>
+        </div>
+        <div class="note">
+          <div class="head"><span class="time">10:14</span><a class="del" href="#">xóa</a></div>
+          <div class="body">gọi lại cho anh Tuấn</div>
+        </div>
+        <div class="note">
+          <div class="head"><span class="time">09:32</span><a class="del" href="#">xóa</a></div>
+          <div class="body">Deploy staging xong, chờ QA</div>
+        </div>
+      </div>
+      <div class="foot">
+        <a href="#">xuất sao lưu</a><a href="#">nạp lại</a>
+        <span class="grow"></span><button class="theme">nền sáng</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="lbl">C — Trạng thái rỗng · placeholder trống hoàn toàn, lưới không một chữ nào</div>
+<div class="row">
+  <div class="col">
+    <div class="lbl" style="margin-top:0">C1 — Rỗng · Light · 10/09/2026</div>
+    <div class="browser">
+      <div class="chrome"><i class="dot"></i><i class="dot"></i><i class="dot"></i><div class="tabname">0 - Ghi chú hàng ngày</div><div class="addr">https://namtt.github.io/ghi-chu/</div></div>
+      <div class="viewport short">
+        <div class="app">
+          <div class="composer">
+            <div class="field focused"><span class="caret"></span></div>
+            <div class="hint">Ctrl+Enter để chốt</div>
+          </div>
+          <div class="finder">
+            <span class="k">tìm</span><div class="in q"><span class="ph">từ khóa</span></div>
+            <span class="k">ngày</span><div class="in d"><span class="ph">dd/MM/yyyy</span><svg class="cal" viewBox="0 0 16 16"><rect x="2" y="3.5" width="12" height="10" rx="1"></rect><line x1="2" y1="6.5" x2="14" y2="6.5"></line><line x1="5.5" y1="2" x2="5.5" y2="4.5"></line><line x1="10.5" y1="2" x2="10.5" y2="4.5"></line></svg></div>
+          </div>
+          <div class="grid empty"></div>
+          <div class="foot">
+            <a href="#">xuất sao lưu</a><a href="#">nạp lại</a>
+            <span class="grow"></span><button class="theme">nền tối</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="col">
+    <div class="lbl" style="margin-top:0">C2 — Rỗng · Dark · 10/09/2026</div>
+    <div class="browser">
+      <div class="chrome"><i class="dot"></i><i class="dot"></i><i class="dot"></i><div class="tabname">0 - Ghi chú hàng ngày</div><div class="addr">https://namtt.github.io/ghi-chu/</div></div>
+      <div class="viewport short">
+        <div class="app dark">
+          <div class="composer">
+            <div class="field focused"><span class="caret"></span></div>
+            <div class="hint">Ctrl+Enter để chốt</div>
+          </div>
+          <div class="finder">
+            <span class="k">tìm</span><div class="in q"><span class="ph">từ khóa</span></div>
+            <span class="k">ngày</span><div class="in d"><span class="ph">dd/MM/yyyy</span><svg class="cal" viewBox="0 0 16 16"><rect x="2" y="3.5" width="12" height="10" rx="1"></rect><line x1="2" y1="6.5" x2="14" y2="6.5"></line><line x1="5.5" y1="2" x2="5.5" y2="4.5"></line><line x1="10.5" y1="2" x2="10.5" y2="4.5"></line></svg></div>
+          </div>
+          <div class="grid empty"></div>
+          <div class="foot">
+            <a href="#">xuất sao lưu</a><a href="#">nạp lại</a>
+            <span class="grow"></span><button class="theme">nền sáng</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="lbl">D — So sánh tương phản · cùng một mẩu giấy, hai bộ màu chữ nhỏ</div>
+<div class="doc" style="padding:0 0 12px;max-width:none">
+  <p style="max-width:80ch">Chỉ <strong>giờ tạo trên mẩu</strong> và <strong>link chân trang</strong> đổi màu. Nội dung ghi chú (<code>ink</code>) và nền giấy (<code>paper</code>) giữ nguyên ở cả bốn ô, để mắt chỉ so đúng một biến.</p>
+</div>
+
+<div class="lbl" style="margin-top:8px">D1 — Light</div>
+<div class="cmp">
+  <div class="cmpcell">
+    <p class="cmphd">Sàn 4.5:1 (token hiện tại) — <code>ink-2 = #6E6350</code></p>
+    <div class="cmpstage l">
+      <div class="app mini" style="height:auto">
+        <div class="grid" style="padding:0;grid-template-columns:1fr">
+          <div class="note">
+            <div class="head"><span class="time">11:05</span><a class="del" href="#">xóa</a></div>
+            <div class="body">Biên bản họp sprint:
+- Hoãn màn hình export sang sprint sau
+- Hoàng nhận phần migration</div>
+            <div class="more">còn 2 dòng ▾</div>
+          </div>
+        </div>
+        <div class="foot">
+          <a href="#">xuất sao lưu</a><a href="#">nạp lại</a>
+          <span class="grow"></span><button class="theme">nền tối</button>
+        </div>
+      </div>
+      <p class="ratio">giờ tạo trên giấy #FBF3DE — 5.33:1<br>link chân trang trên bàn #EFEAE0 — 4.92:1</p>
+    </div>
+  </div>
+  <div class="cmpcell">
+    <p class="cmphd">Màu mock gốc, 3:1 — <code>#7A6E58</code></p>
+    <div class="cmpstage l">
+      <div class="app mini orig" style="height:auto">
+        <div class="grid" style="padding:0;grid-template-columns:1fr">
+          <div class="note">
+            <div class="head"><span class="time">11:05</span><a class="del" href="#">xóa</a></div>
+            <div class="body">Biên bản họp sprint:
+- Hoãn màn hình export sang sprint sau
+- Hoàng nhận phần migration</div>
+            <div class="more">còn 2 dòng ▾</div>
+          </div>
+        </div>
+        <div class="foot">
+          <a href="#">xuất sao lưu</a><a href="#">nạp lại</a>
+          <span class="grow"></span><button class="theme">nền tối</button>
+        </div>
+      </div>
+      <p class="ratio">giờ tạo trên giấy #FBF3DE — 4.52:1<br>link chân trang trên bàn #EFEAE0 — <strong>4.17:1 (trượt sàn)</strong></p>
+    </div>
+  </div>
+</div>
+
+<div class="lbl">D2 — Dark</div>
+<div class="cmp">
+  <div class="cmpcell">
+    <p class="cmphd">Sàn 4.5:1 (token hiện tại) — <code>ink-2-dark = #A79A83</code></p>
+    <div class="cmpstage d">
+      <div class="app dark mini" style="height:auto;background:transparent">
+        <div class="grid" style="padding:0;grid-template-columns:1fr">
+          <div class="note">
+            <div class="head"><span class="time">11:05</span><a class="del" href="#">xóa</a></div>
+            <div class="body">Biên bản họp sprint:
+- Hoãn màn hình export sang sprint sau
+- Hoàng nhận phần migration</div>
+            <div class="more">còn 2 dòng ▾</div>
+          </div>
+        </div>
+        <div class="foot">
+          <a href="#">xuất sao lưu</a><a href="#">nạp lại</a>
+          <span class="grow"></span><button class="theme">nền sáng</button>
+        </div>
+      </div>
+      <p class="ratio">giờ tạo trên giấy #26241E — 5.61:1<br>link chân trang trên bàn #171613 — 6.70:1</p>
+    </div>
+  </div>
+  <div class="cmpcell">
+    <p class="cmphd">Màu mock gốc, 3:1 — <code>#7A6E58</code></p>
+    <div class="cmpstage d">
+      <div class="app dark mini orig" style="height:auto;background:transparent">
+        <div class="grid" style="padding:0;grid-template-columns:1fr">
+          <div class="note">
+            <div class="head"><span class="time">11:05</span><a class="del" href="#">xóa</a></div>
+            <div class="body">Biên bản họp sprint:
+- Hoãn màn hình export sang sprint sau
+- Hoàng nhận phần migration</div>
+            <div class="more">còn 2 dòng ▾</div>
+          </div>
+        </div>
+        <div class="foot">
+          <a href="#">xuất sao lưu</a><a href="#">nạp lại</a>
+          <span class="grow"></span><button class="theme">nền sáng</button>
+        </div>
+      </div>
+      <p class="ratio">giờ tạo trên giấy #26241E — <strong>3.10:1</strong><br>link chân trang trên bàn #171613 — <strong>3.70:1</strong></p>
+    </div>
+  </div>
+</div>
+
+<div class="doc" style="max-width:none;padding:22px 0 0">
+  <p style="max-width:80ch">Ghi chú kỹ thuật: tỉ số tính theo WCAG 2.x relative luminance, làm tròn hai chữ số. Dòng <code>còn 2 dòng ▾</code> và chữ <code>xóa</code> cũng dùng <code>ink-2</code> nên chịu cùng khác biệt; gạch chân đứt dưới <code>xóa</code> vẫn là <code>ink-decor</code> ở cả bốn ô — nó là trang trí, không phải chữ.</p>
+</div>
+
+</div>

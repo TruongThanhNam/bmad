@@ -2,7 +2,7 @@
 title: "PRD: Ghi chú hàng ngày"
 status: final
 created: 2026-09-08
-updated: 2026-09-09
+updated: 2026-09-10
 ---
 
 # PRD: Ghi chú hàng ngày
@@ -684,15 +684,23 @@ Những thước đo này đáng tin được, vì chỉ có một người dùn
 1. **Biên nửa đêm.** Ghi chú chốt lúc `23:55` rời khỏi khung nhìn mặc định lúc `00:00`. Người dùng
    xác nhận không bao giờ làm việc qua nửa đêm, nên **không giải quyết**. Xem lại nếu thói quen làm
    việc thay đổi.
-2. **Trình duyệt nào trên máy công ty?** Còn để ngỏ, ảnh hưởng tới NFR-7.
-   *(Vế thứ hai của câu hỏi này — IT có chặn tên miền GitHub Pages không — **đã trả lời: không
-   chặn**, xác nhận ngày 2026-09-09. Đây từng là câu chặn duy nhất của `bmad-architecture`.)*
-3. **Giới hạn dung lượng lưu trữ của trình duyệt là bao nhiêu, và bao giờ thì chạm?** FR-19 yêu cầu
-   phải cảnh báo, nhưng ngưỡng cảnh báo cần con số thật. Cần `bmad-architecture` tính từ FR-18
-   (20.000 ký tự/ghi chú) và mốc 2.000 ghi chú.
-4. **Định dạng file sao lưu cụ thể.** FR-15 chốt các thuộc tính (máy đọc được, có phiên bản, giữ đủ
-   ba trường) nhưng chưa chốt định dạng. Đây là phần còn lại của câu hỏi mở số 1 trong brief; để
-   `bmad-architecture` quyết.
+2. ~~**Trình duyệt nào trên máy công ty?**~~ **ĐÃ ĐÓNG 2026-09-10 bởi `bmad-architecture` (AD-12):**
+   đáy là **Chromium bản hiện hành** (Edge / Chrome, tự cập nhật) trên Windows. Không polyfill,
+   không kiểm tra tính năng. App chỉ chạy trong secure context — HTTPS ở production, `localhost`
+   khi phát triển; cấm mở bằng `file://`.
+   *(Vế thứ hai — IT có chặn tên miền GitHub Pages không — đã trả lời: **không chặn**, xác nhận
+   ngày 2026-09-09.)*
+3. ~~**Giới hạn dung lượng lưu trữ của trình duyệt là bao nhiêu?**~~ **ĐÃ ĐÓNG 2026-09-10 bởi
+   `bmad-architecture` (AD-3, AD-10).** Phép tính loại `localStorage`: trần ~5 MB đếm theo UTF-16
+   ≈ 2,5 triệu ký tự, mà 2.000 ghi chú thực tế (kèm bản bỏ dấu bắt buộc theo NFR-6) đã ăn quá nửa,
+   và khoảng 60 biên bản chạm trần 20.000 ký tự là hết sạch. Ghi chú vì vậy nằm ở **IndexedDB**.
+   Ngưỡng cảnh báo là **đã dùng ≥ 80% quota hoặc còn dưới 50 MB trống, cái nào đến trước**, đọc từ
+   `navigator.storage.estimate()`. Hai vế là bắt buộc: quota mỗi origin trên Chromium là một phần
+   lớn dung lượng ổ, nên riêng vế 80% gần như không bao giờ nổ.
+4. ~~**Định dạng file sao lưu cụ thể.**~~ **ĐÃ ĐÓNG 2026-09-10 bởi `bmad-architecture` (AD-11):**
+   JSON, hình dạng `{ schemaVersion: 1, exportedAt, notes: [{ id, createdAt, text }] }`, tên file
+   `ghi-chu-hang-ngay-YYYY-MM-DD.json`. Nạp đi qua hai pha: kiểm tra toàn bộ trước, rồi ghi trong
+   **một** transaction — hỏng giữa chừng thì không để lại nửa file.
 5. **Mọi ngưỡng số trong §12 đều đặt trên bàn giấy.** Chỉ dùng thật vài tuần mới biết đúng hay sai.
    Xem lại ở retrospective.
 6. **Sản phẩm này có thật sự lấp một khoảng trống, hay khoảng trống đó tồn tại vì không ai cần?**
@@ -714,10 +722,10 @@ Mọi `[ASSUMPTION]` còn lại trong tài liệu, gom về một chỗ để r�
 | A-4 | FR-12 | Kết quả lọc dần theo từng ký tự gõ, không cần bấm Enter |
 | A-5 | FR-13 | Bộ lọc ngày chọn **một** ngày, không phải khoảng ngày |
 | A-6 | FR-14 | Tải lại trang thì mọi điều kiện bị xóa, về khung nhìn mặc định |
-| A-7 | FR-15 | File sao lưu mang số phiên bản định dạng |
-| A-8 | FR-15 | Tên file sao lưu chứa ngày xuất |
+| A-7 | FR-15 | File sao lưu mang số phiên bản định dạng → **xác nhận: `schemaVersion: 1`** (AD-11) |
+| A-8 | FR-15 | Tên file sao lưu chứa ngày xuất → **xác nhận: `ghi-chu-hang-ngay-YYYY-MM-DD.json`** (AD-11) |
 | A-9 | FR-17 | Dòng nhắc chỉ hiện khi đã quá **7 ngày** chưa sao lưu |
-| A-10 | NFR-7 | Trình duyệt cụ thể trên máy công ty chưa xác định |
+| A-10 | NFR-7 | ~~Trình duyệt cụ thể chưa xác định~~ → **đã chốt Chromium hiện hành** (AD-12) |
 | A-11 | FR-12 | Trần **50 kết quả** hiển thị, kèm chỉ báo còn nhiều hơn |
 | A-12 | FR-18 | Trần **20.000 ký tự** cho một ghi chú |
 | A-13 | NFR-1 | Mở tab tới lúc gõ được: **≤ 2 giây** |
