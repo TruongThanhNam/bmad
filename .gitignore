@@ -10,6 +10,9 @@ _bmad-output/implementation-artifacts/
 # Claude Code — machine-local settings
 .claude/settings.local.json
 
+# Dependency chỉ để chạy test — không vào repo
+node_modules/
+
 # OS cruft
 .DS_Store
 Thumbs.db
