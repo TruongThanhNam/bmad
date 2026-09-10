@@ -56,9 +56,9 @@ npm run test:watch
 1. **Bump `APP_VERSION`** — bắt buộc ở **mọi** lần deploy. Đây là cách tab đang mở bản cũ biết
    mình cũ và vào chế độ chỉ đọc thay vì ghi đè dữ liệu do mã mới viết. Bỏ bước này là chấp nhận
    rủi ro mất dữ liệu.
-   > **Chưa làm được ở thời điểm này.** Hằng số `APP_VERSION` sẽ nằm trong `app/core/limits.js`,
-   > file đó **do Story 1.2 tạo** và hiện chưa tồn tại. Cho tới khi Story 1.2 xong thì bỏ qua
-   > bước này; sau đó nó thành bắt buộc và không có ngoại lệ.
+   Hằng số nằm ở [`app/core/limits.js`](./app/core/limits.js) — sửa tay giá trị `APP_VERSION`
+   ở đó. Trường `version` trong `package.json` **không được app dùng** (nó chỉ phục vụ npm) —
+   đừng bump nó thay.
 2. `npm test` — toàn bộ pass.
 3. Chạy hết danh sách thử tay `app/adapters/` bên dưới.
 4. Commit và push lên nhánh `main`.
