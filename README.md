@@ -221,3 +221,44 @@ tuyến, nằm trong `<head>` và đứng trước `<link rel="stylesheet">` —
     trang ổn định, Network **không** ghi nhận thêm request nào. Kiểm phông
     thật đang dùng: DevTools → Elements → chọn `<body>` → Computed → **Rendered Fonts** phải là
     một phông hệ thống (`Segoe UI Variable Text` hoặc `Segoe UI`).
+
+### Bố cục bốn tầng — `index.html` + `app/style.css`
+
+Phần lớn bố cục đã **chạy được bằng máy**:
+
+```bash
+npm run thu-bo-cuc
+```
+
+Cùng cơ chế với `npm run thu-tay` (HTTP server tĩnh + Edge/Chrome thật qua CDP, hồ sơ tạm,
+không cài thêm gói nào) và cũng **không** nằm trong `npm test`, vì nó cần một trình duyệt trên
+máy. Mất vài giây. Nó bơm ô tạm vào lưới rồi đo: số cột ở 1600/800/500px, ranh giới 3↔2 cột ở
+828px, trần 3 cột ở 2560px, khe lưới `8px` và lề trang `16px`, ô ngày rộng đúng `118px`, "chỉ
+tầng lưới cuộn", lưới rỗng vẫn đẩy chân trang xuống đáy, khung nhìn thấp vẫn giữ được lưới và
+chân trang, và **mọi màu đo được đều đổi giữa hai theme**. Thoát khác `0` nếu có mục nào hỏng.
+
+Nó **không** đo được phóng trình duyệt: CDP không đặt được mức zoom thật (`width` của
+`Emulation.setDeviceMetricsOverride` đã tính bằng điểm ảnh CSS, `deviceScaleFactor` chỉ đổi mật
+độ điểm ảnh vật lý). Phóng 200% vì thế vẫn là mục thử tay số 18 bên dưới.
+
+Lưu ý con số: `~900px` trong spec là cách nói ước lượng cho "cửa sổ vừa". Số học của token đặt
+ranh giới 3↔2 cột ở đúng **828px** (`3×260 + 2×8 + 2×16`), nên 900px thật sự vẫn là 3 cột. Bộ
+đo lấy mẫu ở 800px và ghim riêng ranh giới 828px — đổi `--note-min-col`, `--grid-gap` hay
+`--page-gutter` là thấy nó lệch ngay.
+
+Hai mục còn lại phải làm bằng mắt:
+
+18. **Phóng 200% vẫn dùng được.** Ở cửa sổ cỡ thường, `Ctrl` + `+` tới 200%: lưới về **1 cột**,
+    không chữ nào bị cắt ngang, không thanh cuộn ngang, và trang **vẫn không** có thanh cuộn
+    dọc ngoài — chỉ tầng lưới cuộn. Ba tầng kia đứng yên khi lăn chuột trong lưới.
+19. **Hai theme không lệch khỏi token.** Đổi `ghichu.theme` giữa `light` và `dark` (mục 14),
+    nhìn kỹ khay tìm kiếm, ô ngày, icon lịch, hai nút dáng link ở chân trang và nút theme: mọi màu đổi
+    theo theme, không một mảng nào giữ nguyên màu của bản kia. Icon lịch ăn theo `currentColor`
+    nên nó phải đổi cùng chữ quanh nó. Không một cái bóng nào ở bất cứ đâu — bóng thuộc Story
+    2.2 và 2.5.
+
+    Tầng 2 và tầng 4 ở story này là **hình dạng, chưa có hành vi**: bấm vào ô tìm, ô ngày,
+    `xuất sao lưu`, `nạp lại` hay nút theme thì không có gì xảy ra — kể cả thanh địa chỉ cũng
+    **không đổi**, vì hai điều khiển chân trang là `<button>` mang dáng link chứ không phải
+    `<a href="#">`. Đó là đúng, không phải lỗi. Nhưng `Tab` qua chúng theo thứ tự trên→dưới
+    thì **phải thấy focus ring** ở từng chỗ.

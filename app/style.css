@@ -95,8 +95,15 @@ html {
   background: var(--bg);
 }
 
+/* `body` là cột dọc của bốn tầng (Story 2.1): cao đúng một khung nhìn, và `overflow: hidden`
+ * để trang KHÔNG BAO GIỜ mọc thanh cuộn ngoài — một story sau làm tràn thì phải hỏng ồn ào ở
+ * `npm run thu-bo-cuc`, chứ không lặng lẽ có thêm vùng cuộn thứ hai. */
+
 body {
   margin: 0;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
   background: var(--bg);
   color: var(--ink);
   font: var(--font-note);
@@ -111,4 +118,200 @@ body {
   margin-inline: auto;
   padding-inline: var(--page-gutter);
   box-sizing: border-box;
+}
+
+/* ── Bốn tầng cố định trên nền bàn (Story 2.1) ───────────────────────────────────────────
+ *
+ * Chiều cao khung nhìn là trục của cả bố cục: `body` là một cột dọc cao đúng một màn hình,
+ * ba tầng ngoài `flex: none`, tầng lưới `flex: 1` + `overflow-y: auto` + `min-block-size: 0`.
+ * Vế cuối không phải trang trí: mặc định của flex item là `min-height: auto`, tức nó KHÔNG
+ * co xuống dưới kích thước nội dung — bỏ nó đi thì lưới đẩy `body` dài ra và thanh cuộn
+ * nhảy ra ngoài trang, đúng thứ AC "chỉ một vùng cuộn" cấm.
+ *
+ * Không một `@media` nào trong story này, và đó là điều kiện chứ không phải sự thiếu sót:
+ * trần 3 cột là HỆ QUẢ SỐ HỌC của token, không phải một mốc khai báo. 1040px trừ hai lề
+ * 16px còn 1008px — vừa 3 cột (3×260 + 2×8 = 796) và thiếu so với 4 cột (4×260 + 3×8 = 1064).
+ * Thêm một breakpoint để "giúp" nó là phá đúng bất biến đang được ghim.
+ *
+ * Không bóng ở bất cứ đâu dưới đây: bóng lõm ô soạn thảo thuộc Story 2.2, bóng nhị mẩu giấy
+ * thuộc Story 2.5. Cả hai cần token mới, nên là quyết định của story đó, không phải của
+ * story dựng khung.
+ */
+
+html,
+body {
+  block-size: 100%;
+}
+
+.khung {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-block-size: 0;
+}
+
+.tang {
+  flex: none;
+}
+
+.tang-soan {
+  padding-block: var(--space-4) var(--space-2);
+}
+
+.tang-khay {
+  padding-block-end: var(--space-2);
+}
+
+.tang-luoi {
+  flex: 1;
+  min-block-size: 0;
+  overflow-y: auto;
+  padding-block-end: var(--space-4);
+}
+
+.tang-chan {
+  border-block-start: 1px solid var(--rule);
+  padding-block: var(--space-2);
+}
+
+/* ── Tầng 1 — ô soạn thảo (hình dạng tối thiểu; bóng lõm và hành vi thuộc Story 2.2) ───── */
+
+.o-soan {
+  display: block;
+  inline-size: 100%;
+  box-sizing: border-box;
+  /* `resize: none` phải viết ra, vì mặc định của `<textarea>` là kéo được: `body` là
+   * `overflow: hidden`, nên một ô soạn thảo bị kéo cao hơn khung nhìn sẽ đẩy lưới và chân
+   * trang ra ngoài VĨNH VIỄN — không còn thanh cuộn nào đi tới chúng. Ô tự cao theo nội
+   * dung là việc của Story 2.2. */
+  resize: none;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-input);
+  background: var(--surface);
+  color: var(--ink);
+  font: var(--font-composer);
+}
+
+/* ── Tầng 2 — khay tìm kiếm + lọc ngày ────────────────────────────────────────────────── */
+
+.khay {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-tray);
+  /* Nền sẫm hơn nền bàn là CÁCH DUY NHẤT tách khay khỏi ô soạn thảo sáng phía trên —
+   * DESIGN.md cấm dùng bóng cho khay. */
+  background: var(--chip-bg);
+}
+
+.khay-nhan {
+  flex: none;
+  color: var(--ink-2);
+  font: var(--font-ui);
+}
+
+.o-nhap {
+  box-sizing: border-box;
+  min-inline-size: 0;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-input);
+  background: var(--surface);
+  color: var(--ink);
+  font: var(--font-ui);
+}
+
+.o-tim {
+  flex: 1;
+}
+
+.o-ngay-boc {
+  flex: none;
+  display: flex;
+  /* 118px là kích thước NGOÀI theo DESIGN.md — thiếu dòng này thì viền và padding cộng thêm
+   * và ô thành 128px. */
+  box-sizing: border-box;
+  align-items: center;
+  gap: var(--space-1);
+  padding-inline-end: var(--space-2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-input);
+  background: var(--surface);
+  color: var(--ink-2);
+  /* 118px, viết bằng token thay vì một số trần: `--space-7`×3 = 120, trừ nửa `--space-1`.
+   * Con số cố định vì ô chỉ bao giờ chứa `dd/MM/yyyy` — giãn nở là việc của ô từ khóa. */
+  inline-size: calc(var(--space-7) * 3 - var(--space-1) / 2);
+}
+
+/* Ô ngày nằm TRONG khung bọc, nên chính nó không mang viền/nền nữa — nếu không sẽ thành
+ * hai lớp viền lồng nhau quanh cùng một vùng. */
+
+.o-ngay-boc .o-ngay {
+  flex: 1;
+  border: 0;
+  background: none;
+  font: var(--font-time);
+  letter-spacing: var(--tracking-time);
+}
+
+.icon-lich {
+  flex: none;
+  /* Icon duy nhất của sản phẩm. `currentColor` trên `stroke` lấy màu từ `.o-ngay-boc`, nên
+   * không một giá trị màu nào bị viết ra ở đây hay trong SVG. */
+  inline-size: var(--space-4);
+  block-size: var(--space-4);
+}
+
+/* ── Tầng 3 — lưới ghi chú ─────────────────────────────────────────────────────────────
+ *
+ * `auto-fill` + `minmax` là toàn bộ "responsive" của sản phẩm: số cột là phép chia của bề
+ * rộng còn lại cho `--note-min-col`, không phải một bảng mốc. Đừng thêm mốc nào. */
+
+.luoi {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--note-min-col), 1fr));
+  gap: var(--grid-gap);
+  align-content: start;
+}
+
+/* ── Tầng 4 — chân trang ───────────────────────────────────────────────────────────────── */
+
+.chan {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: var(--font-foot);
+}
+
+/* Dáng link, ngữ nghĩa nút: hai điều khiển này là hành động chứ không phải điều hướng, nên
+ * chúng là `<button>` và phải cởi bỏ toàn bộ trang phục mặc định của nút. Không đụng tới
+ * `outline` — focus ring giữ nguyên của trình duyệt. */
+
+.chan-link {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font: var(--font-foot);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.chan-cham {
+  color: var(--ink-decor);
+}
+
+/* Nút theme bị đẩy sang phải bằng `margin-inline-start: auto` chứ không bằng một phần tử
+ * đệm rỗng: đẩy bằng lề không thêm một điểm dừng nào cho bàn phím hay trình đọc màn hình. */
+
+.nut-theme {
+  margin-inline-start: auto;
+  padding: var(--space-1) var(--space-3);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-full);
+  background: none;
+  color: var(--ink-2);
+  font: var(--font-foot);
 }

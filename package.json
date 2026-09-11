@@ -6,7 +6,8 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "thu-tay": "node tools/thu-tay-ban-nhap.mjs"
+    "thu-tay": "node tools/thu-tay-ban-nhap.mjs",
+    "thu-bo-cuc": "node tools/thu-bo-cuc.mjs"
   },
   "devDependencies": {
     "vitest": "^5.0.0"

@@ -41,7 +41,74 @@
   <link rel="stylesheet" href="app/style.css">
 </head>
 <body>
-  <main></main>
+  <!--
+    Bốn tầng dọc cố định (Story 2.1). Thứ tự DOM Ở ĐÂY LÀ THỨ TỰ ĐỌC và cũng là thứ tự tab:
+    ô soạn thảo → khay tìm kiếm + lọc ngày → lưới ghi chú → chân trang. Không một chỗ nào
+    trong CSS đảo lại thứ tự này (không `order`, không `row-reverse`) — đảo là làm bàn phím
+    đi một đường còn mắt đi một đường khác.
+
+    Story này CHỈ DỰNG HÌNH DẠNG: không script nào nối vào đây, không ô nhập nào có hành vi.
+    Ô tìm, ô ngày, hai link chân trang và nút theme tồn tại để mật độ đo được ngay bây giờ;
+    hành vi của chúng thuộc Epic 6 (tra cứu), Story 4.1 (sao lưu) và Story 3.3 (theme).
+  -->
+  <main class="khung">
+    <section class="tang tang-soan" aria-label="Ô soạn thảo">
+      <div class="container">
+        <!-- Placeholder để TRỐNG là quyết định của DESIGN.md: con trỏ nháy là tín hiệu duy
+             nhất. Chiều cao đặt bằng `rows` chứ không bằng `min-height`, để không viết một
+             con số px nào ngoài token. -->
+        <textarea class="o-soan" rows="3" aria-label="Ghi chú mới"></textarea>
+      </div>
+    </section>
+
+    <section class="tang tang-khay" aria-label="Tìm kiếm và lọc ngày">
+      <div class="container">
+        <div class="khay">
+          <label class="khay-nhan" for="o-tim">tìm</label>
+          <input class="o-nhap o-tim" id="o-tim" type="text" placeholder="từ khóa">
+          <label class="khay-nhan" for="o-ngay">ngày</label>
+          <span class="o-ngay-boc">
+            <input class="o-nhap o-ngay" id="o-ngay" type="text" placeholder="dd/MM/yyyy">
+            <!-- Icon DUY NHẤT của sản phẩm, và nó là SVG nội tuyến: AD-12 cấm mọi tài nguyên
+                 mạng, nên không font icon và không `url(...)`. `stroke="currentColor"` để nó
+                 đi theo token màu của phần tử bọc, không tự khai một màu nào. -->
+            <svg class="icon-lich" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"
+                 focusable="false" fill="none" stroke="currentColor" stroke-width="1.25">
+              <rect x="2" y="3.5" width="12" height="10" rx="1"></rect>
+              <line x1="2" y1="6.5" x2="14" y2="6.5"></line>
+              <line x1="5.5" y1="2" x2="5.5" y2="4.5"></line>
+              <line x1="10.5" y1="2" x2="10.5" y2="4.5"></line>
+            </svg>
+          </span>
+        </div>
+      </div>
+    </section>
+
+    <!-- Tầng cuộn DUY NHẤT của trang. Ba tầng kia `flex: none`; tầng này `flex: 1` và
+         `min-block-size: 0` — thiếu vế sau thì flex item không co dưới kích thước nội dung
+         và thanh cuộn nhảy ra ngoài trang, đúng thứ AC cấm. -->
+    <section class="tang tang-luoi" aria-label="Ghi chú">
+      <div class="container">
+        <!-- Lưới rỗng THẬT: trạng thái rỗng là Story 2.6, mẩu giấy là Story 2.5. Không nội
+             dung mẫu nào ở đây, kể cả tạm. -->
+        <div class="luoi"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="tang tang-chan">
+    <div class="container chan">
+      <!-- `<button>` chứ không `<a href="#">`: hai thứ này là HÀNH ĐỘNG, không phải điều
+           hướng. Một `href="#"` đổi URL và đẩy một mục vào lịch sử ngay khi bấm — trái hẳn
+           AC "bấm vào thì không có gì xảy ra" — và trình đọc màn hình đọc nó thành "liên
+           kết". Chúng chỉ MANG DÁNG link (`.chan-link` gạch chân), không mang ngữ nghĩa. -->
+      <button class="chan-link" type="button">xuất sao lưu</button>
+      <span class="chan-cham" aria-hidden="true">·</span>
+      <button class="chan-link" type="button">nạp lại</button>
+      <button class="nut-theme" type="button">nền tối</button>
+    </div>
+  </footer>
+
   <script type="module" src="app/main.js"></script>
 </body>
 </html>
