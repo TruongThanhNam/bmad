@@ -139,6 +139,38 @@ export function localDate(note) {
   return createdAtHopLe(note).slice(0, LOCAL_DATE_CHARS);
 }
 
+/** Mốc tuyệt đối (mili giây) của một chuỗi ISO-8601 CÓ offset, hoặc ném nêu hình dạng mong đợi.
+ *
+ * Cửa vào của `msBetweenIso`, và là chỗ thứ hai được dựng một mốc thời gian trong module này.
+ * Dùng CHUNG phép kiểm hình dạng với `createdAtHopLe` — hai cửa vào cùng một module không được
+ * nói hai điều khác nhau về "một mốc hợp lệ trông như thế nào".
+ */
+function mocTuyetDoi(giaTri, ten) {
+  if (
+    typeof giaTri !== 'string' ||
+    !MAU_CREATED_AT.test(giaTri) ||
+    ngayCoThat(giaTri.slice(0, LOCAL_DATE_CHARS)) === null
+  ) {
+    throw new TypeError(
+      `${ten} phải là ISO-8601 có offset (vd '2026-09-03T16:40:12+07:00'), nhận được ${moTa(giaTri)}`,
+    );
+  }
+  return new Date(giaTri).getTime();
+}
+
+/**
+ * Số mili giây từ `a` tới `b`, cả hai là ISO-8601 có offset. Giữ dấu: `b` trước `a` thì âm.
+ *
+ * Đây là phép so "cũ hơn bao lâu" của nhịp tim bản nháp (AD-3). Phải đi qua mốc TUYỆT ĐỐI chứ
+ * không so chuỗi: hai mốc sinh ở hai offset khác nhau cho thứ tự chuỗi ngược với thứ tự thật,
+ * và đó đúng là thứ AD-4 cấm.
+ */
+export function msBetweenIso(a, b) {
+  const tu = mocTuyetDoi(a, 'a');
+  const den = mocTuyetDoi(b, 'b');
+  return den - tu;
+}
+
 /** Như `ngayCoThat` nhưng ném thay vì trả `null` — cửa vào của `daysBetween`. */
 function mocGiuaTrua(ngay) {
   const moc = ngayCoThat(ngay);

@@ -131,3 +131,32 @@ trước đó thì gọi qua `import('./app/main.js')` trong Console.
 9. **Khóa lạ là lỗi lập trình, không phải một lần ghi im lặng.** Trong Console:
    `(await import('./app/adapters/localstorage.js')).taoSessionStore().read('mau')` phải ném
    `TypeError` nêu cả ba khóa hợp lệ.
+
+### `app/adapters/indexeddb.js` — bản nháp riêng từng tab
+
+Bốn bước khởi động bản nháp (AD-3) chạy trong **một** giao dịch, và tính nguyên tử đó chỉ
+nghiệm thu được trên kho thật. Trong Console, gõ bản nháp bằng
+`(await import('./app/main.js')).store.datBanNhap('phở bò')` cho tới khi có ô soạn thảo thật
+(Story 2.2).
+
+10. **Bản nháp sống qua lần tải lại.** Gõ vài chữ vào bản nháp, đợi hơn một giây, rồi tải lại
+    trang. DevTools → Application → IndexedDB → `ghichu` → `drafts`: đúng **một** bản ghi mang
+    đúng ba trường `tabId · text · heartbeat`, `tabId` bằng `ghichu.tabId` trong Session
+    Storage, và sau khi tải lại `store.state.draft.text` mang lại đúng chữ cũ. Local Storage
+    **không** chứa bản nháp nào.
+11. **Nhân đôi tab thì không ai lấy mất bản nháp của ai.** Với tab đang gõ dở còn mở, nhân đôi
+    tab (chuột phải lên tab → *Duplicate*). Tab mới: `ghichu.tabId` trong Session Storage phải
+    **khác** tab cũ, ô bản nháp của nó **rỗng**, và bản ghi `drafts` của tab cũ còn **nguyên
+    chữ**. Đây là nửa cứng của FR-20 — tab khác không bao giờ lấy mất bản nháp đang gõ.
+12. **Bản bỏ rơi nhận lại được, đúng một lần.** Gõ dở ở một tab, **đợi hơn một giây** cho hẹn
+    tự lưu `AUTOSAVE_MS` nổ và bản nháp thật sự xuống kho (đóng sớm hơn thì chưa có gì để
+    nhận, và bước này hỏng vì một lý do không liên quan tới thứ nó kiểm), rồi **đóng hẳn** tab
+    đó. Đợi
+    quá `DRAFT_STALE_MS` (30 giây) cho nhịp tim chết hẳn, rồi mở trang ở một tab mới: bản nháp
+    cũ hiện lại, và trong `drafts` nó đã đổi sang `tabId` của tab mới — bản ghi cũ biến mất,
+    tổng số bản ghi **không tăng**. Mở thêm một tab thứ ba ngay sau đó: tab này nhận chữ
+    **rỗng**, vì bản kia đã có chủ.
+13. **Nhịp tim đập đều và bản rỗng được dọn.** Để một tab mở với bản nháp có chữ: mỗi
+    `DRAFT_BEAT_MS` (10 giây), `heartbeat` của bản ghi đó phải nhích lên (làm mới bảng
+    `drafts` trong DevTools để thấy). Đặt tay một bản ghi có `text` rỗng vào `drafts`, tải lại
+    trang: bản rỗng đó biến mất.

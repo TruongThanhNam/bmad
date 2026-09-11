@@ -48,7 +48,8 @@ function tenThat(key) {
 /**
  * Dựng một hiện thực của cổng `sessionStore`.
  *
- * @returns {{ read: Function, write: Function, remove: Function, tabIdentity: Function }}
+ * @returns {{ read: Function, write: Function, remove: Function, tabIdentity: Function,
+ *   writeTabIdentity: Function }}
  *   Cổng cấu hình bền cộng danh tính tab; mọi phương thức ĐỒNG BỘ và NÉM khi hỏng.
  */
 export function taoSessionStore() {
@@ -92,6 +93,16 @@ export function taoSessionStore() {
         const moi = crypto.randomUUID();
         sessionStorage.setItem(KHOA_TAB, moi);
         return moi;
+      } catch (loi) {
+        throw loiUngDung(maCuaLoi(loi));
+      }
+    },
+
+    // Ghi vào kho PHẠM VI PHIÊN, cùng khóa với `tabIdentity` — không phải khóa thứ tư của kho
+    // cấu hình. Chỗ gọi duy nhất là action xử lý tab bị nhân đôi (AD-3 bước 1).
+    writeTabIdentity(id) {
+      try {
+        sessionStorage.setItem(KHOA_TAB, id);
       } catch (loi) {
         throw loiUngDung(maCuaLoi(loi));
       }

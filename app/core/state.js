@@ -59,7 +59,7 @@
 
 import { MA_LOI } from './errors.js';
 import { fold } from './fold.js';
-import { AUTOSAVE_MS, MAX_NOTE_CHARS } from './limits.js';
+import { AUTOSAVE_MS, DRAFT_STALE_MS, MAX_NOTE_CHARS } from './limits.js';
 import { localDate, localStamp, nowIso } from './time.js';
 import { kiemTraPorts } from '../ports/index.js';
 
@@ -254,7 +254,8 @@ function ngayHopLe(giaTri, giaTriCu) {
  *
  * @param {object} ports Năm cổng của `app/ports/`, do `app/main.js` nối vào.
  * @returns {{ state: object, datDieuKien: Function, xoaHetDieuKien: Function, khoiDong:
- *   Function, themGhiChu: Function, xoaGhiChu: Function, tuLuuNoiDung: Function }}
+ *   Function, themGhiChu: Function, xoaGhiChu: Function, tuLuuNoiDung: Function,
+ *   khoiDongBanNhap: Function, datBanNhap: Function, nhipTimBanNhap: Function }}
  *   Store với `state` chỉ đọc và các action. Story sau thêm action vào ĐÂY, không nơi khác.
  */
 export function taoStore(ports) {
@@ -262,6 +263,15 @@ export function taoStore(ports) {
 
   let noiBo = stateRong();
   let anh = banSaoDongBang(noiBo);
+
+  /**
+   * Danh tính của tab đang chạy, sống trong CLOSURE chứ không phải một trường state.
+   *
+   * Nó không phải thứ view vẽ ra, và tập bảy khóa của AD-3 không có chỗ cho nó. `null` nghĩa
+   * là chưa khởi động bản nháp — lúc đó không phép ghi bản nháp nào được chạm cổng, vì một
+   * bản nháp không có chủ sẽ nằm lại trong kho mà không tab nào nhận lại được.
+   */
+  let tabCuaMinh = null;
 
   /**
    * Đường DUY NHẤT một action đổi state: thay các nhánh được nêu bằng object mới, rồi dựng
@@ -481,6 +491,140 @@ export function taoStore(ports) {
     });
   }
 
+  /**
+   * Ghi bản nháp hiện tại xuống kho kèm một nhịp tim mới.
+   *
+   * Dùng chung cho hẹn tự lưu và cho nhịp tim định kỳ: cả hai ghi ĐÚNG một hình dạng bản ghi,
+   * và tách chúng ra là hai chỗ dựng `heartbeat` sẽ trôi khỏi nhau.
+   *
+   * @param {boolean} tatDaiBang Ghi xong thì có tắt dải băng không. Hẹn tự lưu thì có (AD-8:
+   *   một phép ghi thành công tắt dải băng); nhịp tim thì KHÔNG — nó không phải hành động của
+   *   người dùng, nên nó không được dọn một câu đang nói về chữ chưa an toàn.
+   */
+  function ghiBanNhap(tatDaiBang) {
+    return ports.noteStore
+      .putDraft({ tabId: tabCuaMinh, text: noiBo.draft.text, heartbeat: nowIso() })
+      .then(
+        () => {
+          if (tatDaiBang) datLai({ banner: null });
+        },
+        (loi) => {
+          datLai({ banner: maBanner(loi) });
+        },
+      );
+  }
+
+  /**
+   * HELPER DÙNG CHUNG 2, bản cho bản nháp: cùng luồng tự lưu, nhưng gác bằng `draft.seq`.
+   *
+   * Hai số đếm độc lập là bắt buộc (AD-8): dùng chung một `seq` thì gõ vào ô soạn thảo của một
+   * mẩu đang sửa sẽ hủy hẹn của bản nháp, và ngược lại.
+   */
+  function henGhiBanNhapDiSau(seqCuaHen) {
+    setTimeout(() => {
+      if (noiBo.draft.seq !== seqCuaHen) return;
+      // Chưa khởi động bản nháp thì chưa có chủ để ghi dưới tên nó.
+      if (tabCuaMinh === null) return;
+      ghiBanNhap(true);
+    }, AUTOSAVE_MS);
+  }
+
+  /**
+   * Khởi động bản nháp riêng của tab này: lấy danh tính, giành lấy bản nháp, đặt chữ vào state.
+   *
+   * Bốn bước của AD-3 nằm trọn trong cổng — ở đây chỉ còn phần nối hai cổng: kho phát hiện tab
+   * bị nhân đôi và trả về một danh tính KHÁC, và danh tính mới đó phải được ghi lại vào kho
+   * phạm vi phiên, thứ mà kho ghi chú không được chạm.
+   *
+   * Hỏng thì đi ra bằng dải băng, không bằng một lời hứa bị từ chối: chỗ gọi duy nhất là lúc
+   * khởi động và ở đó không có ai bắt.
+   *
+   * @returns {Promise<void>} Hoàn tất khi state đã phản ánh kết quả — không bao giờ bị từ chối.
+   */
+  function khoiDongBanNhap() {
+    let danhTinh;
+    try {
+      danhTinh = ports.sessionStore.tabIdentity();
+    } catch (loi) {
+      datLai({ banner: maBanner(loi) });
+      return Promise.resolve();
+    }
+    // Số đếm tại lúc phát yêu cầu. `app/main.js` gọi action này mà KHÔNG đợi, nên Nam có thể
+    // đã gõ vào bản nháp trước khi kho trả lời — và lúc đó chữ giành được là chữ CŨ. Cùng cơ
+    // chế `seq` của AD-8, chỉ khác chiều: hẹn quá hạn bị bỏ, và ở đây thì kết quả quá hạn bị bỏ.
+    const seqLucGianh = noiBo.draft.seq;
+    return ports.noteStore
+      .claimDraft({ tabId: danhTinh, now: nowIso(), staleMs: DRAFT_STALE_MS })
+      .then(
+        (ketQua) => {
+          tabCuaMinh = ketQua.tabId;
+          // Đã có người gõ trong lúc chờ: chữ trên màn hình mới hơn chữ giành được, và hẹn của
+          // nó đang treo. Đè lên là vừa mất chữ vừa ghi chữ cũ xuống kho ngay sau đó.
+          const nhanhDraft =
+            noiBo.draft.seq === seqLucGianh
+              ? { text: ketQua.text, seq: seqLucGianh }
+              : noiBo.draft;
+          if (ketQua.tabId !== danhTinh) {
+            try {
+              ports.sessionStore.writeTabIdentity(ketQua.tabId);
+            } catch (loi) {
+              // Danh tính mới không ghi lại được: tab này vẫn dùng nó trong phiên hiện tại,
+              // nhưng lần tải lại sau sẽ quay về danh tính cũ. Đó là chuyện của người dùng,
+              // nên nó ra dải băng — và chữ nhận được vẫn phải vào state.
+              datLai({ draft: nhanhDraft, banner: maBanner(loi) });
+              return;
+            }
+          }
+          datLai({ draft: nhanhDraft });
+        },
+        (loi) => {
+          datLai({ banner: maBanner(loi) });
+        },
+      );
+  }
+
+  /**
+   * Tự lưu bản nháp đang gõ: `draft` đổi NGAY, phép ghi đi sau với debounce + `seq` (AD-8).
+   *
+   * Quá trần thì dải băng `TOO_LONG` và cổng KHÔNG bị gọi, nhưng chữ VẪN vào state: cắt bớt
+   * trong im lặng là cách chắc chắn nhất làm mất chữ người ta vừa gõ (AD-14, AD-17).
+   *
+   * @param {string} text Nội dung vừa gõ.
+   * @returns {void}
+   */
+  function datBanNhap(text) {
+    if (typeof text !== 'string') {
+      throw new TypeError(`datBanNhap nhận text là chuỗi, nhận được ${moTa(text)}`);
+    }
+    const seqMoi = noiBo.draft.seq + 1;
+    if (text.length > MAX_NOTE_CHARS) {
+      datLai({ draft: { text, seq: seqMoi }, banner: MA_LOI.TOO_LONG });
+      return;
+    }
+    datLai({ draft: { text, seq: seqMoi } });
+    henGhiBanNhapDiSau(seqMoi);
+  }
+
+  /**
+   * Báo rằng tab này còn sống: ghi lại bản nháp hiện tại với một nhịp tim mới.
+   *
+   * KHÔNG đổi state — nhịp tim là chuyện giữa tab và kho, không phải thứ view vẽ ra. Chỉ khi
+   * ghi hỏng mới có dải băng.
+   *
+   * Chưa khởi động bản nháp thì không chạm cổng: một bản nháp ghi dưới một danh tính chưa được
+   * giành sẽ nằm lại trong kho mà không tab nào nhận lại được.
+   *
+   * @returns {Promise<void>} Hoàn tất khi phép ghi đã chốt — không bao giờ bị từ chối.
+   */
+  function nhipTimBanNhap() {
+    if (tabCuaMinh === null) return Promise.resolve();
+    // Trần chặn ở MỌI đường xuống kho, không chỉ ở cửa người dùng gõ (AD-14): `datBanNhap` từ
+    // chối gọi cổng khi quá trần, nhưng một nhịp tim vô điều kiện sẽ đưa đúng chữ đó xuống kho
+    // mười giây sau — tức trần không tồn tại, chỉ chậm lại.
+    if (noiBo.draft.text.length > MAX_NOTE_CHARS) return Promise.resolve();
+    return ghiBanNhap(false);
+  }
+
   // Đóng băng chính store: gán thêm một action từ bên ngoài là dựng đường đổi state thứ hai.
   return Object.freeze({
     get state() {
@@ -492,5 +636,8 @@ export function taoStore(ports) {
     themGhiChu,
     xoaGhiChu,
     tuLuuNoiDung,
+    khoiDongBanNhap,
+    datBanNhap,
+    nhipTimBanNhap,
   });
 }

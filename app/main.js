@@ -20,6 +20,7 @@
 
 import { taoNoteStore } from './adapters/indexeddb.js';
 import { taoSessionStore } from './adapters/localstorage.js';
+import { DRAFT_BEAT_MS } from './core/limits.js';
 import { taoStore } from './core/state.js';
 import { PORT_METHODS } from './ports/index.js';
 
@@ -68,6 +69,12 @@ if (typeof document !== 'undefined') {
   // `khoiDong` không bao giờ bị từ chối: nạp hỏng đi ra bằng dải băng, không bằng một lời hứa
   // treo lại. Nên không có `.catch` ở đây, và không có lời hứa nào không ai bắt.
   store.khoiDong();
+  // Bốn bước khởi động bản nháp của AD-3, cùng một cửa và cùng một lý do.
+  store.khoiDongBanNhap();
+  // Nhịp tim đặt Ở ĐÂY chứ không trong `taoStore`: một hẹn lặp dựng bên trong store sẽ sống
+  // trong MỌI ca test tạo store, và không có đường nào dừng nó. Action thì "gọi mới chạy",
+  // nên test gọi thẳng nó.
+  setInterval(() => store.nhipTimBanNhap(), DRAFT_BEAT_MS);
 }
 
 // Các view của Epic 2+ được nối vào ngay dưới đây, dùng `store` ở trên. View nhận store qua

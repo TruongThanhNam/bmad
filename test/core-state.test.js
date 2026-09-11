@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { taoStore } from '../app/core/state.js';
 import { MA_LOI, loiUngDung } from '../app/core/errors.js';
-import { AUTOSAVE_MS, MAX_NOTE_CHARS } from '../app/core/limits.js';
+import { AUTOSAVE_MS, DRAFT_STALE_MS, MAX_NOTE_CHARS } from '../app/core/limits.js';
 import { localStamp } from '../app/core/time.js';
 import { PORT_METHODS, kiemTraPorts } from '../app/ports/index.js';
 import { congTam, store as storeCuaApp } from '../app/main.js';
@@ -319,9 +319,11 @@ function banGhiMau() {
  *   `quanSat` (gọi bên trong mỗi phương thức, để chụp state đúng lúc đó).
  */
 function khoGia(tuyChon = {}) {
-  const { banDau = [], tuChoi = {}, quanSat = () => {} } = tuyChon;
+  const { banDau = [], tuChoi = {}, quanSat = () => {}, ketQuaClaim = null } = tuyChon;
   const nhatKy = [];
   const banGhi = new Map(banDau.map((mau) => [mau.id, mau]));
+  /** Bản nháp đã ghi xuống, khóa theo danh tính tab. */
+  const banNhap = new Map();
 
   function ra(ten, giaTri) {
     if (Object.prototype.hasOwnProperty.call(tuChoi, ten)) {
@@ -353,17 +355,72 @@ function khoGia(tuyChon = {}) {
       quanSat('replaceAll', notes);
       return ra('replaceAll');
     },
+
+    // Quy tắc bốn bước của AD-3 sống ở `core/draft.js` và có test riêng — ở đây chỉ cần một
+    // cổng trả về KẾT QUẢ đã định sẵn, để các ca dưới nghiệm thu phần nối của action.
+    claimDraft(yeuCau) {
+      nhatKy.push(`claimDraft:${yeuCau.tabId}`);
+      quanSat('claimDraft', yeuCau);
+      const mac = { tabId: yeuCau.tabId, text: '' };
+      return ra('claimDraft', ketQuaClaim === null ? mac : { ...mac, ...ketQuaClaim });
+    },
+
+    putDraft(draft) {
+      nhatKy.push(`putDraft:${draft.tabId}`);
+      quanSat('putDraft', draft);
+      if (!Object.prototype.hasOwnProperty.call(tuChoi, 'putDraft')) {
+        banNhap.set(draft.tabId, draft);
+      }
+      return ra('putDraft');
+    },
   };
 
-  return { nhatKy, banGhi, cong };
+  return { nhatKy, banGhi, banNhap, cong };
 }
 
-/** Store nối vào một `noteStore` giả; bốn cổng còn lại vẫn ném nếu bị chạm. */
-function storeVoiKho(tuyChon) {
+/**
+ * Cổng `sessionStore` giả: danh tính tab cố định và nhật ký các lần ghi lại danh tính.
+ *
+ * Danh tính cố định chứ không sinh ngẫu nhiên: ca "tab bị nhân đôi" phân biệt được danh tính
+ * mới với danh tính cũ chỉ khi biết chắc danh tính cũ là gì.
+ */
+function phienGia(tuyChon = {}) {
+  const { danhTinh = 'tab-cu', nem = {} } = tuyChon;
+  const daNhanDanhTinh = [];
+  const cong = {
+    read() {
+      throw new Error('không ca test nào được gọi sessionStore.read');
+    },
+    write() {
+      throw new Error('không ca test nào được gọi sessionStore.write');
+    },
+    remove() {
+      throw new Error('không ca test nào được gọi sessionStore.remove');
+    },
+    tabIdentity() {
+      if (Object.prototype.hasOwnProperty.call(nem, 'tabIdentity')) {
+        throw loiUngDung(nem.tabIdentity);
+      }
+      return danhTinh;
+    },
+    writeTabIdentity(id) {
+      if (Object.prototype.hasOwnProperty.call(nem, 'writeTabIdentity')) {
+        throw loiUngDung(nem.writeTabIdentity);
+      }
+      daNhanDanhTinh.push(id);
+    },
+  };
+  return { daNhanDanhTinh, cong };
+}
+
+/** Store nối vào một `noteStore` giả và một `sessionStore` giả; ba cổng còn lại vẫn ném. */
+function storeVoiKho(tuyChon = {}) {
   const kho = khoGia(tuyChon);
+  const phien = phienGia(tuyChon.phien);
   const ports = portsDay();
   ports.noteStore = kho.cong;
-  return { store: taoStore(ports), kho };
+  ports.sessionStore = phien.cong;
+  return { store: taoStore(ports), kho, phien };
 }
 
 describe('khoiDong — nạp toàn bộ ghi chú vào RAM, đã sắp xếp (AD-6)', () => {
@@ -701,14 +758,22 @@ describe('tuLuuNoiDung — state đổi ngay, phép ghi đi sau với debounce +
   });
 });
 
-describe('bốn action mới đều nằm trên store, và tập khóa state KHÔNG nới ra', () => {
+describe('action của luồng ghi chuẩn đều nằm trên store, và tập khóa state KHÔNG nới ra', () => {
   afterEach(() => {
     vi.useRealTimers();
   });
 
-  it('store xuất đúng bốn action của luồng ghi chuẩn', () => {
+  it('store xuất đủ các action của luồng ghi chuẩn, kể cả ba action bản nháp', () => {
     const store = taoStore(portsDay());
-    for (const ten of ['khoiDong', 'themGhiChu', 'xoaGhiChu', 'tuLuuNoiDung']) {
+    for (const ten of [
+      'khoiDong',
+      'themGhiChu',
+      'xoaGhiChu',
+      'tuLuuNoiDung',
+      'khoiDongBanNhap',
+      'datBanNhap',
+      'nhipTimBanNhap',
+    ]) {
       expect(typeof store[ten]).toBe('function');
     }
   });
@@ -721,6 +786,305 @@ describe('bốn action mới đều nằm trên store, và tập khóa state KH�
     await store.xoaGhiChu('b');
     store.tuLuuNoiDung('a', 'x');
     expect(Object.keys(store.state).sort()).toEqual(KHOA_STATE);
+  });
+
+  it('sau khi chạy cả BA action bản nháp, state vẫn đúng bảy khóa — danh tính tab không lọt vào', async () => {
+    vi.useFakeTimers();
+    const { store } = storeVoiKho({ ketQuaClaim: { tabId: 'tab-moi', text: 'phở' } });
+    await store.khoiDongBanNhap();
+    store.datBanNhap('phở bò');
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
+    await store.nhipTimBanNhap();
+    expect(Object.keys(store.state).sort()).toEqual(KHOA_STATE);
+    expect(store.state.draft).toEqual({ text: 'phở bò', seq: 1 });
+  });
+});
+
+// ── Bản nháp riêng từng tab (AD-3 tầng B, AD-8) ─────────────────────────────────────────
+
+describe('khoiDongBanNhap — nối danh tính tab với bản nháp giành được (AD-3)', () => {
+  it('chưa có bản nháp nào → draft giữ rỗng, và cổng nhận đúng danh tính cùng ngưỡng im lặng', async () => {
+    let yeuCau = null;
+    const { store, kho } = storeVoiKho({
+      quanSat: (ten, giaTri) => {
+        if (ten === 'claimDraft') yeuCau = giaTri;
+      },
+    });
+    await store.khoiDongBanNhap();
+    expect(store.state.draft).toEqual({ text: '', seq: 0 });
+    expect(kho.nhatKy).toEqual(['claimDraft:tab-cu']);
+    expect(yeuCau.tabId).toBe('tab-cu');
+    expect(yeuCau.staleMs).toBe(DRAFT_STALE_MS);
+    // `now` là một mốc ISO-8601 có offset, không phải một mốc thời gian dựng tại chỗ.
+    expect(yeuCau.now).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/);
+  });
+
+  it('có bản của chính mình → chữ vào draft.text, và KHÔNG ghi lại danh tính', async () => {
+    const { store, phien } = storeVoiKho({ ketQuaClaim: { tabId: 'tab-cu', text: 'phở' } });
+    await store.khoiDongBanNhap();
+    expect(store.state.draft).toEqual({ text: 'phở', seq: 0 });
+    expect(phien.daNhanDanhTinh).toEqual([]);
+  });
+
+  it('tab bị nhân đôi → danh tính MỚI được ghi lại vào kho phạm vi phiên, draft rỗng', async () => {
+    const { store, phien } = storeVoiKho({ ketQuaClaim: { tabId: 'tab-moi', text: '' } });
+    await store.khoiDongBanNhap();
+    expect(phien.daNhanDanhTinh).toEqual(['tab-moi']);
+    expect(store.state.draft).toEqual({ text: '', seq: 0 });
+  });
+
+  it('danh tính mới ghi lại không được → dải băng, nhưng chữ nhận được VẪN vào state', async () => {
+    const { store } = storeVoiKho({
+      ketQuaClaim: { tabId: 'tab-moi', text: 'giữ lại' },
+      phien: { nem: { writeTabIdentity: MA_LOI.QUOTA } },
+    });
+    await expect(store.khoiDongBanNhap()).resolves.toBeUndefined();
+    expect(store.state.draft.text).toBe('giữ lại');
+    expect(store.state.banner).toBe(MA_LOI.QUOTA);
+  });
+
+  it('gõ TRONG LÚC chờ kho trả lời → chữ vừa gõ KHÔNG bị chữ giành được đè lên', async () => {
+    // `app/main.js` gọi action này mà không đợi, nên đây là một khoảng thật, không phải giả
+    // định: đè lên là vừa mất chữ trên màn hình vừa để hẹn đang treo ghi chữ cũ xuống kho.
+    vi.useFakeTimers();
+    const { store, kho } = storeVoiKho({ ketQuaClaim: { tabId: 'tab-cu', text: 'chữ cũ' } });
+    const xong = store.khoiDongBanNhap();
+    store.datBanNhap('chữ mới');
+    await xong;
+    expect(store.state.draft).toEqual({ text: 'chữ mới', seq: 1 });
+
+    // Và hẹn đang treo vẫn ghi đúng chữ trên màn hình, không phải chữ giành được.
+    kho.nhatKy.length = 0;
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
+    expect(kho.nhatKy).toEqual(['putDraft:tab-cu']);
+    expect(kho.banNhap.get('tab-cu').text).toBe('chữ mới');
+    vi.useRealTimers();
+  });
+
+  it('kho hỏng → draft giữ { text: "", seq: 0 }, banner DB, action KHÔNG ném', async () => {
+    const { store } = storeVoiKho({ tuChoi: { claimDraft: MA_LOI.DB } });
+    await expect(store.khoiDongBanNhap()).resolves.toBeUndefined();
+    expect(store.state.draft).toEqual({ text: '', seq: 0 });
+    expect(store.state.banner).toBe(MA_LOI.DB);
+  });
+
+  it('lấy danh tính tab hỏng → dải băng, và cổng kho KHÔNG bị chạm', async () => {
+    const { store, kho } = storeVoiKho({ phien: { nem: { tabIdentity: MA_LOI.DB } } });
+    await expect(store.khoiDongBanNhap()).resolves.toBeUndefined();
+    expect(kho.nhatKy).toEqual([]);
+    expect(store.state.banner).toBe(MA_LOI.DB);
+  });
+
+  it('danh tính KHÔNG phải một trường state — tập bảy khóa không nới ra', async () => {
+    const { store } = storeVoiKho({ ketQuaClaim: { tabId: 'tab-moi', text: 'phở' } });
+    await store.khoiDongBanNhap();
+    expect(Object.keys(store.state).sort()).toEqual(KHOA_STATE);
+  });
+});
+
+describe('datBanNhap — state đổi ngay, phép ghi đi sau với debounce + seq riêng (AD-8)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('mỗi phím đổi draft.text NGAY và tăng seq; putDraft chạy ĐÚNG MỘT LẦN sau hẹn cuối', async () => {
+    vi.useFakeTimers();
+    const { store, kho } = storeVoiKho();
+    await store.khoiDongBanNhap();
+    kho.nhatKy.length = 0;
+
+    let seq = 0;
+    for (const go of ['p', 'ph', 'phở']) {
+      store.datBanNhap(go);
+      seq += 1;
+      expect(store.state.draft.text).toBe(go);
+      expect(store.state.draft.seq).toBe(seq);
+    }
+    expect(kho.nhatKy).toEqual([]);
+
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
+    expect(kho.nhatKy).toEqual(['putDraft:tab-cu']);
+    const daGiu = kho.banNhap.get('tab-cu');
+    expect(daGiu.text).toBe('phở');
+    expect(Object.keys(daGiu).sort()).toEqual(['heartbeat', 'tabId', 'text']);
+  });
+
+  it('hẹn quá hạn BỊ BỎ: nó nổ ra, draft.seq đã tăng, và putDraft không chạy', async () => {
+    vi.useFakeTimers();
+    const { store, kho } = storeVoiKho();
+    await store.khoiDongBanNhap();
+    kho.nhatKy.length = 0;
+
+    store.datBanNhap('cũ');
+    await vi.advanceTimersByTimeAsync(1);
+    store.datBanNhap('mới');
+
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS - 1);
+    expect(kho.nhatKy).toEqual([]);
+
+    await vi.advanceTimersByTimeAsync(1);
+    expect(kho.nhatKy).toEqual(['putDraft:tab-cu']);
+    expect(kho.banNhap.get('tab-cu').text).toBe('mới');
+  });
+
+  it('draft.seq và editing.seq là HAI số đếm độc lập (AD-8)', async () => {
+    vi.useFakeTimers();
+    const { store, kho } = storeVoiKho({ banDau: banGhiMau() });
+    await store.khoiDong();
+    await store.khoiDongBanNhap();
+    kho.nhatKy.length = 0;
+
+    store.datBanNhap('bản nháp');
+    // Gõ vào ô sửa của một mẩu khác KHÔNG được hủy hẹn của bản nháp: dùng chung một số đếm là
+    // đúng cách hai mục tiêu tự lưu giết hẹn của nhau.
+    store.tuLuuNoiDung('a', 'mẩu đang sửa');
+    expect(store.state.draft.seq).toBe(1);
+    expect(store.state.editing.seq).toBe(1);
+
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
+    expect(kho.nhatKy.sort()).toEqual(['put:a', 'putDraft:tab-cu']);
+    expect(kho.banNhap.get('tab-cu').text).toBe('bản nháp');
+  });
+
+  it('ghi hỏng QUOTA → chữ trong draft.text KHÔNG bị hoàn tác, banner QUOTA, không ném', async () => {
+    vi.useFakeTimers();
+    const { store } = storeVoiKho({ tuChoi: { putDraft: MA_LOI.QUOTA } });
+    await store.khoiDongBanNhap();
+    store.datBanNhap('phở');
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
+    expect(store.state.draft.text).toBe('phở');
+    expect(store.state.banner).toBe(MA_LOI.QUOTA);
+  });
+
+  it('quá trần → putDraft KHÔNG được gọi, banner TOO_LONG, nhưng chữ VẪN vào state', async () => {
+    vi.useFakeTimers();
+    const { store, kho } = storeVoiKho();
+    await store.khoiDongBanNhap();
+    kho.nhatKy.length = 0;
+    const qua = 'x'.repeat(MAX_NOTE_CHARS + 1);
+    store.datBanNhap(qua);
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
+    expect(kho.nhatKy).toEqual([]);
+    expect(store.state.banner).toBe(MA_LOI.TOO_LONG);
+    // Cắt bớt trong im lặng là cách chắc chắn nhất làm mất chữ vừa gõ.
+    expect(store.state.draft.text).toBe(qua);
+    expect(store.state.draft.seq).toBe(1);
+  });
+
+  it('một lần tự lưu bản nháp THÀNH CÔNG tắt dải băng của lần hỏng trước (AD-8)', async () => {
+    vi.useFakeTimers();
+    const kho = khoGia({});
+    let tuChoiLanNay = true;
+    const ports = portsDay();
+    ports.noteStore = {
+      ...kho.cong,
+      putDraft(draft) {
+        if (tuChoiLanNay) return Promise.reject(loiUngDung(MA_LOI.QUOTA));
+        return kho.cong.putDraft(draft);
+      },
+    };
+    ports.sessionStore = phienGia().cong;
+    const store = taoStore(ports);
+
+    await store.khoiDongBanNhap();
+    store.datBanNhap('hỏng');
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
+    expect(store.state.banner).toBe(MA_LOI.QUOTA);
+
+    tuChoiLanNay = false;
+    store.datBanNhap('xong');
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
+    expect(store.state.banner).toBeNull();
+  });
+
+  it('chưa khởi động bản nháp thì hẹn không chạm cổng — không có chủ để ghi dưới tên nó', async () => {
+    vi.useFakeTimers();
+    const { store, kho } = storeVoiKho();
+    store.datBanNhap('phở');
+    expect(store.state.draft.text).toBe('phở');
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
+    expect(kho.nhatKy).toEqual([]);
+  });
+
+  it('trả về đồng bộ và sai kiểu đối số thì ném TypeError nêu tên tham số', () => {
+    vi.useFakeTimers();
+    const { store } = storeVoiKho();
+    expect(store.datBanNhap('x')).toBeUndefined();
+    expect(() => store.datBanNhap(7)).toThrow(TypeError);
+    expect(() => store.datBanNhap(7)).toThrow(/text/);
+    for (const xau of [null, undefined, {}, []]) {
+      expect(() => store.datBanNhap(xau)).toThrow(TypeError);
+    }
+  });
+});
+
+describe('nhipTimBanNhap — báo còn sống, KHÔNG đổi state', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('ghi bản nháp hiện tại kèm mốc mới, và state giữ nguyên y hệt', async () => {
+    vi.useFakeTimers();
+    const { store, kho } = storeVoiKho({ ketQuaClaim: { tabId: 'tab-cu', text: 'phở' } });
+    await store.khoiDongBanNhap();
+    kho.nhatKy.length = 0;
+    const truoc = store.state;
+
+    await store.nhipTimBanNhap();
+    expect(kho.nhatKy).toEqual(['putDraft:tab-cu']);
+    const daGiu = kho.banNhap.get('tab-cu');
+    expect(daGiu.text).toBe('phở');
+    expect(daGiu.heartbeat).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/);
+    expect(store.state).toBe(truoc);
+  });
+
+  it('ghi dưới danh tính MỚI khi tab bị nhân đôi, không phải danh tính cũ', async () => {
+    const { store, kho } = storeVoiKho({ ketQuaClaim: { tabId: 'tab-moi', text: '' } });
+    await store.khoiDongBanNhap();
+    kho.nhatKy.length = 0;
+    await store.nhipTimBanNhap();
+    expect(kho.nhatKy).toEqual(['putDraft:tab-moi']);
+  });
+
+  it('chưa khởi động bản nháp → không chạm cổng, không đổi state', async () => {
+    const { store, kho } = storeVoiKho();
+    const truoc = store.state;
+    await expect(store.nhipTimBanNhap()).resolves.toBeUndefined();
+    expect(kho.nhatKy).toEqual([]);
+    expect(store.state).toBe(truoc);
+  });
+
+  it('ghi hỏng → dải băng, action không ném', async () => {
+    const { store } = storeVoiKho({ tuChoi: { putDraft: MA_LOI.DB } });
+    await store.khoiDongBanNhap();
+    await expect(store.nhipTimBanNhap()).resolves.toBeUndefined();
+    expect(store.state.banner).toBe(MA_LOI.DB);
+  });
+
+  it('ghi được thì KHÔNG tắt dải băng — nhịp tim không phải hành động của người dùng', async () => {
+    // Hẹn của `datBanNhap` phải nổ trong tầm kiểm soát của ca test, không phải 400 ms sau khi
+    // nó kết thúc.
+    vi.useFakeTimers();
+    const { store } = storeVoiKho({ ketQuaClaim: { tabId: 'tab-cu', text: 'phở' } });
+    await store.khoiDongBanNhap();
+    // Dựng sẵn một dải băng bằng một lần ghi hỏng, rồi nhịp tim GHI ĐƯỢC không được dọn nó.
+    store.datBanNhap('x'.repeat(MAX_NOTE_CHARS + 1));
+    expect(store.state.banner).toBe(MA_LOI.TOO_LONG);
+    store.datBanNhap('vừa đủ');
+    await store.nhipTimBanNhap();
+    expect(store.state.banner).toBe(MA_LOI.TOO_LONG);
+  });
+
+  it('bản nháp đang quá trần thì nhịp tim KHÔNG chạm cổng — trần chặn ở mọi đường xuống kho', async () => {
+    // `datBanNhap` từ chối gọi cổng khi quá trần; một nhịp tim vô điều kiện sẽ đưa đúng chữ đó
+    // xuống kho mười giây sau, tức trần chỉ chậm lại chứ không tồn tại.
+    const { store, kho } = storeVoiKho();
+    await store.khoiDongBanNhap();
+    store.datBanNhap('x'.repeat(MAX_NOTE_CHARS + 1));
+    kho.nhatKy.length = 0;
+    await expect(store.nhipTimBanNhap()).resolves.toBeUndefined();
+    expect(kho.nhatKy).toEqual([]);
+    expect(store.state.banner).toBe(MA_LOI.TOO_LONG);
   });
 });
 

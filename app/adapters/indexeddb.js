@@ -25,6 +25,7 @@
 
 import { MA_LOI, loiUngDung } from '../core/errors.js';
 import { fold } from '../core/fold.js';
+import { quyetDinhBanNhap } from '../core/draft.js';
 import { localDate } from '../core/time.js';
 
 /** Tên kho, tên store và tên index — tiền tố `ghichu` là ràng buộc của AD-9. */
@@ -62,10 +63,30 @@ function banGhiChuan(note) {
   };
 }
 
+/** Bản nháp đúng ba trường của AD-3 tầng B, không hơn. */
+function banNhapChuan(draft) {
+  return { tabId: draft.tabId, text: draft.text, heartbeat: draft.heartbeat };
+}
+
+/**
+ * Áp dụng bản kế hoạch của AD-3 lên store đang mở — mọi phép ghi/xóa phát ra ĐỒNG BỘ tại đây.
+ *
+ * Phát ra ngay trong callback đã đọc danh sách là toàn bộ lý do quy tắc này nguyên tử: một
+ * giao dịch tự đóng khi vòng lặp sự kiện nhả ra mà không còn yêu cầu treo.
+ */
+function apDungKeHoach(store, keHoach) {
+  for (const khoa of keHoach.xoa) {
+    store.delete(khoa);
+  }
+  if (keHoach.ghi !== null) store.put(banNhapChuan(keHoach.ghi));
+  return { tabId: keHoach.tabId, text: keHoach.text };
+}
+
 /**
  * Dựng một hiện thực của cổng `noteStore`.
  *
- * @returns {{ readAll: Function, put: Function, remove: Function, replaceAll: Function }}
+ * @returns {{ readAll: Function, put: Function, remove: Function, replaceAll: Function,
+ *   claimDraft: Function, putDraft: Function }}
  *   Cổng kho ghi chú bền; mọi phương thức bất đồng bộ và TỪ CHỐI lời hứa khi hỏng.
  */
 export function taoNoteStore() {
@@ -138,13 +159,13 @@ export function taoNoteStore() {
    * yêu cầu thành công trong một giao dịch sau đó bị cuộn ngược thì chữ KHÔNG nằm trên đĩa,
    * và báo thành công lúc đó chính là "giả vờ đã lưu".
    */
-  function trongGiaoDich(cheDo, thanTac) {
+  function trongGiaoDich(tenStore, cheDo, thanTac) {
     return moKho().then(
       (kho) =>
         new Promise((xong, hong) => {
           let giaoDich;
           try {
-            giaoDich = kho.transaction([STORE_NOTES], cheDo);
+            giaoDich = kho.transaction([tenStore], cheDo);
           } catch (loi) {
             hong(loiUngDung(maCuaLoi(loi)));
             return;
@@ -161,7 +182,7 @@ export function taoNoteStore() {
           giaoDich.onerror = (suKien) => hong(loiUngDung(maCuaLoi(loiCuaSuKien(suKien))));
           giaoDich.onabort = (suKien) => hong(loiUngDung(maCuaLoi(loiCuaSuKien(suKien))));
           try {
-            const yeuCau = thanTac(giaoDich.objectStore(STORE_NOTES));
+            const yeuCau = thanTac(giaoDich.objectStore(tenStore));
             if (yeuCau != null) {
               yeuCau.onsuccess = () => {
                 ketQuaGiaoDich = yeuCau.result;
@@ -187,22 +208,58 @@ export function taoNoteStore() {
 
   return {
     readAll() {
-      return trongGiaoDich('readonly', (store) => store.getAll()).then((danhSach) => danhSach ?? []);
+      return trongGiaoDich(STORE_NOTES, 'readonly', (store) => store.getAll()).then(
+        (danhSach) => danhSach ?? [],
+      );
     },
 
     put(note) {
-      return trongGiaoDich('readwrite', (store) => store.put(banGhiChuan(note))).then(() => undefined);
+      return trongGiaoDich(STORE_NOTES, 'readwrite', (store) =>
+        store.put(banGhiChuan(note)),
+      ).then(() => undefined);
     },
 
     remove(id) {
-      return trongGiaoDich('readwrite', (store) => store.delete(id)).then(() => undefined);
+      return trongGiaoDich(STORE_NOTES, 'readwrite', (store) => store.delete(id)).then(
+        () => undefined,
+      );
+    },
+
+    /**
+     * Bốn bước khởi động bản nháp của AD-3, TRỌN VẸN trong một giao dịch `readwrite`.
+     *
+     * Một `getAll()` rồi quyết định ĐỒNG BỘ ngay trong `onsuccess`, và mọi phép ghi/xóa phát ra
+     * từ chính handler đó: một giao dịch tự đóng khi vòng lặp sự kiện nhả ra mà không còn yêu
+     * cầu treo, nên chuỗi `await` nối nhau sẽ giết giao dịch giữa chừng và tính nguyên tử —
+     * thứ duy nhất chặn hai tab cùng nhận một bản nháp — biến mất trong im lặng.
+     */
+    claimDraft({ tabId, now, staleMs }) {
+      let ketQua = { tabId, text: '' };
+      return trongGiaoDich(STORE_DRAFTS, 'readwrite', (store) => {
+        const yeuCau = store.getAll();
+        yeuCau.onsuccess = () => {
+          ketQua = apDungKeHoach(
+            store,
+            quyetDinhBanNhap(yeuCau.result ?? [], tabId, now, staleMs),
+          );
+        };
+        // Không trả yêu cầu ra ngoài: kết quả của phương thức này chốt ở `oncomplete`, và
+        // `ketQua` đã được điền xong trước lúc đó.
+        return null;
+      }).then(() => ketQua);
+    },
+
+    putDraft(draft) {
+      return trongGiaoDich(STORE_DRAFTS, 'readwrite', (store) =>
+        store.put(banNhapChuan(draft)),
+      ).then(() => undefined);
     },
 
     replaceAll(notes) {
       // Xóa sạch rồi ghi lại trong MỘT giao dịch: hỏng giữa chừng thì IndexedDB cuộn ngược và
       // kho giữ nguyên trạng thái cũ (AD-11). Không trả yêu cầu nào ra ngoài — kết quả của
       // phương thức này là "đã chốt", không phải một giá trị.
-      return trongGiaoDich('readwrite', (store) => {
+      return trongGiaoDich(STORE_NOTES, 'readwrite', (store) => {
         store.clear();
         for (const note of notes) {
           store.put(banGhiChuan(note));

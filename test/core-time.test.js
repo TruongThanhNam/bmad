@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { daysBetween, localDate, localStamp, nowIso } from '../app/core/time.js';
+import { daysBetween, localDate, localStamp, msBetweenIso, nowIso } from '../app/core/time.js';
 
 // Độ dài ghim bằng số literal chứ không bằng hằng của `limits.js`: so khóa với chính hằng mà
 // mã dùng để cắt thì đổi hằng cũng vẫn xanh. Test không bị `nguong-tap-trung` quét.
@@ -150,6 +150,51 @@ describe('core/time.js — daysBetween', () => {
   it('qua năm nhuận và qua giao thừa', () => {
     expect(daysBetween('2028-02-28', '2028-03-01')).toBe(2);
     expect(daysBetween('2026-12-31', '2027-01-01')).toBe(1);
+  });
+});
+
+describe('core/time.js — msBetweenIso', () => {
+  it('hai mốc KHÁC OFFSET ra đúng hiệu thật, không phải hiệu của giờ tại chỗ', () => {
+    // Runner chạy ở UTC, nên chỉ ca khác offset mới bắt được một hiện thực bỏ qua offset: hai
+    // mốc dưới đây có giờ tại chỗ cách nhau 0 phút nhưng cách nhau THẬT 5 tiếng.
+    expect(msBetweenIso('2026-09-03T16:40:12+07:00', '2026-09-03T16:40:12+02:00')).toBe(
+      5 * 60 * 60 * 1000,
+    );
+    // Và cùng một thời điểm viết ở hai offset khác nhau thì hiệu bằng 0, dù hai chuỗi khác nhau.
+    expect(msBetweenIso('2026-09-03T16:40:12+07:00', '2026-09-03T09:40:12Z')).toBe(0);
+  });
+
+  it('cùng offset thì là phép trừ thẳng', () => {
+    expect(msBetweenIso('2026-09-03T16:40:12+07:00', '2026-09-03T16:40:42+07:00')).toBe(30 * 1000);
+    expect(msBetweenIso('2026-09-03T16:40:12+07:00', '2026-09-03T16:40:12+07:00')).toBe(0);
+  });
+
+  it('thứ tự đảo ra số ÂM, không lấy trị tuyệt đối', () => {
+    expect(msBetweenIso('2026-09-03T16:40:42+07:00', '2026-09-03T16:40:12+07:00')).toBe(-30 * 1000);
+  });
+
+  it('qua ranh giới ngày và qua giây lẻ vẫn đúng', () => {
+    expect(msBetweenIso('2026-09-03T23:59:59+07:00', '2026-09-04T00:00:00+07:00')).toBe(1000);
+    expect(msBetweenIso('2026-09-03T16:40:12.500Z', '2026-09-03T16:40:13.500Z')).toBe(1000);
+  });
+
+  it('đầu vào rác thì NÉM và thông báo nêu hình dạng mong đợi cùng giá trị nhận được', () => {
+    expect(() => msBetweenIso('hôm qua', nowIso())).toThrow(TypeError);
+    expect(() => msBetweenIso('hôm qua', nowIso())).toThrow(/ISO-8601 có offset/);
+    expect(() => msBetweenIso('hôm qua', nowIso())).toThrow(/hôm qua/);
+    // Thiếu offset là rác: đúng thứ AD-4 từ chối đoán.
+    expect(() => msBetweenIso('2026-09-03T16:40:12', nowIso())).toThrow(TypeError);
+    // Ngày đúng hình dạng nhưng không có thật cũng ném, như mọi cửa vào khác của module.
+    expect(() => msBetweenIso('2026-02-30T16:40:12+07:00', nowIso())).toThrow(TypeError);
+    for (const xau of [null, undefined, 7, {}, new Date()]) {
+      expect(() => msBetweenIso(xau, nowIso())).toThrow(TypeError);
+      expect(() => msBetweenIso(nowIso(), xau)).toThrow(TypeError);
+    }
+  });
+
+  it('nêu ĐÚNG tham số nào hỏng', () => {
+    expect(() => msBetweenIso('rác', '2026-09-03T16:40:12+07:00')).toThrow(/^a /);
+    expect(() => msBetweenIso('2026-09-03T16:40:12+07:00', 'rác')).toThrow(/^b /);
   });
 });
 

@@ -68,12 +68,31 @@
  */
 
 /**
+ * Ghi đè danh tính của tab đang chạy.
+ *
+ * Cần đúng một chỗ: kho ghi chú phát hiện rằng một tab khác đang sống với cùng danh tính (tab
+ * bị nhân đôi) và sinh danh tính mới. Kho đó không được chạm phạm vi phiên, nên action là chỗ
+ * nối hai cổng lại.
+ *
+ * @callback SessionStoreWriteTabIdentity
+ * @param {string} id Danh tính mới của tab này.
+ * @returns {void} Ném lỗi mang mã của AD-18 khi kho từ chối.
+ */
+
+/**
  * @typedef {object} SessionStorePort
  * @property {SessionStoreRead} read
  * @property {SessionStoreWrite} write
  * @property {SessionStoreRemove} remove
  * @property {SessionStoreTabIdentity} tabIdentity
+ * @property {SessionStoreWriteTabIdentity} writeTabIdentity
  */
 
 /** Tên các phương thức mà một hiện thực của cổng này bắt buộc phải có. */
-export const SESSION_STORE_METHODS = Object.freeze(['read', 'write', 'remove', 'tabIdentity']);
+export const SESSION_STORE_METHODS = Object.freeze([
+  'read',
+  'write',
+  'remove',
+  'tabIdentity',
+  'writeTabIdentity',
+]);

@@ -23,6 +23,33 @@ function loiHetCho() {
   return loi;
 }
 
+/** Kho phạm vi phiên giả, ghi vào một `Map` — vài dòng, không phải một trình duyệt giả. */
+function camKhoPhienGia(neM = null) {
+  const truoc = Object.prototype.hasOwnProperty.call(globalThis, 'sessionStorage')
+    ? globalThis.sessionStorage
+    : undefined;
+  const daGhi = new Map();
+  globalThis.sessionStorage = {
+    getItem(khoa) {
+      if (neM !== null) throw neM();
+      return daGhi.has(khoa) ? daGhi.get(khoa) : null;
+    },
+    setItem(khoa, giaTri) {
+      if (neM !== null) throw neM();
+      daGhi.set(khoa, giaTri);
+    },
+    removeItem(khoa) {
+      if (neM !== null) throw neM();
+      daGhi.delete(khoa);
+    },
+  };
+  const go = () => {
+    if (truoc === undefined) delete globalThis.sessionStorage;
+    else globalThis.sessionStorage = truoc;
+  };
+  return { daGhi, go };
+}
+
 /** Kho giả tối thiểu, cắm vào `globalThis` đúng trong một ca test. */
 function camKhoGia(neM) {
   const truoc = Object.prototype.hasOwnProperty.call(globalThis, 'localStorage')
@@ -78,6 +105,45 @@ describe('localstorage.js — khóa lạ là lỗi lập trình, không phải m
     const cong = taoSessionStore();
     expect(() => cong.read('toString')).toThrow(TypeError);
     expect(() => cong.read('constructor')).toThrow(TypeError);
+  });
+});
+
+describe('localstorage.js — writeTabIdentity ghi danh tính mới vào kho phạm vi phiên', () => {
+  // Cùng lớp "không cần kho thật" với hai hành vi đã duyệt ở trên: một `Map` vài dòng là đủ,
+  // không phải một giả lập kho nào. Phần bền qua lần tải lại vẫn thuộc danh sách thử tay.
+  it('ghi ĐÚNG khóa ghichu.tabId, và ghi vào kho phạm vi PHIÊN chứ không phải kho cấu hình', () => {
+    const phien = camKhoPhienGia();
+    goKhoGia = phien.go;
+    const cong = taoSessionStore();
+    cong.writeTabIdentity('tab-moi');
+    expect([...phien.daGhi.keys()]).toEqual(['ghichu.tabId']);
+    expect(phien.daGhi.get('ghichu.tabId')).toBe('tab-moi');
+    // Và lần đọc sau thấy đúng danh tính vừa ghi — không sinh một cái mới đè lên.
+    expect(cong.tabIdentity()).toBe('tab-moi');
+  });
+
+  it('kho đầy thì NÉM Error có code QUOTA, không trả lời hứa bị từ chối', () => {
+    const phien = camKhoPhienGia(loiHetCho);
+    goKhoGia = phien.go;
+    const cong = taoSessionStore();
+    let batDuoc;
+    try {
+      cong.writeTabIdentity('tab-moi');
+    } catch (loi) {
+      batDuoc = loi;
+    }
+    expect(batDuoc).toBeInstanceOf(Error);
+    expect(batDuoc).not.toBeInstanceOf(Promise);
+    expect(batDuoc.code).toBe(MA_LOI.QUOTA);
+  });
+
+  it('hỏng vì lý do khác thì thành mã DB', () => {
+    const phien = camKhoPhienGia(() => new Error('kho bi chan'));
+    goKhoGia = phien.go;
+    const cong = taoSessionStore();
+    expect(() => cong.writeTabIdentity('tab-moi')).toThrow(
+      expect.objectContaining({ code: MA_LOI.DB }),
+    );
   });
 });
 

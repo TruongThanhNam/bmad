@@ -57,12 +57,59 @@
  */
 
 /**
+ * Bản nháp đang gõ dở của MỘT tab, như kho bền nhìn thấy nó.
+ *
+ * `heartbeat` là mốc gần nhất mà tab chủ còn báo rằng nó đang sống. Một bản nháp im lặng quá
+ * lâu là bản BỎ RƠI, và chỉ bản bỏ rơi mới được tab khác nhận.
+ *
+ * @typedef {object} DraftRecord
+ * @property {string} tabId Danh tính tab chủ của bản nháp — cũng là khóa của bản ghi.
+ * @property {string} text Chữ đang gõ dở, nguyên trạng.
+ * @property {string} heartbeat Mốc sống gần nhất, ISO-8601 có offset (AD-4).
+ */
+
+/**
+ * Giành lấy bản nháp của tab này, trong **một** giao dịch nguyên tử duy nhất (AD-3).
+ *
+ * Bốn bước chạy liền nhau, không tách rời: nếu đã có bản nháp mang đúng danh tính này mà vẫn
+ * còn dấu hiệu sống thì một tab khác đang mang cùng danh tính (tab bị nhân đôi) → sinh danh
+ * tính mới và trả nó ra; nếu bản nháp mang danh tính này đã im lặng thì chính tab này vừa mở
+ * lại → dùng nó; nếu không có bản nào của mình thì nhận **nhiều nhất một** bản bỏ rơi, bản im
+ * lặng lâu nhất, ghi lại dưới danh tính của mình và xóa bản cũ; cuối cùng dọn mọi bản rỗng.
+ *
+ * Nguyên tử là điều kiện của FR-20: hai tab khởi động cùng lúc không thể cùng nhận một bản.
+ *
+ * @callback NoteStoreClaimDraft
+ * @param {{ tabId: string, now: string, staleMs: number }} yeuCau Danh tính hiện tại của tab,
+ *   mốc hiện tại (ISO-8601 có offset), và ngưỡng im lặng để coi một bản là bỏ rơi.
+ * @returns {Promise<{ tabId: string, text: string }>} Danh tính sau cùng của tab (khác đầu vào
+ *   nghĩa là tab bị nhân đôi và chỗ gọi phải ghi lại danh tính mới) cùng chữ nhận được.
+ */
+
+/**
+ * Ghi bản nháp của tab này, thêm mới hoặc thay bản cùng danh tính.
+ *
+ * @callback NoteStorePutDraft
+ * @param {DraftRecord} draft Bản nháp cần đưa vào kho, kèm mốc sống mới nhất.
+ * @returns {Promise<void>} Hoàn tất khi chữ đã nằm bền; ném lỗi mang mã của AD-18 nếu không.
+ */
+
+/**
  * @typedef {object} NoteStorePort
  * @property {NoteStoreReadAll} readAll
  * @property {NoteStorePut} put
  * @property {NoteStoreRemove} remove
  * @property {NoteStoreReplaceAll} replaceAll
+ * @property {NoteStoreClaimDraft} claimDraft
+ * @property {NoteStorePutDraft} putDraft
  */
 
 /** Tên các phương thức mà một hiện thực của cổng này bắt buộc phải có. */
-export const NOTE_STORE_METHODS = Object.freeze(['readAll', 'put', 'remove', 'replaceAll']);
+export const NOTE_STORE_METHODS = Object.freeze([
+  'readAll',
+  'put',
+  'remove',
+  'replaceAll',
+  'claimDraft',
+  'putDraft',
+]);
