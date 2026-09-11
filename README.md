@@ -154,9 +154,9 @@ trước đó thì gọi qua `import('./app/main.js')` trong Console.
 ### `app/adapters/indexeddb.js` — bản nháp riêng từng tab
 
 Bốn bước khởi động bản nháp (AD-3) chạy trong **một** giao dịch, và tính nguyên tử đó chỉ
-nghiệm thu được trên kho thật. Trong Console, gõ bản nháp bằng
-`(await import('./app/main.js')).store.datBanNhap('phở bò')` cho tới khi có ô soạn thảo thật
-(Story 2.2).
+nghiệm thu được trên kho thật. Từ Story 2.2 thì **gõ thẳng vào ô soạn thảo** ở tầng 1 — không
+cần Console nữa; `store.datBanNhap` vẫn là đường duy nhất phía dưới, ô soạn thảo chỉ là chỗ
+gọi nó. Đợi hơn `AUTOSAVE_MS` (400 ms) sau phím cuối thì bản nháp mới thật sự xuống kho.
 
 10. **Bản nháp sống qua lần tải lại.** Gõ vài chữ vào bản nháp, đợi hơn một giây, rồi tải lại
     trang. DevTools → Application → IndexedDB → `ghichu` → `drafts`: đúng **một** bản ghi mang
@@ -222,7 +222,7 @@ tuyến, nằm trong `<head>` và đứng trước `<link rel="stylesheet">` —
     thật đang dùng: DevTools → Elements → chọn `<body>` → Computed → **Rendered Fonts** phải là
     một phông hệ thống (`Segoe UI Variable Text` hoặc `Segoe UI`).
 
-### Bố cục bốn tầng — `index.html` + `app/style.css`
+### Bố cục bốn tầng và ô soạn thảo — `index.html` + `app/style.css`
 
 Phần lớn bố cục đã **chạy được bằng máy**:
 
@@ -236,6 +236,12 @@ máy. Mất vài giây. Nó bơm ô tạm vào lưới rồi đo: số cột ở
 828px, trần 3 cột ở 2560px, khe lưới `8px` và lề trang `16px`, ô ngày rộng đúng `118px`, "chỉ
 tầng lưới cuộn", lưới rỗng vẫn đẩy chân trang xuống đáy, khung nhìn thấp vẫn giữ được lưới và
 chân trang, và **mọi màu đo được đều đổi giữa hai theme**. Thoát khác `0` nếu có mục nào hỏng.
+
+Từ Story 2.2 nó đo thêm ô soạn thảo: `autofocus` có mặt và **phần tử đang nhận bàn phím lúc
+trang vừa tải chính là ô soạn thảo**, ô không mang `maxlength`, ô rỗng cao đúng `92px` với
+padding `12px/16px`, nội dung 12 dòng làm ô cao thêm mà **không** có thanh cuộn trong ô và
+trang vẫn không cuộn, xóa hết chữ thì ô **co lại** đúng `92px`, focus làm viền đổi màu và ring
+hiện ra, và bóng lõm khác rỗng ở **cả hai** theme.
 
 Nó **không** đo được phóng trình duyệt: CDP không đặt được mức zoom thật (`width` của
 `Emulation.setDeviceMetricsOverride` đã tính bằng điểm ảnh CSS, `deviceScaleFactor` chỉ đổi mật
@@ -254,11 +260,40 @@ Hai mục còn lại phải làm bằng mắt:
 19. **Hai theme không lệch khỏi token.** Đổi `ghichu.theme` giữa `light` và `dark` (mục 14),
     nhìn kỹ khay tìm kiếm, ô ngày, icon lịch, hai nút dáng link ở chân trang và nút theme: mọi màu đổi
     theo theme, không một mảng nào giữ nguyên màu của bản kia. Icon lịch ăn theo `currentColor`
-    nên nó phải đổi cùng chữ quanh nó. Không một cái bóng nào ở bất cứ đâu — bóng thuộc Story
-    2.2 và 2.5.
+    nên nó phải đổi cùng chữ quanh nó. Cái bóng **duy nhất** trong app lúc này là bóng **lõm**
+    của ô soạn thảo — nó phải thấy được ở cả hai theme, và không mẩu nào khác có bóng (bóng nhị
+    mẩu giấy thuộc Story 2.5).
 
     Tầng 2 và tầng 4 ở story này là **hình dạng, chưa có hành vi**: bấm vào ô tìm, ô ngày,
     `xuất sao lưu`, `nạp lại` hay nút theme thì không có gì xảy ra — kể cả thanh địa chỉ cũng
     **không đổi**, vì hai điều khiển chân trang là `<button>` mang dáng link chứ không phải
     `<a href="#">`. Đó là đúng, không phải lỗi. Nhưng `Tab` qua chúng theo thứ tự trên→dưới
     thì **phải thấy focus ring** ở từng chỗ.
+
+### Ô soạn thảo — hai mục phải làm bằng mắt
+
+`npm run thu-bo-cuc` đo được rằng ô soạn thảo *đang nhận bàn phím*, nhưng nó không thấy được
+con trỏ nháy, và nó không đóng được một tab thật.
+
+20. **Con trỏ nằm sẵn trong ô, và chữ đầu tiên vào đúng chỗ.** Mở trang rồi **gõ ngay, không
+    click vào đâu cả**: con trỏ phải đang nháy trong ô soạn thảo và ký tự đầu tiên vào ô.
+    Placeholder **trống hoàn toàn** — không một chữ mờ nào. Gõ vài dòng: ô cao thêm khít chữ,
+    không có thanh cuộn trong ô, và trang **vẫn không** có thanh cuộn dọc ngoài. Gõ tiếp cho
+    tới khi ô chạm trần `--composer-max-h` (320px): ô **dừng cao** và **chính nó** bắt đầu
+    cuộn, lưới vẫn còn chỗ và chân trang vẫn trong khung nhìn. Dưới ô đúng **một** dòng nhỏ
+    `Ctrl+Enter để chốt`. Bấm `Ctrl+Enter` lúc này chỉ **xuống dòng** như mọi `<textarea>` —
+    nó **chưa chốt** gì cả, và ghi chú chưa xuất hiện ở đâu; chốt là Story 2.3. Không nút
+    "Lưu", không chữ "đã lưu", không số đếm ký tự ở đâu cả.
+
+    **Suy giảm có ý thức, phải biết trước khi thấy:** dán một bản nháp dài hơn
+    `MAX_NOTE_CHARS` (20.000 ký tự) thì chữ **vẫn nằm nguyên** trong ô và trong state — không
+    một ký tự nào bị cắt — nhưng nó **lặng lẽ ngừng được ghi xuống kho**, và story này **chưa
+    có chỗ nào nói ra điều đó**. Dải băng `TOO_LONG` dừng ở tầng action cho tới Story 3.1.
+21. **Đóng tab giữa lúc gõ, mở lại thì chữ trở lại nguyên trạng.** Gõ vài dòng **có xuống
+    dòng**, đợi hơn một giây cho hẹn `AUTOSAVE_MS` nổ, rồi **đóng hẳn tab** và mở lại trang
+    ngay (trong `DRAFT_STALE_MS`): chữ hiện lại **đủ cả xuống dòng**, ô đã cao đúng theo chữ
+    đó, và con trỏ ở **cuối** chữ — gõ tiếp là nối vào câu đang viết dở.
+
+    Ca ngược của nó, khó thấy hơn và là lý do `dongBoTuState` so sánh trước khi gán: mở trang
+    rồi **gõ ngay trong giây đầu tiên**, lúc kho còn đang trả lời. Chữ vừa gõ phải **thắng** —
+    không bị bản nháp cũ đè lên, và con trỏ không nhảy về cuối giữa lúc đang gõ.

@@ -47,17 +47,35 @@
     trong CSS đảo lại thứ tự này (không `order`, không `row-reverse`) — đảo là làm bàn phím
     đi một đường còn mắt đi một đường khác.
 
-    Story này CHỈ DỰNG HÌNH DẠNG: không script nào nối vào đây, không ô nhập nào có hành vi.
-    Ô tìm, ô ngày, hai link chân trang và nút theme tồn tại để mật độ đo được ngay bây giờ;
-    hành vi của chúng thuộc Epic 6 (tra cứu), Story 4.1 (sao lưu) và Story 3.3 (theme).
+    Đúng MỘT ô nhập đã có hành vi (Story 2.2): ô soạn thảo ở tầng 1, nối vào store qua
+    `app/view/o-soan.js`. Ô tìm, ô ngày, hai link chân trang và nút theme vẫn là hình dạng
+    thuần; hành vi của chúng thuộc Epic 6 (tra cứu), Story 4.1 (sao lưu) và Story 3.3 (theme).
   -->
   <main class="khung">
     <section class="tang tang-soan" aria-label="Ô soạn thảo">
       <div class="container">
         <!-- Placeholder để TRỐNG là quyết định của DESIGN.md: con trỏ nháy là tín hiệu duy
-             nhất. Chiều cao đặt bằng `rows` chứ không bằng `min-height`, để không viết một
-             con số px nào ngoài token. -->
-        <textarea class="o-soan" rows="3" aria-label="Ghi chú mới"></textarea>
+             nhất. Chiều cao đến từ `--composer-min-h` cộng phép tự cao theo nội dung trong
+             `app/view/o-soan.js`, nên KHÔNG có `rows` — một con số đếm theo dòng không bao
+             giờ khớp được 92px của DESIGN.md.
+
+             `autofocus` là thuộc tính HTML, không phải một lời gọi JS: dòng "CSS hoặc JS
+             không tải được" của I/O Matrix đòi con trỏ vẫn nằm sẵn trong ô, và chỉ trình
+             duyệt làm việc đó mới đúng ngay cả khi không module nào chạy.
+
+             KHÔNG có `maxlength`, và đó là một lệnh cấm: `maxlength` cắt chữ vừa dán trong im
+             lặng (AD-14, AD-17). Trần ký tự chặn ở TẦNG GHI — `state.js` từ chối gọi cổng khi
+             quá trần, nhưng chữ vẫn nằm nguyên trong ô và trong state. -->
+        <textarea class="o-soan" id="o-soan" aria-label="Ghi chú mới"
+                  aria-describedby="o-soan-nhac" autofocus></textarea>
+        <!-- Microcopy GHIM của EXPERIENCE.md ("Gợi ý dưới ô soạn thảo"), nguyên văn. Nó nói
+             được bấm gì, KHÔNG nói chữ đã lưu hay chưa — không chỉ báo trạng thái nào ở đây
+             (AD-16). Bản thân `Ctrl+Enter` là Story 2.3.
+
+             `aria-describedby` nối nó vào ô: placeholder để trống là một quyết định có chủ ý,
+             nên đây là CHỈ DẪN DUY NHẤT của sản phẩm — không nối thì trình đọc màn hình đọc ô
+             lên mà không bao giờ đọc nó. -->
+        <p class="o-soan-nhac" id="o-soan-nhac">Ctrl+Enter để chốt</p>
       </div>
     </section>
 

@@ -83,6 +83,30 @@ try {
   tab = await cdp.tabMoi(server.diaChi);
   await cdp.doiSan(tab.sessionId);
 
+  // ── Con trỏ nằm sẵn trong ô soạn thảo, không cần một cú click nào (Story 2.2) ────────
+  //
+  // Đo NGAY sau khi mở tab và trước mọi phép đo khác: không khối nào dưới đây click vào đâu,
+  // nhưng "phần tử đang nhận bàn phím lúc trang vừa tải" là một tính chất của lúc vừa tải.
+  {
+    const d = await cdp.chay(
+      tab.sessionId,
+      `
+      const oDangNhan = document.activeElement;
+      return {
+        lop: oDangNhan === null ? null : oDangNhan.className,
+        the: oDangNhan === null ? null : oDangNhan.tagName.toLowerCase(),
+        coAutofocus: document.querySelector('.o-soan').hasAttribute('autofocus'),
+        coMaxlength: document.querySelector('.o-soan').hasAttribute('maxlength'),
+      };
+    `,
+    );
+    ghi(
+      'trang vừa tải: con trỏ đã ở trong ô soạn thảo, và ô không mang maxlength',
+      d.the === 'textarea' && d.lop.includes('o-soan') && d.coAutofocus && !d.coMaxlength,
+      JSON.stringify(d),
+    );
+  }
+
   // ── Bốn tầng có mặt và xếp đúng thứ tự trên→dưới ─────────────────────────────────────
   await datKhungNhin(1600, 900);
   {
@@ -260,6 +284,128 @@ try {
     );
   }
 
+  // ── Ô soạn thảo: sàn 92px, tự cao theo nội dung, và focus ring (Story 2.2) ──────────
+  //
+  // Ba câu hỏi ở đây không ai trả lời được bằng cách quét văn bản: 92px là giá trị ĐÃ TÍNH
+  // của một token, "ô cao khít nội dung" là một phép so `scrollHeight` với `clientHeight`
+  // sau khi layout chạy, và focus ring chỉ tồn tại khi `:focus-visible` thật sự khớp.
+  {
+    await datKhungNhin(1280, 700);
+    await cdp.chay(tab.sessionId, `document.querySelector('.luoi').replaceChildren(); return true;`);
+
+    // Gõ bằng cách đặt `value` rồi phát `input` — đúng đường mà bộ nghe của view lắng.
+    const GO = (chu) => `
+      const o = document.querySelector('.o-soan');
+      o.value = ${JSON.stringify(chu)};
+      o.dispatchEvent(new Event('input', { bubbles: true }));
+      return o.value.length;
+    `;
+    const DO_O = `
+      const o = document.querySelector('.o-soan');
+      const s = getComputedStyle(o);
+      const goc = document.documentElement;
+      return {
+        cao: Math.round(o.getBoundingClientRect().height),
+        cuonTrongO: o.scrollHeight - o.clientHeight > 1,
+        cuonTrang: goc.scrollHeight - goc.clientHeight > 1 || document.body.scrollHeight - document.body.clientHeight > 1,
+        padding: s.paddingTop + ' ' + s.paddingLeft,
+        bong: s.boxShadow,
+      };
+    `;
+
+    await cdp.chay(tab.sessionId, GO(''));
+    await nghi(100);
+    const rong = await cdp.chay(tab.sessionId, DO_O);
+    ghi(
+      'ô soạn thảo rỗng: cao đúng 92px (--composer-min-h) và padding 12px/16px của DESIGN.md',
+      rong.cao === 92 && rong.padding === '12px 16px',
+      JSON.stringify(rong),
+    );
+
+    const nhieuDong = Array.from({ length: 12 }, (_, i) => `dòng ${i}`).join('\n');
+    await cdp.chay(tab.sessionId, GO(nhieuDong));
+    await nghi(100);
+    const dai = await cdp.chay(tab.sessionId, DO_O);
+    ghi(
+      'nội dung 12 dòng: ô cao thêm khít chữ, KHÔNG thanh cuộn trong ô, và trang vẫn không cuộn',
+      dai.cao > rong.cao && !dai.cuonTrongO && !dai.cuonTrang,
+      JSON.stringify(dai),
+    );
+
+    // Xóa hết chữ phải làm ô CO LẠI về đúng sàn — nửa mà một hàm autosize thiếu bước đặt
+    // `block-size: auto` trước khi đọc `scrollHeight` sẽ làm sai trong im lặng.
+    await cdp.chay(tab.sessionId, GO(''));
+    await nghi(100);
+    const lai = await cdp.chay(tab.sessionId, DO_O);
+    ghi(
+      'xóa hết chữ: ô co lại đúng 92px, không giữ chiều cao cũ',
+      lai.cao === 92,
+      JSON.stringify(lai),
+    );
+
+    // Trần chiều cao: bản nháp rất dài KHÔNG được ăn mất lưới và chân trang.
+    //
+    // Đây là cái giá của "không thanh cuộn ngoài": `.tang` là `flex: none` và `body` là
+    // `overflow: hidden`, nên mỗi pixel ô soạn thảo cao thêm là một pixel lấy từ lưới — và
+    // khi lưới hết chỗ thì chân trang đi ra ngoài khung nhìn VĨNH VIỄN. `--composer-max-h`
+    // là chốt chặn, và chính ô phải cuộn để chữ dưới đáy còn tới được.
+    await cdp.chay(tab.sessionId, GO(Array.from({ length: 40 }, (_, i) => `dòng ${i}`).join('\n')));
+    await nghi(100);
+    const rat = await cdp.chay(
+      tab.sessionId,
+      `
+      const o = document.querySelector('.o-soan');
+      const r = (s) => document.querySelector(s).getBoundingClientRect();
+      const goc = document.documentElement;
+      return {
+        caoO: Math.round(o.getBoundingClientRect().height),
+        cuonTrongO: o.scrollHeight - o.clientHeight > 1,
+        caoLuoi: Math.round(r('.tang-luoi').height),
+        dayChan: Math.round(r('.tang-chan').bottom),
+        khungNhin: window.innerHeight,
+        cuonTrang: goc.scrollHeight - goc.clientHeight > 1,
+      };
+    `,
+    );
+    ghi(
+      'bản nháp 40 dòng: ô dừng ở trần 320px và tự cuộn; lưới còn chiều cao, chân trang còn trong khung, trang không cuộn',
+      rat.caoO === 320 &&
+        rat.cuonTrongO &&
+        rat.caoLuoi > 0 &&
+        rat.dayChan <= rat.khungNhin &&
+        !rat.cuonTrang,
+      JSON.stringify(rat),
+    );
+    await cdp.chay(tab.sessionId, GO(''));
+    await nghi(100);
+
+    // Focus ring: viền đổi màu CỘNG một ring, và cả hai phải khác lúc chưa focus.
+    const focus = await cdp.chay(
+      tab.sessionId,
+      `
+      const o = document.querySelector('.o-soan');
+      const doc = () => {
+        const s = getComputedStyle(o);
+        return { bong: s.boxShadow, vien: s.borderTopColor };
+      };
+      o.blur();
+      const truoc = doc();
+      o.focus();
+      const sau = doc();
+      return { truoc, sau, khop: o.matches(':focus-visible') };
+    `,
+    );
+    ghi(
+      'focus vào ô: viền đổi sang --focus và ring hiện ra, cả hai khác lúc chưa focus',
+      focus.khop && focus.sau.bong !== focus.truoc.bong && focus.sau.vien !== focus.truoc.vien,
+      JSON.stringify(focus),
+    );
+
+    // Đợi hết hẹn tự lưu rồi mới đi tiếp: bản nháp cuối cùng ghi xuống kho là bản RỖNG, nên
+    // bộ đo không để lại chữ nào trong IndexedDB của origin cục bộ.
+    await nghi(600);
+  }
+
   // ── Hai theme: mọi màu thật sự ĐỔI khi theme đổi ─────────────────────────────────────
   //
   // So sánh light với dark chứ không kiểm dạng chuỗi: một màu viết thẳng, hay một token
@@ -270,6 +416,9 @@ try {
     // một khung hẹp/thấp và bơm ô tạm, và không phép đo nào nên thừa hưởng trạng thái đó.
     await datKhungNhin(1280, 700);
     await cdp.chay(tab.sessionId, `document.querySelector('.luoi').replaceChildren(); return true;`);
+    // Bỏ focus khỏi ô soạn thảo trước khi đo màu: còn focus thì `box-shadow` đo được là bóng
+    // lõm CỘNG ring, và phép đo này hỏi về vật liệu lúc nghỉ.
+    await cdp.chay(tab.sessionId, `document.querySelector('.o-soan').blur(); return true;`);
     const DOC_MAU = `
       const doc = (s, t) => getComputedStyle(document.querySelector(s))[t];
       return {
@@ -282,6 +431,11 @@ try {
         'chữ chân trang': doc('.chan-link', 'color'),
         'viền nút theme': doc('.nut-theme', 'borderTopColor'),
         'nét icon lịch': doc('.icon-lich', 'stroke'),
+        // Bóng lõm là token thứ 13 đổi theo theme (Story 2.2): bóng nâu trên nền tối không
+        // đọc được, nên bản dark có giá trị riêng. Nó đứng đúng ở đây vì phép so hai bên là
+        // cách duy nhất bắt được một khối dark thiếu dòng ghi đè.
+        'bóng lõm ô soạn thảo': doc('.o-soan', 'boxShadow'),
+        'chữ dòng nhắc': doc('.o-soan-nhac', 'color'),
       };
     `;
     const doTheme = async (theme) => {
@@ -302,6 +456,20 @@ try {
         ? `${Object.keys(sang).length} điểm đo, tất cả đều đổi`
         : `đứng yên: ${dungYen.join(', ')}`,
     );
+    // Bóng lõm phải THẤY ĐƯỢC ở cả hai theme, không chỉ "khác nhau": một `box-shadow: none`
+    // ở cả hai bên cũng đổi được nếu ai đó đổi nó theo theme, và nó vẫn là không có bóng.
+    {
+      const sangCoBong = sang['bóng lõm ô soạn thảo'];
+      const toiCoBong = toi['bóng lõm ô soạn thảo'];
+      ghi(
+        'bóng lõm ô soạn thảo khác rỗng ở CẢ HAI theme, và là bóng inset',
+        sangCoBong !== 'none' &&
+          toiCoBong !== 'none' &&
+          sangCoBong.includes('inset') &&
+          toiCoBong.includes('inset'),
+        `light=${sangCoBong} · dark=${toiCoBong}`,
+      );
+    }
     // `currentColor` của icon phải bám đúng màu chữ của khung bọc, không phải một màu riêng.
     const boc = await cdp.chay(
       tab.sessionId,

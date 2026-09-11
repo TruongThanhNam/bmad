@@ -96,13 +96,28 @@ try {
   {
     const sau = await cdp.chay(
       tabA.sessionId,
-      `const m = await import('/app/main.js'); return { text: m.store.state.draft.text, tabId: sessionStorage.getItem('ghichu.tabId') };`,
+      `const m = await import('/app/main.js');
+       const o = document.querySelector('.o-soan');
+       return {
+         text: m.store.state.draft.text,
+         tabId: sessionStorage.getItem('ghichu.tabId'),
+         trongO: o === null ? null : o.value,
+         conTro: o === null ? null : o.selectionStart,
+       };`,
     );
     // Tải lại NGAY, tức trong vòng DRAFT_STALE_MS: đây đúng là ca mà quy tắc cũ hỏng.
     ghi(
       '10d: tải lại ngay thì chữ trở lại nguyên trạng và tabId KHÔNG đổi',
       sau.text === CHU_THU && sau.tabId === tabIdA,
       JSON.stringify(sau),
+    );
+    // Story 2.2: chữ phải ra tới Ô, không chỉ tới state. Phần nối ở `app/main.js`
+    // (`khoiDongBanNhap().then(oSoan.dongBoTuState)`) không có chốt chặn nào khác lúc chạy
+    // thật — bỏ nó đi thì state vẫn đúng và màn hình vẫn trống.
+    ghi(
+      '10e: chữ ra tới Ô SOẠN THẢO, và con trỏ ở cuối chữ',
+      sau.trongO === CHU_THU && sau.conTro === CHU_THU.length,
+      JSON.stringify({ trongO: sau.trongO, conTro: sau.conTro }),
     );
   }
 

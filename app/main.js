@@ -23,6 +23,7 @@ import { taoSessionStore } from './adapters/localstorage.js';
 import { DRAFT_BEAT_MS } from './core/limits.js';
 import { taoStore } from './core/state.js';
 import { PORT_METHODS } from './ports/index.js';
+import { noiOSoan } from './view/o-soan.js';
 
 /**
  * Tập cổng tạm, dựng từ chính bảng phương thức của `app/ports/` — nên nó không thể thiếu
@@ -69,14 +70,23 @@ if (typeof document !== 'undefined') {
   // `khoiDong` không bao giờ bị từ chối: nạp hỏng đi ra bằng dải băng, không bằng một lời hứa
   // treo lại. Nên không có `.catch` ở đây, và không có lời hứa nào không ai bắt.
   store.khoiDong();
+  // View nối TRƯỚC khi giành bản nháp, và thứ tự đó là điều kiện: `claimDraft` là bất đồng
+  // bộ, nên mọi ký tự Nam gõ trong lúc kho còn đang trả lời chỉ vào được state nếu bộ nghe
+  // `input` đã gắn xong. Nối sau là một cửa sổ im lặng ở đúng giây đầu tiên của trang.
+  const oSoan = noiOSoan(store);
   // Bốn bước khởi động bản nháp của AD-3, cùng một cửa và cùng một lý do.
-  store.khoiDongBanNhap();
+  //
+  // `khoiDongBanNhap()` không bao giờ bị từ chối (hỏng thì đi ra bằng dải băng), nên `.then`
+  // một vế là đủ và không có lời hứa nào không ai bắt. Đúng MỘT lần đồng bộ ở đây là đủ cho
+  // cả cuộc đua: `state.js` đã bỏ kết quả giành được khi `draft.seq` đã nhảy, và
+  // `dongBoTuState` so sánh trước khi gán — nên chữ Nam đang gõ luôn thắng.
+  store.khoiDongBanNhap().then(oSoan.dongBoTuState);
   // Nhịp tim đặt Ở ĐÂY chứ không trong `taoStore`: một hẹn lặp dựng bên trong store sẽ sống
   // trong MỌI ca test tạo store, và không có đường nào dừng nó. Action thì "gọi mới chạy",
   // nên test gọi thẳng nó.
   setInterval(() => store.nhipTimBanNhap(), DRAFT_BEAT_MS);
 }
 
-// Các view của Epic 2+ được nối vào ngay dưới đây, dùng `store` ở trên. View nhận store qua
-// tham số — không module nào dưới `app/` được import lại từ file này, vì đó là đường vòng để
-// `view/` kéo cả `adapters/` vào theo.
+// Các view còn lại của Epic 2+ nối vào cùng một cửa `document` ở trên, cùng một cách: nhận
+// `store` qua THAM SỐ. Không module nào dưới `app/` được import lại từ file này, vì đó là
+// đường vòng để `view/` kéo cả `adapters/` vào theo.

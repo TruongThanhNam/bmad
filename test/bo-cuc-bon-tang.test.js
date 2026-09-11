@@ -82,7 +82,11 @@ describe('Tầng lưới là vùng cuộn duy nhất', () => {
         /overflow(-x|-y|-block|-inline)?\s*:[^;}]*\b(auto|scroll)\b/.test(than),
       )
       .map(([, chon]) => chon.trim());
-    expect(cuonDuoc).toEqual(['.tang-luoi']);
+    // `.o-soan` là vùng cuộn thứ hai và DUY NHẤT được phép (Story 2.2), vì nó có trần
+    // `--composer-max-h`: một ô đã bị kẹp mà không cuộn được là một ô có chữ và con trỏ nằm ở
+    // chỗ không ai tới được. Nó chỉ cuộn khi bản nháp dài hơn trần; tầng lưới vẫn là vùng
+    // cuộn duy nhất của TRANG.
+    expect([...cuonDuoc].sort()).toEqual(['.o-soan', '.tang-luoi']);
     expect(css).toMatch(/body\s*\{[^}]*overflow\s*:\s*hidden/);
   });
 
@@ -179,12 +183,31 @@ describe('Hình dạng tĩnh của tầng 2 và tầng 4', () => {
   });
 });
 
-describe('Không bóng trong story này', () => {
-  // Bóng lõm ô soạn thảo thuộc Story 2.2, bóng nhị mẩu giấy thuộc Story 2.5 — cả hai cần
-  // token mới, nên là quyết định của story đó. Ở đây một cái bóng lọt vào là một token màu
-  // viết thẳng đi cửa sau.
-  it('app/style.css không khai báo bóng nào', () => {
-    expect(css).not.toMatch(/box-shadow\s*:/);
+describe('Bóng: đúng một cái, và nó là token', () => {
+  // Story 2.1 chặn MỌI cái bóng vì cả hai cái bóng của DESIGN.md đều cần token mới. Story 2.2
+  // mở đúng một cái — bóng lõm ô soạn thảo — nên cửa chặn hẹp lại chứ không biến mất: bóng
+  // nhị mẩu giấy vẫn thuộc Story 2.5, và một giá trị bóng viết thẳng vẫn là một màu đi cửa sau.
+  it('mọi box-shadow chỉ dùng var(--…), không một giá trị bóng viết thẳng nào', () => {
+    const giaTri = [...css.matchAll(/box-shadow\s*:\s*([^;}]*)/g)].map((k) => k[1].trim());
+    expect(giaTri.length).toBeGreaterThan(0);
+    // Ring focus được phép đứng sau token bóng trong cùng một khai báo, nhưng màu của nó cũng
+    // phải đến từ token — `color-mix` trên `var(--focus)`, không một hex nào.
+    for (const v of giaTri) {
+      expect(v).toMatch(/^var\(--shadow-inset\)/);
+      expect(v).not.toMatch(/#[0-9a-f]{3,8}\b|\brgba?\s*\(|\bhsla?\s*\(/i);
+    }
+  });
+
+  it('chỉ .o-soan mang bóng — mẩu giấy và khay thì không (Story 2.5, DESIGN.md)', () => {
+    const chon = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
+      .filter(([, , than]) => /box-shadow\s*:/.test(than))
+      .map(([, s]) => s.trim());
+    // Sắp cả hai vế: thứ tự hai luật trong file không đổi một điểm ảnh nào, nên nó không được
+    // là thứ làm ca này đỏ.
+    expect(chon.sort()).toEqual(['.o-soan', '.o-soan:focus-visible'].sort());
+  });
+
+  it('không dùng drop-shadow hay text-shadow ở bất cứ đâu', () => {
     expect(css).not.toMatch(/\bfilter\s*:\s*drop-shadow/);
     expect(css).not.toMatch(/\btext-shadow\s*:/);
   });

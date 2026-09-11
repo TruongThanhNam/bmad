@@ -65,13 +65,24 @@
   --page-gutter: 16px;
   --note-min-col: 260px;
   --container-max: 1040px;
+  --composer-min-h: 92px;
+  /* TRẦN chiều cao của ô soạn thảo, và nó là một ràng buộc của bố cục chứ không phải thẩm mỹ:
+   * ba tầng ngoài là `flex: none` và `body` là `overflow: hidden`, nên một ô cao vô hạn đẩy
+   * lưới về 0 và đẩy chân trang ra khỏi khung nhìn VĨNH VIỄN. Chạm trần thì chính ô cuộn. */
+  --composer-max-h: 320px;
+  /* Bóng lõm của ô soạn thảo (Story 2.2). Nó là TOKEN vì giá trị mang `rgba()`, và một màu
+   * viết thẳng trong một luật CSS là đúng thứ AD-20 mục 4 cấm — hai khối này là chỗ duy nhất
+   * một giá trị màu được phép tồn tại. Nó cũng là token KHÔNG-MÀU duy nhất đổi theo theme. */
+  --shadow-inset: inset 0 1px 2px rgba(60, 48, 28, 0.07);
   --radius-paper: 3px;
   --radius-input: 6px;
   --radius-tray: 8px;
   --radius-full: 9999px;
 }
 
-/* Bản dark ghi đè ĐÚNG 12 token màu — không token typography/spacing/bo góc nào đổi theo theme.
+/* Bản dark ghi đè ĐÚNG 12 token màu, cộng `--shadow-inset` — không token typography/spacing/bo
+ * góc nào đổi theo theme. Ngoại lệ của bóng không phải một chỗ lọt: bóng nâu trên nền tối
+ * không đọc được (`DESIGN.md`, *Elevation & Depth*), nên bản dark cần một giá trị khác.
  * Thuộc tính `data-theme` do script nội tuyến trong `<head>` của `index.html` đặt trước lần vẽ
  * đầu tiên; nếu script không chạy thì `:root` ở trên vẫn ra bản light trọn vẹn, không nửa vời. */
 
@@ -89,6 +100,7 @@
   --danger: #D4816F;
   --chip-bg: #332F26;
   --hl: #4E4322;
+  --shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.35);
 }
 
 html {
@@ -133,9 +145,9 @@ body {
  * 16px còn 1008px — vừa 3 cột (3×260 + 2×8 = 796) và thiếu so với 4 cột (4×260 + 3×8 = 1064).
  * Thêm một breakpoint để "giúp" nó là phá đúng bất biến đang được ghim.
  *
- * Không bóng ở bất cứ đâu dưới đây: bóng lõm ô soạn thảo thuộc Story 2.2, bóng nhị mẩu giấy
- * thuộc Story 2.5. Cả hai cần token mới, nên là quyết định của story đó, không phải của
- * story dựng khung.
+ * Cái bóng DUY NHẤT được phép dưới đây là `var(--shadow-inset)` trên `.o-soan` (Story 2.2);
+ * bóng nhị mẩu giấy thuộc Story 2.5 và cần token riêng của nó. Một cái bóng viết thẳng ở đây
+ * là một giá trị màu đi cửa sau.
  */
 
 html,
@@ -174,7 +186,21 @@ body {
   padding-block: var(--space-2);
 }
 
-/* ── Tầng 1 — ô soạn thảo (hình dạng tối thiểu; bóng lõm và hành vi thuộc Story 2.2) ───── */
+/* ── Tầng 1 — ô soạn thảo: vật liệu và focus (Story 2.2) ───────────────────────────────────
+ *
+ * Chiều cao có HAI nửa và chúng chia việc dứt khoát: `min-block-size` giữ SÀN 92px, còn
+ * `app/view/o-soan.js` đặt `block-size` theo `scrollHeight` để ô cao thêm khít nội dung. Nhờ
+ * cái sàn nằm ở đây, hàm autosize không cần biết con số nào — không một số literal nào trong
+ * JS (AD-14). Story 2.1 dùng `rows="3"` cho việc này; `rows` đã bỏ, vì một thuộc tính HTML
+ * đếm theo DÒNG không bao giờ khớp được một con số px của `DESIGN.md`.
+ *
+ * `max-block-size` là vế thứ ba, và nó bắt buộc: `.tang` là `flex: none` còn `body` là
+ * `overflow: hidden`, nên một ô cao theo nội dung mà không có trần sẽ ép lưới về 0 và đẩy
+ * chân trang ra ngoài khung nhìn — không còn thanh cuộn nào đi tới chúng. Vì có trần nên
+ * `overflow-y` phải là `auto`, không phải `hidden`: một ô đã bị kẹp mà không cuộn được là
+ * một ô có chữ (và con trỏ) nằm ở chỗ không ai tới được. Đây là vùng cuộn thứ hai DUY NHẤT
+ * của trang, và nó chỉ tồn tại khi bản nháp dài hơn trần.
+ */
 
 .o-soan {
   display: block;
@@ -182,15 +208,40 @@ body {
   box-sizing: border-box;
   /* `resize: none` phải viết ra, vì mặc định của `<textarea>` là kéo được: `body` là
    * `overflow: hidden`, nên một ô soạn thảo bị kéo cao hơn khung nhìn sẽ đẩy lưới và chân
-   * trang ra ngoài VĨNH VIỄN — không còn thanh cuộn nào đi tới chúng. Ô tự cao theo nội
-   * dung là việc của Story 2.2. */
+   * trang ra ngoài VĨNH VIỄN — không còn thanh cuộn nào đi tới chúng. */
   resize: none;
-  padding: var(--space-2) var(--space-3);
+  overflow-y: auto;
+  min-block-size: var(--composer-min-h);
+  max-block-size: var(--composer-max-h);
+  /* `--space-3 --space-4` theo `DESIGN.md` (`components.composer.padding`). Cặp 8/12 đã siết
+   * của epic nói về MẨU GIẤY và lưới, không về ô soạn thảo. */
+  padding: var(--space-3) var(--space-4);
   border: 1px solid var(--rule);
   border-radius: var(--radius-input);
   background: var(--surface);
   color: var(--ink);
   font: var(--font-composer);
+  /* Bóng LÕM, ngược chiều với bóng nhị của mẩu giấy: chỗ gõ lún xuống, chỗ đã ghi nhô lên. */
+  box-shadow: var(--shadow-inset);
+}
+
+/* Focus ring: viền đổi màu CỘNG một ring 3px, không thay thế nhau. Viền một mình thì ở mức
+ * phóng to là một sợi chỉ khó thấy, còn ring một mình thì mất khi hai ô kề nhau. `color-mix`
+ * pha loãng chính `--focus` nên không một giá trị màu nào được viết ra ở đây. */
+
+.o-soan:focus-visible {
+  border-color: var(--focus);
+  box-shadow: var(--shadow-inset), 0 0 0 3px color-mix(in srgb, var(--focus) 28%, transparent);
+}
+
+/* Dòng nhắc dưới ô — microcopy GHIM của `EXPERIENCE.md`. Nó là chỉ dẫn, không phải một chỉ
+ * báo trạng thái: nó nói được bấm gì, và nó không bao giờ đổi theo việc chữ đã xuống kho hay
+ * chưa (AD-16). */
+
+.o-soan-nhac {
+  margin-block: var(--space-1) 0;
+  color: var(--ink-2);
+  font: var(--font-foot);
 }
 
 /* ── Tầng 2 — khay tìm kiếm + lọc ngày ────────────────────────────────────────────────── */
