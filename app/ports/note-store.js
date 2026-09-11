@@ -71,11 +71,16 @@
 /**
  * Giành lấy bản nháp của tab này, trong **một** giao dịch nguyên tử duy nhất (AD-3).
  *
- * Bốn bước chạy liền nhau, không tách rời: nếu đã có bản nháp mang đúng danh tính này mà vẫn
- * còn dấu hiệu sống thì một tab khác đang mang cùng danh tính (tab bị nhân đôi) → sinh danh
- * tính mới và trả nó ra; nếu bản nháp mang danh tính này đã im lặng thì chính tab này vừa mở
- * lại → dùng nó; nếu không có bản nào của mình thì nhận **nhiều nhất một** bản bỏ rơi, bản im
- * lặng lâu nhất, ghi lại dưới danh tính của mình và xóa bản cũ; cuối cùng dọn mọi bản rỗng.
+ * Bốn bước chạy liền nhau, không tách rời: trước hết chốt danh tính — nếu một tab khác **thật
+ * sự đang sống** với đúng danh tính này (tab bị nhân đôi) thì sinh danh tính mới và trả nó ra;
+ * rồi nếu có bản nháp mang danh tính đã chốt thì dùng nó, **bất kể** mốc sống của nó mới hay
+ * cũ, vì đó chỉ có thể là bản của chính tab này ở lần tải trang trước; nếu không có bản nào
+ * của mình thì nhận **nhiều nhất một** bản bỏ rơi, bản im lặng lâu nhất, ghi lại dưới danh
+ * tính của mình và xóa bản cũ; cuối cùng dọn mọi bản rỗng.
+ *
+ * "Đang sống" phải là một điều quan sát được, không phải một phép suy đoán từ mốc sống: mốc
+ * sống không phân biệt được một tab khác với chính tab này vừa tải lại, và nhầm hai thứ đó
+ * làm mỗi lần mở lại app bỏ rơi đúng bản nháp mà FR-3 hứa sẽ trả lại.
  *
  * Nguyên tử là điều kiện của FR-20: hai tab khởi động cùng lúc không thể cùng nhận một bản.
  *

@@ -68,6 +68,38 @@ function banNhapChuan(draft) {
   return { tabId: draft.tabId, text: draft.text, heartbeat: draft.heartbeat };
 }
 
+/** Tiền tố khóa sống của một tab — cùng tiền tố `ghichu` của AD-9. */
+const TIEN_TO_KHOA = 'ghichu.tab.';
+
+/**
+ * Thử giữ khóa sống của một danh tính tab, và giữ nó cho tới khi tab chết.
+ *
+ * Đây là thứ thay cho phép suy đoán bằng nhịp tim ở bước 1 của AD-3. Nhịp tim không phân biệt
+ * được "một tab khác đang sống" với "chính tôi vừa tải lại": kho phạm vi phiên sống sót qua
+ * một lần tải lại, nên tab mới đọc ra đúng danh tính cũ và thấy một bản ghi mà CHÍNH NÓ vừa
+ * viết vài giây trước. Khóa thì không đoán: trình duyệt nhả nó khi tài liệu giữ nó biến mất,
+ * nên "khóa đang bị giữ" là bằng chứng thật rằng một tài liệu khác còn sống.
+ *
+ * Lời hứa trong thân khóa KHÔNG BAO GIỜ hoàn tất, có chủ ý — đó là cách giữ khóa suốt đời tab.
+ * Không có nhánh dự phòng khi API khóa vắng mặt: AD-12 đã chốt app chỉ chạy ở HTTPS hoặc
+ * `localhost`, cùng lý do `crypto.randomUUID` ở đây cũng không có nhánh dự phòng.
+ *
+ * @param {string} tabId Danh tính cần giữ.
+ * @returns {Promise<boolean>} `true` nếu giữ được, `false` nếu một tài liệu khác đang giữ.
+ */
+function giuKhoaTab(tabId) {
+  return new Promise((traLoi) => {
+    navigator.locks
+      .request(`${TIEN_TO_KHOA}${tabId}`, { ifAvailable: true }, (khoa) => {
+        traLoi(khoa !== null);
+        return khoa === null ? undefined : new Promise(() => {});
+      })
+      // Không có khóa thì không chứng minh được ai đang sống. Coi như danh tính đã có chủ:
+      // sinh một danh tính mới là lựa chọn an toàn, vì nó không bao giờ lấy mất của ai.
+      .catch(() => traLoi(false));
+  });
+}
+
 /**
  * Áp dụng bản kế hoạch của AD-3 lên store đang mở — mọi phép ghi/xóa phát ra ĐỒNG BỘ tại đây.
  *
@@ -79,7 +111,24 @@ function apDungKeHoach(store, keHoach) {
     store.delete(khoa);
   }
   if (keHoach.ghi !== null) store.put(banNhapChuan(keHoach.ghi));
-  return { tabId: keHoach.tabId, text: keHoach.text };
+  return keHoach.text;
+}
+
+/**
+ * BƯỚC 1 của AD-3 — chốt danh tính của tab này bằng khóa sống, không bằng nhịp tim.
+ *
+ * Giữ được khóa của danh tính đang có nghĩa là không tài liệu nào khác đang cầm nó, kể cả khi
+ * kho còn một bản ghi mang nhịp tim mới tinh: bản ghi đó là của chính tab này ở lần tải trang
+ * trước. Không giữ được nghĩa là một tab khác thật sự đang sống với cùng danh tính — Nam vừa
+ * nhân đôi tab, và kho phạm vi phiên được sao chép theo — nên sinh danh tính mới và giữ khóa
+ * của nó. Khóa mới vừa sinh thì không bao giờ có ai tranh, nên không cần kiểm kết quả.
+ */
+function danhTinhDaChot(tabId) {
+  return giuKhoaTab(tabId).then((laCuaMinh) => {
+    if (laCuaMinh) return tabId;
+    const moi = crypto.randomUUID();
+    return giuKhoaTab(moi).then(() => moi);
+  });
 }
 
 /**
@@ -226,7 +275,13 @@ export function taoNoteStore() {
     },
 
     /**
-     * Bốn bước khởi động bản nháp của AD-3, TRỌN VẸN trong một giao dịch `readwrite`.
+     * Bốn bước khởi động bản nháp của AD-3: bước 1 chốt danh tính bằng khóa sống, ba bước còn
+     * lại chạy TRỌN VẸN trong một giao dịch `readwrite`.
+     *
+     * Bước 1 nằm NGOÀI giao dịch vì nó phải vậy — xin khóa là bất đồng bộ, và một `await` chen
+     * vào giữa sẽ giết giao dịch. Nó không cần nguyên tử: khóa tự nó đã là phép loại trừ lẫn
+     * nhau, và hai tab không bao giờ chốt cùng một danh tính. Cái CẦN nguyên tử là phép nhận
+     * bản bỏ rơi ở bước 3, và phép đó vẫn nằm trọn trong giao dịch dưới đây.
      *
      * Một `getAll()` rồi quyết định ĐỒNG BỘ ngay trong `onsuccess`, và mọi phép ghi/xóa phát ra
      * từ chính handler đó: một giao dịch tự đóng khi vòng lặp sự kiện nhả ra mà không còn yêu
@@ -234,19 +289,24 @@ export function taoNoteStore() {
      * thứ duy nhất chặn hai tab cùng nhận một bản nháp — biến mất trong im lặng.
      */
     claimDraft({ tabId, now, staleMs }) {
-      let ketQua = { tabId, text: '' };
-      return trongGiaoDich(STORE_DRAFTS, 'readwrite', (store) => {
-        const yeuCau = store.getAll();
-        yeuCau.onsuccess = () => {
-          ketQua = apDungKeHoach(
-            store,
-            quyetDinhBanNhap(yeuCau.result ?? [], tabId, now, staleMs),
-          );
-        };
-        // Không trả yêu cầu ra ngoài: kết quả của phương thức này chốt ở `oncomplete`, và
-        // `ketQua` đã được điền xong trước lúc đó.
-        return null;
-      }).then(() => ketQua);
+      return danhTinhDaChot(tabId).then((danhTinh) => {
+        let ketQua = { tabId: danhTinh, text: '' };
+        return trongGiaoDich(STORE_DRAFTS, 'readwrite', (store) => {
+          const yeuCau = store.getAll();
+          yeuCau.onsuccess = () => {
+            ketQua = {
+              tabId: danhTinh,
+              text: apDungKeHoach(
+                store,
+                quyetDinhBanNhap(yeuCau.result ?? [], danhTinh, now, staleMs),
+              ),
+            };
+          };
+          // Không trả yêu cầu ra ngoài: kết quả của phương thức này chốt ở `oncomplete`, và
+          // `ketQua` đã được điền xong trước lúc đó.
+          return null;
+        }).then(() => ketQua);
+      });
     },
 
     putDraft(draft) {

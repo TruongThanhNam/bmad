@@ -98,11 +98,19 @@ adapter không bao giờ gọi thẳng vào giao diện, kể cả để báo l�
   `drafts` là `{ tabId, text, heartbeat }`, với `heartbeat` là chuỗi ISO được tab đang sống cập
   nhật mỗi `DRAFT_BEAT_MS`. Quy tắc khởi động, **toàn bộ nằm trong một transaction `readwrite`
   duy nhất**:
-  1. Đọc `tabId` từ `sessionStorage`. Nếu không có, **hoặc** đã có một bản ghi mang `tabId` đó với
-     `heartbeat` mới hơn `DRAFT_STALE_MS` (nghĩa là một tab khác đang sống với cùng `tabId` — xảy
-     ra khi Nam nhân đôi tab, vì `sessionStorage` được sao chép theo), thì sinh `tabId` mới bằng
-     `crypto.randomUUID()` và ghi vào `sessionStorage`.
-  2. Có bản ghi của chính `tabId` này → dùng nó.
+  1. Đọc `tabId` từ `sessionStorage`; không có thì sinh bằng `crypto.randomUUID()`. Rồi **xin giữ
+     khóa sống** `ghichu.tab.<tabId>` bằng `navigator.locks` với `ifAvailable`, và giữ nó suốt đời
+     tab. Giữ được → không tài liệu nào khác đang cầm danh tính này. Không giữ được → một tab khác
+     **thật sự đang sống** với cùng `tabId` (Nam nhân đôi tab, vì `sessionStorage` được sao chép
+     theo) → sinh `tabId` mới, giữ khóa của nó, và ghi nó vào `sessionStorage`.
+
+     **Không dùng `heartbeat` để làm phép này** — đó là bản đầu, và nó sai: `sessionStorage` sống
+     sót qua một lần **tải lại**, nên tab vừa tải lại đọc ra đúng `tabId` cũ và thấy một bản ghi
+     mà **chính nó** vừa viết vài giây trước. Nó kết luận mình bị nhân đôi và bỏ rơi bản nháp của
+     chính mình. Vì nhịp tim đập mỗi `DRAFT_BEAT_MS` còn ngưỡng là `DRAFT_STALE_MS`, **mọi** lần
+     tải lại đều rơi vào cửa sổ đó, tức FR-3 hỏng ở đúng ca thường gặp nhất. Khóa thì không suy
+     đoán: trình duyệt nhả nó khi tài liệu giữ nó biến mất, kể cả khi tab bị đóng đột ngột.
+  2. Có bản ghi của chính `tabId` (đã chốt ở bước 1) → dùng nó, **bất kể** `heartbeat` mới hay cũ.
   3. Không có → **nhận** bản ghi bỏ lại có `heartbeat` cũ nhất và đã quá `DRAFT_STALE_MS`: ghi lại
      dưới `tabId` của mình và xóa bản ghi cũ, trong cùng transaction đó. Nhận **nhiều nhất một**.
   4. Xóa mọi bản ghi `drafts` có `text` rỗng.

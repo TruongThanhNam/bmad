@@ -26,31 +26,10 @@ function quyetDinh(danhSach, tabId) {
   return quyetDinhBanNhap(danhSach, tabId, BAY_GIO, NGUONG);
 }
 
-describe('quyetDinhBanNhap — bước 1: tab bị nhân đôi thì sinh danh tính mới', () => {
-  it('bản mang đúng danh tính này mà nhịp tim CÒN MỚI → danh tính khác và chữ rỗng', () => {
-    const keHoach = quyetDinh([ban('A', 'phở', NGUONG / 2)], 'A');
-    expect(keHoach.tabId).not.toBe('A');
-    expect(typeof keHoach.tabId).toBe('string');
-    expect(keHoach.text).toBe('');
-  });
-
-  it('bản của tab kia GIỮ NGUYÊN — không ghi, không xóa', () => {
-    const keHoach = quyetDinh([ban('A', 'phở', NGUONG / 2)], 'A');
-    expect(keHoach.ghi).toBeNull();
-    expect(keHoach.xoa).toEqual([]);
-  });
-
-  it('hai lần gọi cho hai danh tính KHÁC nhau — không phải một giá trị cố định', () => {
-    const mot = quyetDinh([ban('A', 'phở', NGUONG / 2)], 'A');
-    const hai = quyetDinh([ban('A', 'phở', NGUONG / 2)], 'A');
-    expect(mot.tabId).not.toBe(hai.tabId);
-  });
-});
-
-describe('quyetDinhBanNhap — bước 2: bản của chính mình, nhịp tim đã im', () => {
+describe('quyetDinhBanNhap — bước 2: bản của chính mình, BẤT KỂ nhịp tim', () => {
   it('dùng lại chữ của mình, không ghi lại và không xóa gì', () => {
     const keHoach = quyetDinh([ban('A', 'phở', NGUONG * 2)], 'A');
-    expect(keHoach).toEqual({ tabId: 'A', text: 'phở', ghi: null, xoa: [] });
+    expect(keHoach).toEqual({ text: 'phở', ghi: null, xoa: [] });
   });
 
   it('không bao giờ nhận bản của ai khác khi đã có bản của mình', () => {
@@ -62,10 +41,21 @@ describe('quyetDinhBanNhap — bước 2: bản của chính mình, nhịp tim �
     expect(keHoach.xoa).toEqual([]);
   });
 
-  it('đúng một phép so phân biệt bước 1 với bước 2, ngay ở hai bên ngưỡng', () => {
-    // Ngay dưới ngưỡng: còn sống → bước 1. Ngay trên ngưỡng: đã im → bước 2.
-    expect(quyetDinh([ban('A', 'phở', NGUONG - 1)], 'A').tabId).not.toBe('A');
-    expect(quyetDinh([ban('A', 'phở', NGUONG + 1)], 'A').text).toBe('phở');
+  it('TẢI LẠI: nhịp tim còn mới tinh vẫn là bản của chính mình, chữ phải trở lại', () => {
+    // Đây là ca mà vòng review thứ hai bắt được trên trình duyệt thật. Kho phạm vi phiên sống
+    // sót qua một lần tải lại, nên tab mới mang đúng danh tính cũ và thấy một bản ghi mà CHÍNH
+    // NÓ vừa viết vài giây trước. Bản đầu coi đó là "một tab khác đang sống" và bỏ rơi bản
+    // nháp — mọi lần tải lại đều rơi vào cửa sổ đó, vì nhịp tim đập dày hơn ngưỡng im lặng.
+    // Danh tính giờ do khóa sống chốt ở adapter, nên tới được đây là đã chắc không ai khác cầm.
+    for (const cachDay of [0, 1, NGUONG / 3, NGUONG - 1, NGUONG + 1, NGUONG * 9]) {
+      expect(quyetDinh([ban('A', 'phở', cachDay)], 'A').text).toBe('phở');
+    }
+  });
+
+  it('không còn phép so ngưỡng nào ở bước 2 — hai bên ngưỡng cho cùng một kết quả', () => {
+    const duoi = quyetDinh([ban('A', 'phở', NGUONG - 1)], 'A');
+    const tren = quyetDinh([ban('A', 'phở', NGUONG + 1)], 'A');
+    expect(duoi).toEqual(tren);
   });
 });
 
@@ -76,7 +66,6 @@ describe('quyetDinhBanNhap — bước 3: nhận bản bỏ rơi, nhiều nhất
       'A',
     );
     expect(keHoach.text).toBe('cũ nhất');
-    expect(keHoach.tabId).toBe('A');
     // Ghi lại dưới danh tính của mình, và xóa bản cũ — cùng một bản kế hoạch, cùng một giao dịch.
     expect(keHoach.ghi).toEqual({ tabId: 'A', text: 'cũ nhất', heartbeat: BAY_GIO });
     expect(keHoach.xoa).toEqual(['C']);
@@ -93,7 +82,7 @@ describe('quyetDinhBanNhap — bước 3: nhận bản bỏ rơi, nhiều nhất
   });
 
   it('kho rỗng → chữ rỗng, không ghi, không xóa', () => {
-    expect(quyetDinh([], 'A')).toEqual({ tabId: 'A', text: '', ghi: null, xoa: [] });
+    expect(quyetDinh([], 'A')).toEqual({ text: '', ghi: null, xoa: [] });
   });
 
   it('nhịp tim ở TƯƠNG LAI cũng là CŨ NHẤT — không thì bản đó sống vĩnh viễn', () => {

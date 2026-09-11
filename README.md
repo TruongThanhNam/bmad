@@ -144,10 +144,20 @@ nghiệm thu được trên kho thật. Trong Console, gõ bản nháp bằng
     đúng ba trường `tabId · text · heartbeat`, `tabId` bằng `ghichu.tabId` trong Session
     Storage, và sau khi tải lại `store.state.draft.text` mang lại đúng chữ cũ. Local Storage
     **không** chứa bản nháp nào.
+
+    Tải lại **ngay** (trong vòng `DRAFT_STALE_MS`) cũng phải cho kết quả đó, và `ghichu.tabId`
+    **không được đổi**. Đây là ca mà bản đầu hỏng: quy tắc cũ đọc `heartbeat` để đoán "có tab
+    khác đang sống", mà sau một lần tải lại thì nhịp tim còn mới tinh chính là của tab này ở
+    kiếp trước — nên nó tự coi mình là tab nhân đôi và bỏ rơi bản nháp của chính mình.
 11. **Nhân đôi tab thì không ai lấy mất bản nháp của ai.** Với tab đang gõ dở còn mở, nhân đôi
     tab (chuột phải lên tab → *Duplicate*). Tab mới: `ghichu.tabId` trong Session Storage phải
     **khác** tab cũ, ô bản nháp của nó **rỗng**, và bản ghi `drafts` của tab cũ còn **nguyên
     chữ**. Đây là nửa cứng của FR-20 — tab khác không bao giờ lấy mất bản nháp đang gõ.
+
+    Phân biệt bước 10 với bước 11 là một **khóa sống** (`navigator.locks`), không phải nhịp
+    tim: tab gốc giữ khóa `ghichu.tab.<tabId>` suốt đời nó, nên tab nhân đôi xin không được và
+    biết chắc có người còn sống; còn tab vừa tải lại thì xin được, vì trình duyệt đã nhả khóa
+    lúc tài liệu cũ biến mất. Xem khóa đang giữ trong Console bằng `await navigator.locks.query()`.
 12. **Bản bỏ rơi nhận lại được, đúng một lần.** Gõ dở ở một tab, **đợi hơn một giây** cho hẹn
     tự lưu `AUTOSAVE_MS` nổ và bản nháp thật sự xuống kho (đóng sớm hơn thì chưa có gì để
     nhận, và bước này hỏng vì một lý do không liên quan tới thứ nó kiểm), rồi **đóng hẳn** tab
