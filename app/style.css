@@ -1,1 +1,114 @@
-/* Token màu / typography / spacing / bo góc thuộc Story 1.8. Cố tình để trống. */
+/* Hệ token của `DESIGN.md` dưới dạng mã (Story 1.8).
+ *
+ * Đây là NGUỒN DUY NHẤT của mọi giá trị màu trong sản phẩm. AD-20 mục 4: tương phản ≥ 4.5:1
+ * được bảo đảm "bằng cách dựng được", nghĩa là không một giá trị màu viết thẳng nào được phép
+ * tồn tại ngoài hai khối khai báo dưới đây — token là chỗ duy nhất tỉ lệ đã được tính.
+ *
+ * Nguồn có thẩm quyền của MỌI giá trị dưới đây, để đối chiếu được từng dòng:
+ * `_bmad-output/planning-artifacts/ux-designs/ux-Sticky Notes-2026-09-09/DESIGN.md`
+ * (frontmatter `colors:` · `typography:` · `spacing:` · `rounded:`).
+ * `test/token-style.test.js` ghim lại đúng tập giá trị đó — 24 hex cộng 22 token không-màu — và
+ * cưỡng chế luật "ngoài hai khối này thì chỉ được dùng `var(--…)`" trên mọi file `.css` dưới
+ * `app/`. Nó không kiểm được cách token được DÙNG: đó là việc của story giao diện.
+ *
+ * `--font-ui` và `--font-foot` mang `/1.55` mà `DESIGN.md` không nói. Đây là lựa chọn có ý thức
+ * bị `font` shorthand ép ra: shorthand không có cách viết "giữ nguyên line-height mặc định" —
+ * bỏ trống là nhận `normal`, một giá trị khác hẳn và khác nhau giữa các phông. Chọn `1.55` cho
+ * thống nhất với hai vai kia.
+ *
+ * Ba hex dưới đây CỐ Ý lệch khỏi file HTML hướng vì bản gốc không đạt ngưỡng:
+ * `--ink-2` light, `--focus` light, `--danger` dark. Đừng "sửa lại cho giống mockup".
+ * Cặp `--danger` trên `--chip-bg` ở bản dark chỉ 4.55:1 — đổi `--chip-bg` dark thì phải tính
+ * lại cặp đó trước khi commit.
+ *
+ * Phông là system font stack: AD-12 cấm webfont, và trang phải render đúng cả khi không tải
+ * được tài nguyên nào ngoài HTML. Không `@import`, không URL.
+ *
+ * Tắt focus ring bị CẤM TUYỆT ĐỐI trong file này (AD-20 mục 1) — nó là đường duy nhất của người
+ * dùng bàn phím vì đã chốt không thêm phím tắt. Test quét bản THÔ của file, chú thích không được
+ * miễn trừ: một mẫu đã bị comment vẫn là mẫu người sau sẽ copy. Vì thế chính chú thích này cũng
+ * không viết ra cặp thuộc tính/giá trị bị cấm.
+ */
+
+:root {
+  /* Thanh cuộn, con trỏ nháy, vùng chọn chữ và mọi ô nhập gốc lấy màu từ đây, không từ token —
+   * thiếu nó thì bản dark vẫn có một máng thanh cuộn trắng, ngay ở khung hình đầu tiên. */
+  color-scheme: light;
+  --bg: #EFEAE0;
+  --paper: #FBF3DE;
+  --paper-tape: #F3E8C9;
+  --surface: #FFFDF7;
+  --ink: #2E2820;
+  --ink-2: #6E6350;
+  --ink-decor: #A79A83;
+  --rule: #DCD3C2;
+  --focus: #8A6A22;
+  --danger: #97392C;
+  --chip-bg: #E4DAC2;
+  --hl: #F2DD8F;
+  --font-note: 400 14.5px/1.55 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-composer: 400 15px/1.55 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-time: 600 11.5px Consolas, "Cascadia Mono", monospace;
+  --font-ui: 400 13px/1.55 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --font-foot: 400 11.5px/1.55 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+  --tracking-time: 0.04em;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 28px;
+  --space-7: 40px;
+  --note-padding-y: 8px;
+  --note-padding-x: 12px;
+  --grid-gap: 8px;
+  --page-gutter: 16px;
+  --note-min-col: 260px;
+  --container-max: 1040px;
+  --radius-paper: 3px;
+  --radius-input: 6px;
+  --radius-tray: 8px;
+  --radius-full: 9999px;
+}
+
+/* Bản dark ghi đè ĐÚNG 12 token màu — không token typography/spacing/bo góc nào đổi theo theme.
+ * Thuộc tính `data-theme` do script nội tuyến trong `<head>` của `index.html` đặt trước lần vẽ
+ * đầu tiên; nếu script không chạy thì `:root` ở trên vẫn ra bản light trọn vẹn, không nửa vời. */
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #171613;
+  --paper: #26241E;
+  --paper-tape: #2E2B23;
+  --surface: #1E1C18;
+  --ink: #E9E2D2;
+  --ink-2: #A79A83;
+  --ink-decor: #746A59;
+  --rule: #302D26;
+  --focus: #D3B269;
+  --danger: #D4816F;
+  --chip-bg: #332F26;
+  --hl: #4E4322;
+}
+
+html {
+  background: var(--bg);
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: var(--font-note);
+}
+
+/* Chiều rộng dùng `max-width` chứ không `width` cứng (AD-20 mục 5): phóng 200% thì vùng chứa
+ * co theo khung nhìn và rớt về một cột thay vì cắt chữ. */
+
+.container {
+  width: 100%;
+  max-width: var(--container-max);
+  margin-inline: auto;
+  padding-inline: var(--page-gutter);
+  box-sizing: border-box;
+}

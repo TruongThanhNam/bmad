@@ -4,6 +4,40 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Ghi chú hàng ngày</title>
+  <!--
+    Theme đọc ở đây và KHÔNG ở đâu khác: ngoại lệ duy nhất của AD-2 (AD-19). Script phải ĐỒNG
+    BỘ, NỘI TUYẾN và nằm TRƯỚC `<link rel="stylesheet">` — chỉ khi đủ bốn tính chất đó thì
+    `data-theme` mới có mặt trước lần vẽ đầu tiên, và mở tab giữa lúc làm việc không nháy một
+    khung hình sáng chói. Đừng import `app/adapters/localstorage.js`: nó là ES module, nạp nó
+    là bất đồng bộ, là mất đúng thứ đoạn mã này mua. Chuỗi 'ghichu.theme' vì thế bị viết lại
+    lần thứ hai ở đây — trùng lặp có ý thức mà AD-19 cho phép.
+
+    Script KHÔNG BAO GIỜ ghi xuống `localStorage`: key chỉ mang lựa chọn tường minh của người
+    dùng, nên "vắng mặt" phải giữ nghĩa "chưa chọn" cho nút toggle của Epic 3.
+  -->
+  <script>
+    (function () {
+      var theme = null;
+      try {
+        var daLuu = localStorage.getItem('ghichu.theme');
+        if (daLuu === 'light' || daLuu === 'dark') theme = daLuu;
+      } catch (loi) {
+        theme = null;
+      }
+      if (theme === null) {
+        try {
+          theme =
+            typeof window.matchMedia === 'function' &&
+            window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light';
+        } catch (loi) {
+          theme = 'light';
+        }
+      }
+      document.documentElement.setAttribute('data-theme', theme);
+    })();
+  </script>
   <link rel="stylesheet" href="app/style.css">
 </head>
 <body>

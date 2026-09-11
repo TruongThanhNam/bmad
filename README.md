@@ -189,3 +189,35 @@ nghiệm thu được trên kho thật. Trong Console, gõ bản nháp bằng
     `DRAFT_BEAT_MS` (10 giây), `heartbeat` của bản ghi đó phải nhích lên (làm mới bảng
     `drafts` trong DevTools để thấy). Đặt tay một bản ghi có `text` rỗng vào `drafts`, tải lại
     trang: bản rỗng đó biến mất.
+
+### `index.html` — theme không nháy lúc tải
+
+"Không nháy" là một tính chất của **lần vẽ đầu tiên**, và không máy nào trong `npm test` chứng
+kiến được nó: `test/token-style.test.js` chỉ kiểm được rằng script theme là đồng bộ, nội
+tuyến, nằm trong `<head>` và đứng trước `<link rel="stylesheet">` — bốn tính chất cộng lại thì
+*kéo theo* kết luận, nhưng khung hình đầu tiên thì phải xem bằng mắt.
+
+14. **Theme đã chọn thì không có khung hình sáng nào.** DevTools → Application → Local Storage →
+    đặt `ghichu.theme` = `dark`, rồi tải lại trang. Nền phải tối **ngay từ đầu**: mở
+    DevTools → Performance → ghi một lần tải (`Ctrl+Shift+E`) → xem dải **Screenshots**, khung
+    hình đầu tiên có pixel đã là nền tối, không một khung nào sáng. Đổi key sang `light` và lặp
+    lại: nền sáng ngay từ khung đầu. Trong Console, `document.documentElement.dataset.theme` phải
+    khớp giá trị key.
+15. **Chưa từng chọn thì theo hệ điều hành.** Xóa hẳn key `ghichu.theme` rồi tải lại: theme khớp
+    nền hệ thống. Đảo cài đặt Windows (Settings → Personalization → Colors → *Choose your mode*)
+    — hoặc nhanh hơn: DevTools → ⋮ → *More tools* → **Rendering** → *Emulate CSS
+    `prefers-color-scheme`* → `dark`/`light` — rồi tải lại: theme đảo theo. Sau cả hai lần,
+    Local Storage **vẫn không có** key `ghichu.theme`: script không bao giờ ghi giá trị suy ra từ
+    hệ điều hành xuống kho, vì "vắng mặt" phải giữ nghĩa "chưa chọn" cho nút bật/tắt của Epic 3.
+16. **Giá trị rác rơi về hệ điều hành và không bị sửa chữa.** Đặt `ghichu.theme` = `DARK` (hoa),
+    rồi `xanh`, rồi chuỗi rỗng. Mỗi lần tải lại: theme khớp nền hệ thống, **Console sạch** (không
+    lỗi, không cảnh báo), và Local Storage **vẫn còn nguyên** đúng giá trị rác đó — script đọc,
+    không ghi. Thử thêm ở **cửa sổ InPrivate** với cài đặt chặn cookie/site data: trang vẫn lên
+    bình thường, vẫn có `data-theme`, không có lỗi nào trong Console.
+17. **Không webfont, không request nào.** Tải lại với tab Network mở, xóa bộ lọc: chỉ có
+    `index.html`, `app/style.css` và các module dưới `app/`, **cộng một `/favicon.ico` 404** —
+    trình duyệt tự xin favicon dù trang không tham chiếu nó, nên dòng đó là bình thường và
+    không tính là vi phạm. Không `fonts.googleapis.com`, không CDN, không ảnh nào khác. Sau khi
+    trang ổn định, Network **không** ghi nhận thêm request nào. Kiểm phông
+    thật đang dùng: DevTools → Elements → chọn `<body>` → Computed → **Rendered Fonts** phải là
+    một phông hệ thống (`Segoe UI Variable Text` hoặc `Segoe UI`).
