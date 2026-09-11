@@ -8,9 +8,10 @@
 // Nên hai khóa dẫn xuất — `localStamp` (khóa sắp xếp) và `localDate` (khóa lọc ngày) — sinh ở
 // đúng module này, để `query.js` (Epic 6) và `backup.js` (Epic 4) không thể cắt chuỗi lệch nhau.
 //
-// `daysBetween` là chỗ DUY NHẤT trong toàn bộ mã được phép dựng một mốc thời gian, và nó dựng ở
-// UTC giữa trưa. `test/date-tap-trung.test.js` cưỡng chế điều đó bằng cách quét cả cây `app/`.
-// Story sau cần "hôm nay" thì thêm hàm VÀO ĐÂY, không tự chế tại chỗ.
+// Module này là chỗ DUY NHẤT trong toàn bộ mã được phép dựng một mốc thời gian — `daysBetween`
+// dựng ở UTC giữa trưa, `nowIso` đọc đồng hồ máy. `test/date-tap-trung.test.js` cưỡng chế điều
+// đó bằng cách quét cả cây `app/`. Story sau cần một mốc thời gian thì thêm hàm VÀO ĐÂY, không
+// tự chế tại chỗ.
 //
 // File này là `core/` thuần: chỉ import `./limits.js`, không chạm global trình duyệt.
 //
@@ -22,8 +23,11 @@
 import {
   LOCAL_DATE_CHARS,
   LOCAL_STAMP_CHARS,
+  MINUTES_PER_HOUR,
   MS_PER_DAY,
+  TIME_FIELD_CHARS,
   UTC_NOON_HOUR,
+  YEAR_CHARS,
 } from './limits.js';
 
 /** ISO-8601 có offset bắt buộc: `Z` hoặc `±HH:mm`. Phần giây lẻ là tùy chọn.
@@ -74,6 +78,52 @@ function ngayCoThat(ngay) {
     moc.getUTCMonth() === soThang - 1 &&
     moc.getUTCDate() === soNgay;
   return dungLich ? moc : null;
+}
+
+/** Đệm `0` cho đủ độ rộng một ô của mốc ISO. */
+function dem(so, doRong) {
+  return String(so).padStart(doRong, '0');
+}
+
+/**
+ * Thời điểm HIỆN TẠI dạng ISO-8601 có offset tại chỗ — `2026-09-03T16:40:12+07:00`.
+ *
+ * Đây là chỗ duy nhất trong repo được hỏi "bây giờ là mấy giờ", và giá trị nó trả về là thứ
+ * duy nhất được gán vào `createdAt` (AD-4, AD-13).
+ *
+ * KHÔNG dùng `toISOString()`: nó cho giờ UTC. `localDate` cắt 10 ký tự đầu, nên ở offset
+ * `+07:00` một ghi chú tạo lúc 00:30 sẽ mang khóa lọc của NGÀY HÔM TRƯỚC — sai đúng cái mà
+ * AD-4 sinh ra để chặn, và chỉ lộ ra ở gần nửa đêm.
+ *
+ * Giây lẻ bị cắt bỏ: `localStamp` lấy đúng 19 ký tự đầu, nên phần `.123` chỉ làm chuỗi dài
+ * thêm mà không vào khóa nào — giữ nó lại là để hai bản ghi trông khác nhau ở chỗ không ai
+ * so sánh.
+ *
+ * Dấu của offset ngược với trực giác: `getTimezoneOffset()` trả `-420` cho `+07:00`, vì nó đo
+ * "UTC lệch bao nhiêu so với giờ tại chỗ", không phải chiều ngược lại.
+ *
+ * @returns {string} Mốc hiện tại, khớp đúng hình dạng mà `localStamp`/`localDate` nhận.
+ */
+export function nowIso() {
+  const bayGio = new Date();
+  const lechPhut = -bayGio.getTimezoneOffset();
+  const dauLech = lechPhut < 0 ? '-' : '+';
+  const doLech = Math.abs(lechPhut);
+  const ngay = [
+    dem(bayGio.getFullYear(), YEAR_CHARS),
+    dem(bayGio.getMonth() + 1, TIME_FIELD_CHARS),
+    dem(bayGio.getDate(), TIME_FIELD_CHARS),
+  ].join('-');
+  const gio = [
+    dem(bayGio.getHours(), TIME_FIELD_CHARS),
+    dem(bayGio.getMinutes(), TIME_FIELD_CHARS),
+    dem(bayGio.getSeconds(), TIME_FIELD_CHARS),
+  ].join(':');
+  const lech = [
+    dem(Math.floor(doLech / MINUTES_PER_HOUR), TIME_FIELD_CHARS),
+    dem(doLech % MINUTES_PER_HOUR, TIME_FIELD_CHARS),
+  ].join(':');
+  return `${ngay}T${gio}${dauLech}${lech}`;
 }
 
 /**

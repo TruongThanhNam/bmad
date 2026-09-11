@@ -37,12 +37,30 @@
 // thành công thì im lặng; dải băng chỉ dành cho chuyện xấu, cộng đúng một ngoại lệ là kết
 // quả nạp file (AD-17).
 //
-// Story này dựng KHUNG cộng các action không cần cổng nào — khối điều kiện (AD-15). Luồng
-// ghi bền (chốt, sửa, xóa, bản nháp, nạp sao lưu) thuộc Story 1.6+; chúng đọc `ports` từ
-// closure của `taoStore`.
+// LUỒNG GHI CHUẨN sống ở đây, và đúng một lần (AD-8). Hai luồng, phân biệt được bằng thứ tự:
 //
-// Tệp này là `core/` thuần: chỉ import `../ports/index.js`, không chạm global trình duyệt.
+// - Thao tác đổi SỰ TỒN TẠI (thêm, xóa, và ở story sau là nạp file): ghi xuống kho TRƯỚC, đổi
+//   state SAU. Cổng từ chối thì state giữ nguyên và mẩu giấy không xuất hiện.
+// - TỰ LƯU nội dung đang gõ: state đổi NGAY theo từng phím (nếu không thì không gõ được),
+//   phép ghi đi sau với debounce `AUTOSAVE_MS` và một số đếm `seq` gác. Ghi hỏng thì KHÔNG
+//   hoàn tác chữ đã gõ — dải băng là thứ nói rằng chữ chưa an toàn.
+//
+// Cả hai đi qua đúng hai helper nội bộ dùng chung, và đó là điểm của story này: Epic 2 và
+// Epic 5 nối giao diện vào bốn action dưới đây chứ không dựng lại luồng của mình. Hai bản
+// luồng ghi thì nửa cứng của FR-19 ("không bao giờ giả vờ đã lưu") chỉ đúng ở một nửa.
+//
+// Ba trong bốn action chưa có giao diện nào gọi, và đó là đánh đổi đã chốt: thứ tự "ghi trước,
+// state sau" chỉ phân biệt được bằng một action CHẠY THẬT khi cổng từ chối, nên một helper
+// nội bộ không export sẽ biến AC đó thành lời hứa.
+//
+// Tệp này là `core/` thuần: chỉ import `../ports/index.js` và các module `core/` khác, không
+// chạm global trình duyệt. `crypto.randomUUID` thì có — nó không phải global của DOM, nó có ở
+// cả Node, và AD-13 chốt nó là nguồn duy nhất của `id`.
 
+import { MA_LOI } from './errors.js';
+import { fold } from './fold.js';
+import { AUTOSAVE_MS, MAX_NOTE_CHARS } from './limits.js';
+import { localDate, localStamp, nowIso } from './time.js';
 import { kiemTraPorts } from '../ports/index.js';
 
 /** Khóa ngày của khối điều kiện: `yyyy-MM-dd` và không gì khác (AD-4). Chỉ kiểm HÌNH DẠNG —
@@ -67,6 +85,57 @@ function laObjectThuan(giaTri) {
   if (!laObjectThuong(giaTri)) return false;
   const to = Object.getPrototypeOf(giaTri);
   return to === Object.prototype || to === null;
+}
+
+/**
+ * Mã dải băng cho một lỗi từ cổng.
+ *
+ * Lỗi không mang mã thuộc tập đóng AD-18 vẫn phải ra một mã thật: `DB` là mã của "kho hỏng,
+ * không biết hỏng thế nào", và nó đúng hơn mọi lựa chọn khác ở đây. Để `undefined` chảy vào
+ * `banner` thì view sẽ đi tra microcopy của một mã không tồn tại và `errors.js` ném.
+ *
+ * Xét theo GIÁ TRỊ của bảng, không theo khóa: `loi.code` mang giá trị (`'QUOTA'`), và một
+ * phép tra theo khóa tình cờ cũng đúng vì bảng ánh xạ tên sang chính nó — nhưng nó sẽ im lặng
+ * sai ở ngày đầu tiên có một mã mà tên và giá trị khác nhau.
+ */
+function maBanner(loi) {
+  const ma = loi == null ? undefined : loi.code;
+  return Object.values(MA_LOI).includes(ma) ? ma : MA_LOI.DB;
+}
+
+/** Sắp giảm dần theo `localStamp` — bất biến của `notes` trong RAM (AD-4, AD-6). */
+function sapGiamDan(danhSach) {
+  const theoKhoa = new Map(danhSach.map((mau) => [mau, localStamp(mau)]));
+  return [...danhSach].sort((x, y) => theoKhoa.get(y).localeCompare(theoKhoa.get(x)));
+}
+
+/**
+ * Bản ghi ghi chú MỚI — đúng năm trường của AD-13, object THUẦN.
+ *
+ * Hai trường dẫn xuất tính tại đây, không nhận từ bên ngoài: `localDate` từ `createdAt` qua
+ * `core/time.js`, `textFolded` từ `text` qua `core/fold.js`. `createdAt` là CHUỖI, không bao
+ * giờ là một mốc thời gian — `banSaoDongBang` ném với thứ không phải object thuần.
+ */
+function banGhiMoi(text) {
+  const createdAt = nowIso();
+  return {
+    id: crypto.randomUUID(),
+    createdAt,
+    localDate: localDate({ createdAt }),
+    text,
+    textFolded: fold(text),
+  };
+}
+
+/** Bản ghi sau một lần sửa nội dung: `id` và `createdAt` bất biến, hai trường dẫn xuất tính lại. */
+function banGhiSua(cu, text) {
+  return {
+    id: cu.id,
+    createdAt: cu.createdAt,
+    localDate: localDate(cu),
+    text,
+    textFolded: fold(text),
+  };
 }
 
 /**
@@ -184,8 +253,9 @@ function ngayHopLe(giaTri, giaTriCu) {
  * động, nêu đúng tên cổng và phương thức, thay vì nổ giữa một giao dịch đang ghi.
  *
  * @param {object} ports Năm cổng của `app/ports/`, do `app/main.js` nối vào.
- * @returns {{ state: object, datDieuKien: (partial: object) => void, xoaHetDieuKien: () => void }}
- *   Store với `state` chỉ đọc và các action. Story 1.6+ thêm action vào ĐÂY, không nơi khác.
+ * @returns {{ state: object, datDieuKien: Function, xoaHetDieuKien: Function, khoiDong:
+ *   Function, themGhiChu: Function, xoaGhiChu: Function, tuLuuNoiDung: Function }}
+ *   Store với `state` chỉ đọc và các action. Story sau thêm action vào ĐÂY, không nơi khác.
  */
 export function taoStore(ports) {
   kiemTraPorts(ports);
@@ -247,6 +317,170 @@ export function taoStore(ports) {
     datLai({ dieuKien: { keyword: null, date: null } });
   }
 
+  /**
+   * HELPER DÙNG CHUNG 1 — luồng "đổi sự tồn tại": ghi xuống kho TRƯỚC, đổi state SAU (AD-8).
+   *
+   * `dungNhanh` được gọi CHỈ KHI phép ghi đã chốt, và được gọi lúc đó chứ không trước: nó đọc
+   * khối nội bộ tại thời điểm ghi xong, nên hai action chạy chồng nhau không ghi đè kết quả
+   * của nhau bằng một ảnh chụp cũ.
+   *
+   * Lỗi KHÔNG ném ra ngoài: một cổng từ chối là chuyện của người dùng, và đường ra của nó là
+   * dải băng (AD-17). Ném thêm ra ngoài là bắt mọi chỗ gọi tự xử lý một lần nữa.
+   *
+   * Ghi thành công thì TẮT dải băng: AD-8 nói dải băng ở lại "cho tới khi một phép ghi sau đó
+   * thành công", nên một lần hết dung lượng không được đeo bám mọi thao tác về sau.
+   */
+  function ghiTruocDatSau(phepGhi, dungNhanh) {
+    return phepGhi().then(
+      () => {
+        datLai({ ...dungNhanh(), banner: null });
+      },
+      (loi) => {
+        datLai({ banner: maBanner(loi) });
+      },
+    );
+  }
+
+  /**
+   * HELPER DÙNG CHUNG 2 — luồng "tự lưu": state đã đổi rồi, phép ghi đi sau (AD-8).
+   *
+   * `seqCuaHen` là số đếm tại lúc hẹn được đặt. Hẹn nào nổ ra mà `editing.seq` đã tăng thì nó
+   * đang định ghi một chữ không còn trên màn hình — nó BỊ BỎ, và không chạm cổng.
+   *
+   * Không hủy hẹn cũ lúc đặt hẹn mới, có chủ ý: `seq` là cơ chế chính thức của AD-8, và nếu
+   * `clearTimeout` gánh phần đó thì phép gác `seq` không còn đường nào chạy qua — tức nó trở
+   * thành mã không ai kiểm, đúng lúc nó là thứ duy nhất chặn một hẹn sống dai ghi đè chữ mới.
+   */
+  function henGhiDiSau(seqCuaHen, dungBanGhi) {
+    setTimeout(() => {
+      if (noiBo.editing.seq !== seqCuaHen) return;
+      const banGhi = dungBanGhi();
+      // Mục tiêu đã biến mất khỏi kho trong RAM (bị xóa trong lúc chờ) — không hồi sinh nó.
+      if (banGhi === null) return;
+      ports.noteStore.put(banGhi).then(
+        () => {
+          // Cùng quy tắc với `ghiTruocDatSau`: một phép ghi thành công tắt dải băng (AD-8).
+          datLai({
+            notes: noiBo.notes.map((mau) => (mau.id === banGhi.id ? banGhi : mau)),
+            banner: null,
+          });
+        },
+        (loi) => {
+          datLai({ banner: maBanner(loi) });
+        },
+      );
+    }, AUTOSAVE_MS);
+  }
+
+  /**
+   * Nạp toàn bộ ghi chú từ kho bền vào RAM, sắp giảm dần theo `localStamp` (AD-6).
+   *
+   * Sắp xếp ở ĐÂY chứ không tin thứ tự của kho: chữ ký cổng nói rõ thứ tự trả về không đáng
+   * tin, và `localStamp` là khóa sắp xếp duy nhất (AD-4).
+   *
+   * Nạp hỏng thì `notes` giữ `[]` và dải băng mang mã của lỗi — không ném ra ngoài, vì chỗ
+   * gọi duy nhất là lúc khởi động và ở đó không có ai bắt.
+   */
+  function khoiDong() {
+    return ports.noteStore.readAll().then(
+      (danhSach) => {
+        try {
+          datLai({ notes: sapGiamDan(danhSach) });
+        } catch {
+          // Một bản ghi mang `createdAt` rác: kho đọc được nhưng không dùng được. Cùng một
+          // đường ra với lỗi kho, vì với người dùng thì đó là cùng một chuyện.
+          datLai({ banner: MA_LOI.DB });
+        }
+      },
+      (loi) => {
+        datLai({ banner: maBanner(loi) });
+      },
+    );
+  }
+
+  /**
+   * Thêm một ghi chú mới: ghi xuống kho trước, rồi đưa nó lên đầu `notes`.
+   *
+   * Chuỗi rỗng hay chỉ khoảng trắng là "không có gì để thêm", không phải lỗi: không chạm cổng,
+   * không đổi state, không dải băng. Quá trần thì dải băng `TOO_LONG` và cổng KHÔNG bị gọi —
+   * trần là ràng buộc của lõi, chặn ở cửa vào (AD-14).
+   *
+   * @param {string} text Nội dung người dùng gõ, nguyên trạng.
+   * @returns {Promise<void>} Hoàn tất khi state đã phản ánh kết quả — không bao giờ bị từ chối.
+   */
+  function themGhiChu(text) {
+    if (typeof text !== 'string') {
+      throw new TypeError(`themGhiChu nhận text là chuỗi, nhận được ${moTa(text)}`);
+    }
+    if (text.trim() === '') return Promise.resolve();
+    if (text.length > MAX_NOTE_CHARS) {
+      datLai({ banner: MA_LOI.TOO_LONG });
+      return Promise.resolve();
+    }
+    const banGhi = banGhiMoi(text);
+    return ghiTruocDatSau(
+      () => ports.noteStore.put(banGhi),
+      // Sắp lại chứ không chỉ chèn lên đầu: mẩu mới thường là mẩu mới nhất, nhưng "thường"
+      // không phải bất biến — đồng hồ máy lùi lại, hay một bản ghi nạp từ file sao lưu (Epic
+      // 4) mang mốc tương lai, đều để lại một mảng lệch thứ tự mà không ai thấy.
+      () => ({ notes: sapGiamDan([banGhi, ...noiBo.notes]) }),
+    );
+  }
+
+  /**
+   * Xóa một ghi chú: rút khỏi kho trước, rồi mới rút khỏi `notes`.
+   *
+   * `id` không có trong RAM thì không chạm cổng: kho là nguồn sự thật cho phép ghi, nhưng một
+   * `id` lạ ở đây là lỗi của chỗ gọi, và một lệnh xóa gửi xuống kho cho một bản ghi không tồn
+   * tại thành công trong im lặng — tức nó sẽ trông như đã làm gì.
+   *
+   * @param {string} id Định danh ghi chú cần xóa.
+   * @returns {Promise<void>} Hoàn tất khi state đã phản ánh kết quả — không bao giờ bị từ chối.
+   */
+  function xoaGhiChu(id) {
+    if (typeof id !== 'string') {
+      throw new TypeError(`xoaGhiChu nhận id là chuỗi, nhận được ${moTa(id)}`);
+    }
+    if (!noiBo.notes.some((mau) => mau.id === id)) return Promise.resolve();
+    return ghiTruocDatSau(
+      () => ports.noteStore.remove(id),
+      () => ({ notes: noiBo.notes.filter((mau) => mau.id !== id) }),
+    );
+  }
+
+  /**
+   * Tự lưu nội dung đang sửa của một ghi chú: `editing` đổi NGAY, phép ghi đi sau (AD-8).
+   *
+   * Trả về đồng bộ — hẹn ghi không đi vào giá trị trả về, vì chỗ gọi là một sự kiện bàn phím
+   * và nó không có gì để đợi. Kết quả của phép ghi hiện ra ở state: hoặc `notes` đổi, hoặc
+   * dải băng bật lên. Chữ trong `editing.text` thì không bao giờ bị hoàn tác.
+   *
+   * @param {string} id Định danh ghi chú đang sửa.
+   * @param {string} text Nội dung vừa gõ.
+   * @returns {void}
+   */
+  function tuLuuNoiDung(id, text) {
+    if (typeof id !== 'string') {
+      throw new TypeError(`tuLuuNoiDung nhận id là chuỗi, nhận được ${moTa(id)}`);
+    }
+    if (typeof text !== 'string') {
+      throw new TypeError(`tuLuuNoiDung nhận text là chuỗi, nhận được ${moTa(text)}`);
+    }
+    // Trần chặn ở MỌI cửa vào, không chỉ ở cửa thêm mới (AD-14): cửa sửa cũng ghi vào cùng
+    // một store, nên một cửa không chặn là trần không tồn tại.
+    if (text.length > MAX_NOTE_CHARS) {
+      datLai({ banner: MA_LOI.TOO_LONG });
+      return;
+    }
+    const seqMoi = noiBo.editing.seq + 1;
+    datLai({ editing: { id, text, seq: seqMoi } });
+    henGhiDiSau(seqMoi, () => {
+      const cu = noiBo.notes.find((mau) => mau.id === id);
+      if (cu === undefined) return null;
+      return banGhiSua(cu, text);
+    });
+  }
+
   // Đóng băng chính store: gán thêm một action từ bên ngoài là dựng đường đổi state thứ hai.
   return Object.freeze({
     get state() {
@@ -254,5 +488,9 @@ export function taoStore(ports) {
     },
     datDieuKien,
     xoaHetDieuKien,
+    khoiDong,
+    themGhiChu,
+    xoaGhiChu,
+    tuLuuNoiDung,
   });
 }

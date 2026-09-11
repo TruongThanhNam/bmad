@@ -55,6 +55,19 @@ export const UTC_NOON_HOUR = 12;
  *  `core/time.js` chia hiệu hai mốc cho hằng này. */
 export const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
+/** Số phút một giờ — `core/time.js` tách offset múi giờ (tính bằng phút) thành `±HH:mm`.
+ *  Nó là hằng của lịch, không phải một ngưỡng chỉnh được, nhưng AD-14 không chừa ngoại lệ
+ *  cho số literal nào ngoài `0`/`1`, nên nó sống ở đây như mọi con số khác. */
+export const MINUTES_PER_HOUR = 60;
+
+/** Độ rộng một ô của mốc thời gian ISO — tháng, ngày, giờ, phút, giây và cả hai nửa của
+ *  offset đều đệm `0` cho đủ hai chữ số. `core/time.js` tiêu thụ. */
+export const TIME_FIELD_CHARS = 2;
+
+/** Độ rộng ô năm của mốc thời gian ISO — bốn chữ số, đệm `0` cho năm nhỏ hơn 1000 để hình
+ *  dạng chuỗi không bao giờ ngắn đi. `core/time.js` tiêu thụ. */
+export const YEAR_CHARS = 4;
+
 /** Phiên bản app, bump TAY ở mọi lần deploy (AD-21, checklist trong README).
  *  AD-21 chỉ so bằng nhau: tab thấy giá trị khác của mình thì vào chế độ chỉ đọc. */
 export const APP_VERSION = '0.1.0';

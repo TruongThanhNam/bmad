@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { daysBetween, localDate, localStamp } from '../app/core/time.js';
+import { describe, expect, it, vi } from 'vitest';
+import { daysBetween, localDate, localStamp, nowIso } from '../app/core/time.js';
 
 // Độ dài ghim bằng số literal chứ không bằng hằng của `limits.js`: so khóa với chính hằng mà
 // mã dùng để cắt thì đổi hằng cũng vẫn xanh. Test không bị `nguong-tap-trung` quét.
@@ -15,6 +15,52 @@ describe('core/time.js — localStamp', () => {
 
   it('giây lẻ và offset Z vẫn ra đúng 19 ký tự', () => {
     expect(localStamp({ createdAt: '2026-09-03T16:40:12.345Z' })).toBe('2026-09-03T16:40:12');
+  });
+});
+
+describe('core/time.js — nowIso', () => {
+  // Hình dạng ghim bằng regex viết lại tại chỗ, không import `MAU_CREATED_AT`: so một chuỗi
+  // với chính cái regex mà mã dùng để kiểm nó thì nới regex cũng vẫn xanh.
+  const MAU = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/;
+
+  it('khớp đúng hình dạng ISO-8601 có offset tại chỗ, không giây lẻ, không Z', () => {
+    expect(nowIso()).toMatch(MAU);
+  });
+
+  it('offset là offset THẬT của múi giờ, đúng dấu và đúng phần phút', () => {
+    // `vitest.config.js` ghim suite ở `Asia/Kolkata` = `+05:30`. Múi lệch nửa giờ là chỗ duy
+    // nhất phân biệt được `giờ` với `phút`, và dấu dương phân biệt được với dấu âm — trên một
+    // máy chạy ở UTC thì cả hai cách viết sai đều ra `+00:00` và không test nào thấy.
+    expect(process.env.TZ).toBe('Asia/Kolkata');
+    expect(nowIso().slice(-6)).toBe('+05:30');
+  });
+
+  it('localStamp và localDate nhận được nó — không ném, và đúng độ dài', () => {
+    const note = { createdAt: nowIso() };
+    expect(() => localStamp(note)).not.toThrow();
+    expect(localStamp(note)).toHaveLength(19);
+    expect(localDate(note)).toHaveLength(10);
+    // Hai khóa phải là hai tiền tố của cùng một chuỗi — nếu không thì chúng đến từ hai mốc.
+    expect(localStamp(note).startsWith(localDate(note))).toBe(true);
+  });
+
+  it('daysBetween nhận được khóa ngày dẫn xuất từ nó', () => {
+    const homNay = localDate({ createdAt: nowIso() });
+    expect(daysBetween(homNay, homNay)).toBe(0);
+  });
+
+  it('đọc đồng hồ máy chứ không trả một hằng — mốc giả lập đi vào kết quả', () => {
+    // Giờ TẠI CHỖ, không phải UTC: `toISOString()` sẽ cho '2026-09-03T17:40:12.000Z' ở đây.
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date('2026-09-03T16:40:12.345+07:00'));
+      const mocGiaLap = nowIso();
+      expect(mocGiaLap).toMatch(MAU);
+      // Không ghim múi giờ của máy chạy test — nhưng mốc tuyệt đối thì phải khớp.
+      expect(new Date(mocGiaLap).getTime()).toBe(new Date('2026-09-03T16:40:12+07:00').getTime());
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 

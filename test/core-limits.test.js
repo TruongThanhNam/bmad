@@ -18,6 +18,9 @@ const MONG_DOI = {
   LOCAL_DATE_CHARS: 10,
   UTC_NOON_HOUR: 12,
   MS_PER_DAY: 86400000,
+  MINUTES_PER_HOUR: 60,
+  TIME_FIELD_CHARS: 2,
+  YEAR_CHARS: 4,
 };
 
 // `APP_VERSION` cố tình KHÔNG bị ghim giá trị: README bắt bump nó ở mọi lần deploy, nên
