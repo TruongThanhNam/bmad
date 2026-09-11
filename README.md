@@ -92,6 +92,25 @@ file/thư mục bắt đầu bằng `_`. File rỗng `.nojekyll` ở gốc tắt
 `app/adapters/` không có test tự động — chúng mỏng theo thiết kế và bằng chứng duy nhất là
 danh sách thử tay dưới đây. Các story sau bổ sung thêm mục vào danh sách này.
 
+**Mục 10-13 (bản nháp) chạy được bằng máy:**
+
+```bash
+npm run thu-tay
+```
+
+Lệnh này tự dựng một HTTP server tĩnh và lái một **Edge/Chrome thật** ở chế độ headless qua
+CDP, trên một hồ sơ tạm — không cài thêm gói nào, không đụng dữ liệu trình duyệt của bạn. Cần
+Edge hoặc Chrome; nằm chỗ khác thì đặt `GHICHU_BROWSER` trỏ tới tệp thực thi. Mất khoảng một
+phút, phần lớn là chờ hết `DRAFT_STALE_MS`. Thoát khác `0` nếu có mục nào hỏng.
+
+Nó **không** phá luật "adapter không có test tự động": lý do gốc của luật đó là tránh dựng một
+trình duyệt **giả**, mà một kho giả thì nghiệm thu được mọi thứ trừ đúng thứ cần nghiệm thu —
+tính nguyên tử của một giao dịch thật, và hành vi thật của kho phạm vi phiên qua một lần tải
+lại. Bộ đo này không giả lập gì cả. Nó cũng không nằm trong `npm test` (`vitest.config.js` chỉ
+gom `test/**/*.test.js`), vì nó cần một trình duyệt trên máy.
+
+Các mục còn lại vẫn phải làm tay theo mô tả bên dưới.
+
 Chạy hết danh sách trên một HTTP server ở `localhost` (không phải `file://`), với DevTools mở.
 Trong Console, `store` không được export ra `window` — dùng ô nhập của giao diện khi đã có, và
 trước đó thì gọi qua `import('./app/main.js')` trong Console.
