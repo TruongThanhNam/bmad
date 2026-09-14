@@ -23,6 +23,7 @@ import { taoSessionStore } from './adapters/localstorage.js';
 import { DRAFT_BEAT_MS } from './core/limits.js';
 import { taoStore } from './core/state.js';
 import { PORT_METHODS } from './ports/index.js';
+import { noiBanner } from './view/banner.js';
 import { noiLuoi } from './view/luoi.js';
 import { noiOSoan } from './view/o-soan.js';
 import { noiTieuDe } from './view/tieu-de.js';
@@ -76,12 +77,38 @@ if (typeof document !== 'undefined') {
   // của hôm nay bất kể điều kiện đang bật, còn lưới thì vẽ đúng tập ĐANG hiển thị. Hai câu
   // hỏi khác nhau, nên hai tệp — và chúng không import nhau, chỉ file này biết cả hai.
   const tieuDe = noiTieuDe(store, document);
-  // Một callback vẽ chung cho cả hai view: đây là chỗ DUY NHẤT biết rằng "vẽ lại" nghĩa là
-  // vẽ lại cả hai. Treo riêng từng cái vào từng điểm nối là cách một view mới bị quên ở một
+  // Dải băng là view THỨ BA, và nó vẽ từ đúng MỘT giá trị state (`banner`) — nên nó không
+  // biết gì về lưới lẫn tiêu đề, và ngược lại. Nút `✕` gọi action đóng của lõi rồi gọi lại
+  // lượt vẽ chung, đúng khuôn `sauKhiChot` của `o-soan.js`.
+  //
+  // Callback là một hàm khai ở đây chứ không phải thẳng `veTatCa`: `veTatCa` được khai ngay bên
+  // dưới và nó phải gọi được `banner.ve`, nên hai thứ tham chiếu vòng lại nhau — một lớp bọc
+  // lười là cách duy nhất không phải tách lượt vẽ của dải băng ra khỏi lượt vẽ chung. Và nó
+  // còn làm một việc thứ hai mà chỉ file này biết cách làm: TRẢ FOCUS.
+  //
+  // Nút `✕` tự gỡ mình khỏi DOM ở đúng lượt vẽ do nó gây ra, và một phần tử đang focus bị gỡ
+  // đi thì focus rơi về `<body>` — người dùng bàn phím mất chỗ đứng, và `Tab` tiếp theo bắt
+  // đầu lại từ đầu trang. Sản phẩm cố ý KHÔNG có phím tắt, nên bàn phím là đường duy nhất và
+  // nó không được đứt. Ô soạn thảo là chỗ trả về đúng: nó là tầng 1, là thứ `autofocus` của
+  // `index.html` đã chọn lúc tải, và là chỗ Nam đang làm việc.
+  //
+  // `view/banner.js` KHÔNG được biết tới ô soạn thảo: hai view không biết nhau, chỉ file này
+  // biết cả bốn. Chuỗi `'o-soan'` vì thế bị viết lần thứ hai ở đây (`index.html` mang bản đầu),
+  // đúng khuôn trùng lặp có ý thức mà AD-19 cho phép.
+  const ID_O_SOAN = 'o-soan';
+  const dongRoiVe = () => {
+    veTatCa();
+    const o = document.getElementById(ID_O_SOAN);
+    if (o !== null) o.focus();
+  };
+  const banner = noiBanner(store, document, dongRoiVe);
+  // Một callback vẽ chung cho cả ba view: đây là chỗ DUY NHẤT biết rằng "vẽ lại" nghĩa là
+  // vẽ lại cả ba. Treo riêng từng cái vào từng điểm nối là cách một view mới bị quên ở một
   // trong hai chỗ, và tiêu đề sẽ đứng yên sau lần chốt mà không làm gì đỏ cả.
   const veTatCa = () => {
     luoi.ve();
     tieuDe.ve();
+    banner.ve();
   };
   // `notes` nạp BẤT ĐỒNG BỘ, nên lượt vẽ đầu tiên phải chờ kho trả lời — vẽ ngay ở đây chỉ
   // dựng lại một mảng rỗng và nháy một con số sai lên thanh tab. Không có cơ chế subscribe

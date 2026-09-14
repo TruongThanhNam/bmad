@@ -147,6 +147,69 @@ body {
   box-sizing: border-box;
 }
 
+/* ── Dải băng thông báo (Story 3.1) ──────────────────────────────────────────────────────
+ *
+ * Nó là con ĐẦU của `body` và `flex: none`, nên nó ĐẨY ba tầng dưới xuống chứ không phủ lên
+ * (UX-DR-17): `.khung` là `flex: 1` và tự co, và trang vẫn không mọc thanh cuộn ngoài.
+ *
+ * `:empty` là toàn bộ phép "không có thông báo thì không chiếm chỗ". Không có nó thì nền, lề
+ * và đường viền dưới vẫn vẽ ra một dải mỏng ở đỉnh trang mọi lúc — `app/view/banner.js` để
+ * lại một phần tử KHÔNG CÓ CON khi `state.banner` rỗng, và đây là chỗ duy nhất biết điều đó
+ * có nghĩa gì. (Vì thế thẻ trong `index.html` không được có một khoảng trắng nào bên trong.)
+ *
+ * Đúng MỘT hình dạng cho cả bảy nguồn: không biến thể màu theo loại lỗi, và KHÔNG BÓNG —
+ * `--chip-bg` cộng một viền dưới là cách nó tách khỏi nền bàn, cùng cách khay tìm kiếm tách.
+ * Một biến thể `--danger` cho lỗi nặng là cách bảng bảy nguồn lặng lẽ thành bảy thành phần,
+ * và cặp `--danger` trên `--chip-bg` ở bản dark chỉ còn 4.55:1.
+ */
+
+.dai-bang {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--page-gutter);
+  border-block-end: 1px solid var(--rule);
+  background: var(--chip-bg);
+}
+
+/* Rỗng thì thu về chiều cao 0 — nhưng phần tử VẪN được render, và đó là điều kiện chứ không
+ * phải thẩm mỹ: `display: none` (và `visibility: hidden`) rút vùng `aria-live` ra khỏi cây trợ
+ * năng, nên thông báo ĐẦU TIÊN chèn vào thường không được đọc lên. Vùng sống phải có mặt
+ * TRƯỚC khi nội dung tới, và ở đây nó luôn có mặt — chỉ là cao 0, không viền, không lề. */
+
+.dai-bang:empty {
+  block-size: 0;
+  padding-block: 0;
+  border-block-end: 0;
+  overflow: hidden;
+}
+
+/* Chữ lấy vai `ui`, không vai `note`: nó là câu của sản phẩm, không phải chữ của Nam. Nó cũng
+ * dùng `--ink` chứ không `--ink-2` — một thông báo không phải chú thích mờ. */
+
+.dai-bang-chu {
+  flex: 1;
+  color: var(--ink);
+  font: var(--font-ui);
+}
+
+/* Nút `✕` LUÔN hiện khi hàng đóng được, không hover-only: một điều khiển chỉ xuất hiện khi
+ * chuột đi ngang qua là một điều khiển không tồn tại với bàn phím. Cởi bỏ trang phục mặc định
+ * của `<button>` nhưng KHÔNG đụng tới `outline` — focus ring giữ nguyên của trình duyệt. */
+
+.dai-bang-dong {
+  flex: none;
+  /* Vùng bấm THẬT, không đúng một ký tự: `✕` cao chừng một dòng chữ nhỏ, và một mục tiêu cỡ đó
+   * là mục tiêu trượt tay. Đệm bằng token khoảng cách, không bằng một con số. */
+  padding: var(--space-1) var(--space-2);
+  cursor: pointer;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font: var(--font-ui);
+}
+
 /* ── Bốn tầng cố định trên nền bàn (Story 2.1) ───────────────────────────────────────────
  *
  * Chiều cao khung nhìn là trục của cả bố cục: `body` là một cột dọc cao đúng một màn hình,

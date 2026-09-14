@@ -1426,3 +1426,131 @@ describe('app/main.js — điểm nối duy nhất, chạy được thật', () 
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Phép gác ưu tiên dải băng, và action đóng (Story 3.1)
+//
+// Luật ưu tiên của AD-17 là bất biến của ĐƯỜNG GHI, không của đường vẽ: view không giữ state
+// riêng nên nó không có gì để so. `test/banner.test.js` nghiệm thu bảng và hàm thuần; ở đây là
+// nửa mà chỉ tệp này trả lời được — phép gác nằm trong `datLai`, nên nó đúng cho CẢ 14 chỗ đặt
+// `banner` và cho mọi chỗ một epic sau viết thêm.
+// ---------------------------------------------------------------------------
+
+/** Store với `banner` đã ở một mã cho trước, đặt qua một action THẬT (không gán vào state). */
+function storeVoiBanner(ma) {
+  const ports = portsDay();
+  const loi = new Error('lỗi thô của trình duyệt');
+  loi.code = ma;
+  ports.noteStore = { ...ports.noteStore, readAll: () => Promise.reject(loi) };
+  const store = taoStore(ports);
+  return store.khoiDong().then(() => store);
+}
+
+describe('dải băng — phép gác ưu tiên ở tầng ghi', () => {
+  it('ưu tiên thấp KHÔNG đè được ưu tiên cao đang hiện, nhưng nhánh khác của cùng lời gọi vẫn vào', async () => {
+    const store = await storeVoiBanner(MA_LOI.QUOTA);
+    const dai = 'x'.repeat(MAX_NOTE_CHARS + 1);
+    // `datBanNhap` quá trần đặt `draft` VÀ `banner: TOO_LONG` trong một `datLai`. Thông báo bị
+    // từ chối (ưu tiên 5 < ưu tiên 2), nhưng chữ vừa gõ không bao giờ bị bỏ vì chuyện đó.
+    store.datBanNhap(dai);
+    expect(store.state.banner).toBe(MA_LOI.QUOTA);
+    expect(store.state.draft.text).toBe(dai);
+  });
+
+  it('ưu tiên cao THAY được ưu tiên thấp đang hiện — trên CÙNG một store', async () => {
+    // MỘT store, hai phép ghi hỏng liên tiếp. Hai store riêng không nghiệm thu được gì: store
+    // thứ hai bắt đầu với `banner` rỗng, nên nhánh CHẤP NHẬN của `thayDuoc` không bao giờ chạy
+    // — một phép gác "đã có banner thì không gì thay được" vẫn đi qua ca đó mà xanh.
+    const ports = portsDay();
+    let ma = MA_LOI.TOO_LONG;
+    ports.noteStore = { ...ports.noteStore, readAll: () => Promise.reject(loiUngDung(ma)) };
+    const store = taoStore(ports);
+    await store.khoiDong();
+    expect(store.state.banner).toBe(MA_LOI.TOO_LONG);
+
+    ma = MA_LOI.QUOTA;
+    await store.khoiDong();
+    expect(store.state.banner).toBe(MA_LOI.QUOTA);
+  });
+
+  it('cùng mức ưu tiên: cái mới thay cái cũ — hai lần cùng một chuyện thì lần sau là lần đang xảy ra', async () => {
+    // `<=` chứ không `<` trong `thayDuoc`, và đây là ca duy nhất phân biệt được hai cách viết
+    // đó ở tầng ghi. Hai mã của CÙNG một hàng (hàng 4 của AD-17) nên phép đặt sau phải đi qua,
+    // và giá trị đổi là bằng chứng quan sát được — cùng một mã thì không phân biệt nổi.
+    const ports = portsDay();
+    let ma = MA_LOI.BAD_FILE;
+    ports.noteStore = { ...ports.noteStore, readAll: () => Promise.reject(loiUngDung(ma)) };
+    const store = taoStore(ports);
+    await store.khoiDong();
+    expect(store.state.banner).toBe(MA_LOI.BAD_FILE);
+
+    ma = MA_LOI.BAD_VERSION;
+    await store.khoiDong();
+    expect(store.state.banner).toBe(MA_LOI.BAD_VERSION);
+  });
+
+  it('XÓA CHỦ ĐÍCH đi qua phép gác: một phép ghi thành công tắt cả dải băng không đóng được (AD-8)', async () => {
+    // Đây là nửa mà phép gác dễ phá nhất: chặn `banner: null` thì `QUOTA` đeo bám mọi thao tác
+    // về sau và không có đường nào tắt nó ngoài tải lại trang.
+    const ports = portsDay();
+    let hong = true;
+    ports.sessionStore = {
+      ...ports.sessionStore,
+      tabIdentity: () => 'tab-nay',
+      writeTabIdentity: () => {},
+    };
+    ports.noteStore = {
+      ...ports.noteStore,
+      readAll: () => Promise.resolve([]),
+      claimDraft: (yeuCau) => Promise.resolve({ tabId: yeuCau.tabId, text: '' }),
+      putDraft: () => (hong ? Promise.reject(loiUngDung(MA_LOI.QUOTA)) : Promise.resolve()),
+    };
+    const store = taoStore(ports);
+    await store.khoiDong();
+    await store.khoiDongBanNhap();
+
+    vi.useFakeTimers();
+    try {
+      store.datBanNhap('phở');
+      await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
+      await Promise.resolve();
+      expect(store.state.banner).toBe(MA_LOI.QUOTA);
+
+      hong = false;
+      store.datBanNhap('phở bò');
+      await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
+      await Promise.resolve();
+      expect(store.state.banner).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('dongDaiBang — đường của nút ✕', () => {
+  it('hàng đóng được: banner về rỗng', async () => {
+    const store = await storeVoiBanner(MA_LOI.TOO_LONG);
+    store.dongDaiBang();
+    expect(store.state.banner).toBeNull();
+  });
+
+  it('ba hàng đầu KHÔNG đóng được: action không làm gì cả', async () => {
+    for (const ma of [MA_LOI.VERSION_SKEW, MA_LOI.QUOTA, MA_LOI.DB]) {
+      const store = await storeVoiBanner(ma);
+      store.dongDaiBang();
+      expect(store.state.banner).toBe(ma);
+    }
+  });
+
+  it('không có gì đang hiện: không ném, không đổi gì', () => {
+    const store = taoStore(portsDay());
+    expect(() => store.dongDaiBang()).not.toThrow();
+    expect(store.state.banner).toBeNull();
+  });
+
+  it('nó là một action của store đã đông lạnh, không một đường đổi state thứ hai', () => {
+    const store = taoStore(portsDay());
+    expect(typeof store.dongDaiBang).toBe('function');
+    expect(Object.isFrozen(store)).toBe(true);
+  });
+});

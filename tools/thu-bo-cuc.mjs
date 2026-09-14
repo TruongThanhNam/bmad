@@ -55,6 +55,29 @@ const DO_CUON = `
   };
 `;
 
+/** Bơm một câu vào phần tử chủ của dải băng TỪ NGOÀI mã sản phẩm — cùng quy ước `BOM_O`. */
+const BOM_DAI_BANG = `
+  const b = document.querySelector('.dai-bang');
+  const s = document.createElement('span');
+  s.className = 'dai-bang-chu';
+  s.textContent = 'bộ đo bố cục — dải băng đang chiếm chỗ';
+  b.replaceChildren(s);
+  return Math.round(b.getBoundingClientRect().height);
+`;
+
+/** Chiều cao dải băng, đỉnh của `<main class="khung">`, đáy chân trang và khung nhìn — đủ để
+ *  phân biệt "đẩy xuống" với "phủ lên": phủ lên thì đỉnh `.khung` KHÔNG nhúc nhích. */
+const DO_DAI_BANG = `
+  const goc = document.documentElement;
+  return {
+    caoBang: Math.round(document.querySelector('.dai-bang').getBoundingClientRect().height),
+    dinhKhung: Math.round(document.querySelector('.khung').getBoundingClientRect().top),
+    dayChan: Math.round(document.querySelector('.tang-chan').getBoundingClientRect().bottom),
+    khungNhin: window.innerHeight,
+    cuonTrang: goc.scrollHeight - goc.clientHeight > 1 || document.body.scrollHeight - document.body.clientHeight > 1,
+  };
+`;
+
 /** Vị trí đỉnh của ba tầng không cuộn, để so trước/sau khi cuộn lưới. */
 const DOC_MOC = `
   const dinh = (s) => Math.round(document.querySelector(s).getBoundingClientRect().top);
@@ -228,6 +251,40 @@ try {
       d.soO === 0 && d.caoLuoi > 0 && Math.abs(d.dayChan - d.khungNhin) <= 1,
       JSON.stringify(d),
     );
+  }
+
+  // ── Dải băng ĐẨY ba tầng xuống, không phủ lên (Story 3.1) ───────────────────────────
+  //
+  // Vì sao không phải một ca Vitest: "đẩy xuống chứ không phủ lên" là một câu hỏi về LAYOUT ĐÃ
+  // TÍNH. Quét văn bản chỉ kiểm được rằng ta đã KHAI BÁO `flex: none` — nó không phân biệt nổi
+  // một `position: fixed` thêm vào ở cuối `style.css`, và cái đó phủ lên đúng tầng 1.
+  //
+  // Nội dung bơm vào từ NGOÀI mã sản phẩm, đúng khuôn `BOM_O`: bốn trong bảy nguồn của bảng
+  // chưa có người phát, và ca này hỏi về bố cục chứ không về đường phát.
+  {
+    await datKhungNhin(1280, 700);
+    await cdp.chay(tab.sessionId, BOM_O(6));
+    await nghi(100);
+    const truoc = await cdp.chay(tab.sessionId, DO_DAI_BANG);
+    await cdp.chay(tab.sessionId, BOM_DAI_BANG);
+    await nghi(100);
+    const sau = await cdp.chay(tab.sessionId, DO_DAI_BANG);
+    const daDay = sau.dinhKhung - truoc.dinhKhung;
+    ghi(
+      'dải băng hiện ra: ĐẨY ba tầng xuống đúng chiều cao của nó, chân trang vẫn trong khung nhìn',
+      truoc.caoBang === 0 &&
+        sau.caoBang > 0 &&
+        Math.abs(daDay - sau.caoBang) <= 1 &&
+        sau.dayChan <= sau.khungNhin + 1 &&
+        !sau.cuonTrang,
+      `cao ${truoc.caoBang}→${sau.caoBang} · đỉnh .khung đẩy ${daDay}px · đáy chân ${sau.dayChan}/${sau.khungNhin} · cuộn trang=${sau.cuonTrang}`,
+    );
+    // Dọn: mọi phép đo sau đây đo một trang KHÔNG có dải băng, như mọi lần trước.
+    await cdp.chay(
+      tab.sessionId,
+      `document.querySelector('.dai-bang').replaceChildren(); return true;`,
+    );
+    await nghi(100);
   }
 
   // ── Khung nhìn hẹp nhất: không tràn ngang ───────────────────────────────────────────

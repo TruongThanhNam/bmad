@@ -370,3 +370,32 @@ không với tới: kho bền qua một lần tải lại, và ranh giới ngày
     Ca biên đã nhận có ý thức: để tab mở qua **00:00** rồi chốt một mẩu. Lượt vẽ đó tính lại
     "hôm nay", nên mẩu mới hiện ra và **mọi mẩu hôm qua biến mất cùng lúc** khỏi lưới. Dữ liệu
     vẫn còn trong kho — chúng chỉ ra khỏi khung nhìn. Không có hẹn giờ nửa đêm nào.
+
+### Dải băng thông báo — hai mục phải làm bằng mắt (Story 3.1)
+
+`npm test` đã ghim bảng bảy nguồn, phép gác ưu tiên và lượt vẽ; `npm run thu-bo-cuc` đã ghim
+rằng trang không mọc thanh cuộn ngoài. Còn lại đúng hai thứ chỉ mắt trả lời được: hình dạng ở
+cả hai bảng màu, và "đẩy xuống chứ không phủ lên".
+
+24. **Một hình dạng cho mọi hàng, và `✕` chỉ ở hàng đóng được.** Mở trang qua HTTP localhost
+    (mục 1), rồi ép dải băng sang một hàng ĐÓNG ĐƯỢC bằng đúng đường của người dùng: dán hơn
+    20.000 ký tự vào ô soạn thảo (`copy('x'.repeat(20001))` trong Console rồi `Ctrl+V`) và bấm
+    `Ctrl+Enter` — hàng 5, `TOO_LONG`.
+
+    Ghi chép có ý thức: dải băng vẽ lại ở lượt vẽ chung, và lượt vẽ chung chạy sau khi **chốt**
+    chứ không sau mỗi phím gõ (một lượt vẽ cả lưới mỗi phím là trần 200 ms của NFR-2). Nên gõ
+    quá trần mà chưa bấm `Ctrl+Enter` thì `state.banner` đã đổi nhưng dải băng chưa hiện.
+
+    Dải băng hiện ở **đỉnh trang**, nền `--chip-bg`, một đường viền dưới, **không bóng**, chữ
+    là **nguyên văn microcopy tiếng Việt** — không bao giờ một chuỗi tiếng Anh của trình duyệt.
+    Ba tầng dưới **bị đẩy xuống** chứ không bị phủ, và trang vẫn **không có** thanh cuộn ngoài.
+    Bấm `✕`: dải băng biến mất, và vùng đó **không chiếm một điểm ảnh chiều cao** nào.
+
+    Rồi ép một hàng **không đóng được** — DevTools → Application → IndexedDB → xóa kho `ghichu`
+    rồi tải lại (mục 4 và 6 làm đúng việc đó): dải băng `DB` hiện ra **không có** nút `✕`. Đây
+    cũng là mục kiểm ưu tiên: với `DB` (hàng 3) đang hiện, gõ quá trần như trên — `TOO_LONG`
+    (hàng 5) **không** được thay chỗ nó.
+
+25. **Hai theme đều đọc được.** Với dải băng đang hiện, đổi `ghichu.theme` giữa `light` và
+    `dark` (mục 14) rồi tải lại: chữ trên `--chip-bg` đọc được ở **cả hai** bảng màu, và dấu
+    `✕` (màu `--ink-2`) vẫn thấy rõ. Tab vào nút `✕`: **focus ring còn nguyên** ở cả hai theme.

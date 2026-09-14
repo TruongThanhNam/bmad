@@ -51,6 +51,27 @@
     `app/view/o-soan.js`. Ô tìm, ô ngày, hai link chân trang và nút theme vẫn là hình dạng
     thuần; hành vi của chúng thuộc Epic 6 (tra cứu), Story 4.1 (sao lưu) và Story 3.3 (theme).
   -->
+  <!--
+    Dải băng thông báo (Story 3.1), và nó ở NGOÀI `<main>` có lý do: nó không phải nội dung
+    chính, và nó phải ĐẨY ba tầng dưới xuống chứ không phủ lên (UX-DR-17). `<body>` là flex
+    column, `.dai-bang` là `flex: none` và `.khung` là `flex: 1` — nên dải băng lấy đúng chiều
+    cao nó cần và phần còn lại tự co. Một dải băng nằm trong `<main>` sẽ nằm trong vùng của
+    `.khung` và đẩy chân trang ra khỏi khung nhìn.
+
+    Nó KHÔNG mang class `tang`: bốn tầng của Story 2.1 vẫn là bốn, và thứ tự DOM của chúng
+    không đổi một dòng.
+
+    Rỗng nguyên ở dạng TĨNH, y như `.luoi`: `app/view/banner.js` là nơi DUY NHẤT ghi vào DOM
+    của nó. Không một khoảng trắng nào bên trong thẻ — `.dai-bang:empty` trong
+    `app/style.css` là thứ làm nó không chiếm chiều cao, và một khoảng trắng làm nó không còn
+    `:empty`.
+
+    `role="status"` cộng `aria-live="polite"`: chữ do JS chèn vào sau khi trang tải, nên không
+    có vùng sống thì trình đọc màn hình không bao giờ đọc nó lên. `polite` chứ không
+    `assertive` — nó không cắt lời người đang gõ.
+  -->
+  <div class="dai-bang" role="status" aria-live="polite"></div>
+
   <main class="khung">
     <section class="tang tang-soan" aria-label="Ô soạn thảo">
       <div class="container">

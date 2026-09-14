@@ -391,10 +391,14 @@ describe('app/view/luoi.js — luật của tầng view, cưỡng chế được
 
     const than = new RegExp(`\\b${treo[1]}\\s*=\\s*\\(\\s*\\)\\s*=>\\s*\\{([^}]*)\\}`).exec(main);
     expect(than).not.toBeNull();
-    // Đúng HAI lượt vẽ trong callback chung, và một trong hai là của lưới.
+    // Đúng BA lượt vẽ trong callback chung, và một trong ba là của lưới. Tập này nới từ
+    // `['luoi', 'tieuDe']` ở Story 3.1 — dải băng là view thứ ba, và nó phải vẽ lại ở đúng hai
+    // điểm nối này, nếu không mọi lỗi kho tiếp tục chết im lặng. Vẫn ghim ĐÚNG tập, không nới
+    // thành "có chứa": một view thứ tư thêm vào ngày mai vẫn phải đọc lại chú thích này.
     expect([...than[1].matchAll(/([\w$]+)\s*\.\s*ve\s*\(\s*\)/g)].map((k) => k[1])).toEqual([
       'luoi',
       'tieuDe',
+      'banner',
     ]);
     // Lưới nối TRƯỚC khi kho được hỏi — `luoi.ve` phải tồn tại trước khi có chỗ treo nó vào.
     expect(main.search(/noiLuoi\s*\(/)).toBeLessThan(main.search(/store\s*\.\s*khoiDong\s*\(/));

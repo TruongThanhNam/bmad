@@ -57,6 +57,7 @@
 // chạm global trình duyệt. `crypto.randomUUID` thì có — nó không phải global của DOM, nó có ở
 // cả Node, và AD-13 chốt nó là nguồn duy nhất của `id`.
 
+import { dongDuoc, thayDuoc } from './banner.js';
 import { MA_LOI } from './errors.js';
 import { fold } from './fold.js';
 import { AUTOSAVE_MS, DRAFT_STALE_MS, MAX_NOTE_CHARS } from './limits.js';
@@ -257,7 +258,8 @@ function ngayHopLe(giaTri, giaTriCu) {
  * động, nêu đúng tên cổng và phương thức, thay vì nổ giữa một giao dịch đang ghi.
  *
  * @param {object} ports Năm cổng của `app/ports/`, do `app/main.js` nối vào.
- * @returns {{ state: object, datDieuKien: Function, xoaHetDieuKien: Function, khoiDong:
+ * @returns {{ state: object, datDieuKien: Function, xoaHetDieuKien: Function, dongDaiBang:
+ *   Function, batTatMoRong: Function, khoiDong:
  *   Function, chotGhiChu: Function, xoaGhiChu: Function, tuLuuNoiDung: Function,
  *   khoiDongBanNhap: Function, datBanNhap: Function, nhipTimBanNhap: Function }}
  *   Store với `state` chỉ đọc và các action. Story sau thêm action vào ĐÂY, không nơi khác.
@@ -293,9 +295,29 @@ export function taoStore(ports) {
    *
    * Gọi ở CUỐI action, sau khi mọi phép kiểm đã qua: một action ném ra giữa đường phải để
    * lại state y như trước khi nó được gọi.
+   *
+   * PHÉP GÁC ƯU TIÊN của dải băng nằm ở ĐÂY, không ở từng chỗ gọi (AD-17). Hai lý do, và cả
+   * hai đều về "không có đường thứ hai":
+   *
+   * - 14 chỗ đặt `banner` trong tệp này không phải đọc lại một dòng nào, nên không chỗ nào
+   *   có thể quên phép gác — kể cả chỗ được viết ở Epic 7 hay Epic 8.
+   * - `banner` thường đi CÙNG một nhánh khác trong một `datLai` duy nhất (`{ draft, banner }`,
+   *   `{ ...dungNhanh(), banner: null }`). Gác ở đây thì nhánh kia vẫn vào state nguyên vẹn
+   *   khi thông báo bị từ chối — bỏ cả lời gọi là mất luôn phần dữ liệu không liên quan.
+   *
+   * Loại bỏ ĐÚNG khóa `banner` chứ không bỏ cả phép đổi, và chỉ khi khóa đó CÓ MẶT: một
+   * `datLai` không nói gì về dải băng thì không được vô tình chạm tới nó.
    */
   function datLai(nhanhMoi) {
-    noiBo = { ...noiBo, ...nhanhMoi };
+    let nhanh = nhanhMoi;
+    if (
+      Object.prototype.hasOwnProperty.call(nhanhMoi, 'banner') &&
+      !thayDuoc(noiBo.banner, nhanhMoi.banner)
+    ) {
+      nhanh = { ...nhanhMoi };
+      delete nhanh.banner;
+    }
+    noiBo = { ...noiBo, ...nhanh };
     anh = banSaoDongBang(noiBo);
   }
 
@@ -333,6 +355,28 @@ export function taoStore(ports) {
       date = ngayHopLe(partial.date, dieuKienCu.date);
     }
     datLai({ dieuKien: { keyword, date } });
+  }
+
+  /**
+   * Đóng dải băng đang hiện — đường của nút `✕`, và CHỈ của nó (AD-17).
+   *
+   * Hàng không đóng được thì không làm gì cả: ba hàng đầu của bảng nói rằng dữ liệu đang
+   * không an toàn, nên chúng chỉ tắt bởi một phép ghi sau đó thành công (AD-8) hay một lần
+   * tải lại trang. `view/banner.js` cũng không dựng nút `✕` cho chúng, nên cửa này bình
+   * thường không bị gõ — nhưng nó vẫn phải gác, vì "nút không có" là một luật của tầng vẽ và
+   * luật của tầng vẽ không bảo vệ được một bất biến của state.
+   *
+   * Đây là đường KHÁC với "tắt sau khi ghi thành công" (`ghiTruocDatSau`, `ghiBanNhap`): đường
+   * đó đặt `banner: null` qua `datLai` và KHÔNG xét cờ đóng-được, vì nó không phải một cú bấm
+   * mà là bằng chứng rằng chuyện xấu đã qua.
+   *
+   * @returns {void}
+   */
+  function dongDaiBang() {
+    const dangHien = noiBo.banner;
+    if (dangHien === null) return;
+    if (!dongDuoc(dangHien)) return;
+    datLai({ banner: null });
   }
 
   /** Đưa khối điều kiện về `{ keyword: null, date: null }` — khung nhìn mặc định (AD-15). */
@@ -748,6 +792,7 @@ export function taoStore(ports) {
     },
     datDieuKien,
     xoaHetDieuKien,
+    dongDaiBang,
     batTatMoRong,
     khoiDong,
     chotGhiChu,
