@@ -406,6 +406,139 @@ try {
     await nghi(600);
   }
 
+  // ── Lưới ghi chú: hàng ngang, xuống hàng, và xuống dòng trong ô (Story 2.4) ──────────
+  //
+  // Vì sao không phải một ca Vitest: `luoi.test.js` ghim được THỨ TỰ DOM ("mẩu mới nhất là
+  // phần tử con đầu tiên") và nội dung `textContent`, và nó dừng đúng ở đó. Ba câu hỏi còn
+  // lại là câu hỏi về LAYOUT ĐÃ TÍNH:
+  //   - "trái sang phải" — các ô cùng hàng có cùng tọa độ đỉnh, tọa độ trái tăng dần;
+  //   - "hết hàng xuống hàng, không masonry" — ô thứ tư phải mở một hàng MỚI và quay về CỘT
+  //     ĐẦU. Đây là nửa mà một `grid-auto-flow: column` hay một thư viện masonry phá, và nó
+  //     chỉ lộ ra khi có đủ ô để tràn hàng — ba ô ở lưới ba cột thì không bao giờ tràn;
+  //   - "chữ nhiều dòng giữ nguyên xuống dòng" — `textContent` giữ `\n` bất kể CSS, nên chỉ
+  //     một layout engine phân biệt được `white-space: pre-wrap` với `normal`: mẩu hai đoạn
+  //     phải CAO hơn mẩu một dòng.
+  {
+    await datKhungNhin(1280, 700);
+    await cdp.chay(tab.sessionId, `document.querySelector('.luoi').replaceChildren(); return true;`);
+
+    /** Chốt một ghi chú qua đúng đường của người dùng: gõ, rồi `Ctrl+Enter`. */
+    const CHOT = (chu) => `
+      const o = document.querySelector('.o-soan');
+      o.value = ${JSON.stringify(chu)};
+      o.dispatchEvent(new Event('input', { bubbles: true }));
+      o.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true }));
+      return true;
+    `;
+    /** Đợi tới khi lưới đã có đủ số ô — một phép ghi chậm phải hỏng thành TIMEOUT, không
+     *  thành một phép đo hình học sai. Một `nghi()` cố định làm đúng điều ngược lại. */
+    const doiSoO = async (mong) => {
+      for (let i = 0; i < 50; i += 1) {
+        const so = await cdp.chay(
+          tab.sessionId,
+          `return document.querySelectorAll('.luoi > *').length;`,
+        );
+        if (so === mong) return;
+        await nghi(100);
+      }
+      throw new Error(`lưới không đạt ${mong} ô sau 5s — phép ghi hỏng hoặc lưới không vẽ lại`);
+    };
+
+    // Ô thứ tư mở hàng thứ hai ở lưới ba cột (1280px). Mẩu chốt SAU CÙNG đứng đầu, nên mẩu
+    // hai đoạn là ô số 0 và mẩu một dòng ngay cạnh nó là ô số 1 — hai ô cùng hàng, cùng bề
+    // rộng, khác nhau đúng ở số dòng.
+    const CHU = ['mẩu một', 'mẩu hai', 'mẩu ba', 'đoạn một\n\nđoạn hai'];
+    // Số ghi chú trong KHO trước khi đo, để phép dọn so đúng thứ cần so: số ô trên lưới chỉ
+    // đếm ghi chú của HÔM NAY, còn `state.notes` đếm cả kho.
+    const khoTruoc = await cdp.chay(
+      tab.sessionId,
+      `const m = await import('/app/main.js'); return m.store.state.notes.length;`,
+    );
+    // Số ô mà lượt vẽ đầu tiên SẼ sinh ra, hỏi thẳng bộ truy vấn: kho có thể đã mang ghi chú
+    // của hôm nay từ trước, và đếm `.luoi` lúc này ra 0 chỉ vì dòng `replaceChildren` bên trên.
+    const oTruoc = await cdp.chay(
+      tab.sessionId,
+      `
+      const m = await import('/app/main.js');
+      const q = await import('/app/core/query.js');
+      const t = await import('/app/core/time.js');
+      return q.locGhiChu(m.store.state.notes, m.store.state.dieuKien, t.nowIso()).length;
+    `,
+    );
+
+    // Id của những mẩu THẬT SỰ được tạo, gom từng cái một. Xóa theo `notes.slice(0, 3)` là
+    // xóa ba mẩu mới nhất BẤT KỂ chúng là gì — một lần chốt hỏng, hay một ghi chú thật mới
+    // hơn, là mất dữ liệu thật trên máy người chạy.
+    const idDaTao = [];
+    try {
+      for (const chu of CHU) {
+        await cdp.chay(tab.sessionId, CHOT(chu));
+        await doiSoO(oTruoc + idDaTao.length + 1);
+        const moi = await cdp.chay(
+          tab.sessionId,
+          `
+          const m = await import('/app/main.js');
+          const n = m.store.state.notes.find((x) => x.text === ${JSON.stringify(chu)});
+          return n === undefined ? null : n.id;
+        `,
+        );
+        if (moi !== null) idDaTao.push(moi);
+      }
+
+      const d = await cdp.chay(
+        tab.sessionId,
+        `
+        const o = [...document.querySelectorAll('.luoi > *')].slice(0, 4);
+        const r = (x) => x.getBoundingClientRect();
+        return {
+          chu: o.map((x) => x.textContent),
+          dinh: o.map((x) => Math.round(r(x).top)),
+          trai: o.map((x) => Math.round(r(x).left)),
+          cao: o.map((x) => Math.round(r(x).height)),
+          xuongDong: getComputedStyle(o[0]).whiteSpace,
+        };
+      `,
+      );
+
+      const hangMot = d.dinh[0] === d.dinh[1] && d.dinh[1] === d.dinh[2];
+      const traiTang = d.trai[0] < d.trai[1] && d.trai[1] < d.trai[2];
+      ghi(
+        'ba ô đầu trên MỘT hàng ngang, mẩu mới nhất trái nhất, cũ dần sang phải',
+        d.chu.join('|') === [...CHU].reverse().join('|') && hangMot && traiTang,
+        JSON.stringify(d),
+      );
+      ghi(
+        'ô thứ tư XUỐNG HÀNG và quay về cột đầu — hết hàng xuống hàng, không masonry',
+        d.dinh[3] > d.dinh[0] && d.trai[3] === d.trai[0],
+        `đỉnh=${JSON.stringify(d.dinh)} trái=${JSON.stringify(d.trai)}`,
+      );
+      // So với ô Ở HÀNG KHÁC, không với ô cùng hàng: grid kéo mọi ô trong một hàng về cùng
+      // chiều cao (`align-items: stretch`), nên ô một dòng nằm cạnh mẩu hai đoạn cũng cao
+      // đúng bằng nó. Ô thứ tư đứng một mình ở hàng hai, và nó là phép so đúng.
+      ghi(
+        'mẩu hai đoạn CAO hơn mẩu một dòng — xuống dòng của Nam còn nguyên trên lưới',
+        d.cao[0] > d.cao[3] && d.xuongDong === 'pre-wrap',
+        `hai đoạn=${d.cao[0]}px · một dòng=${d.cao[3]}px · white-space=${d.xuongDong}`,
+      );
+    } finally {
+      // Dọn trong `finally`: một phép đo ném ở giữa vẫn không được để lại mẩu rác nào trong
+      // IndexedDB THẬT của origin cục bộ — README hứa đúng điều đó.
+      const conLai = await cdp.chay(
+        tab.sessionId,
+        `
+        const m = await import('/app/main.js');
+        for (const id of ${JSON.stringify(idDaTao)}) await m.store.xoaGhiChu(id);
+        return m.store.state.notes.length;
+      `,
+      );
+      ghi(
+        'dọn sạch đúng những mẩu bộ đo vừa tạo — kho trở lại y như trước',
+        conLai === khoTruoc,
+        `kho ${khoTruoc} → ${conLai} (đã tạo ${idDaTao.length})`,
+      );
+    }
+  }
+
   // ── Hai theme: mọi màu thật sự ĐỔI khi theme đổi ─────────────────────────────────────
   //
   // So sánh light với dark chứ không kiểm dạng chuỗi: một màu viết thẳng, hay một token

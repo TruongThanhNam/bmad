@@ -327,6 +327,19 @@ body {
   align-content: start;
 }
 
+/* Ô lưới ở Story 2.4 là một khối CHỮ, không phải mẩu giấy: đúng một luật, và luật đó chỉ mang
+ * ngữ nghĩa chữ. `pre-wrap` vì mặc định `normal` gộp mọi `\n` thành khoảng trắng — một ghi chú
+ * ba đoạn sẽ hiện ra thành một dòng chạy dài, tức lưới hiển thị SAI nội dung Nam đã gõ.
+ * `anywhere` vì `pre-wrap` một mình không cắt được một chuỗi dài không dấu cách (một URL), và
+ * chuỗi đó sẽ tràn ra khỏi cột.
+ *
+ * Không màu, không nền, không bo góc, không bóng, không khoảng đệm — vật liệu của mẩu giấy là
+ * Story 2.5, và tên class cố ý KHÔNG mang từ giấy/thẻ để 2.5 còn tự đặt tên của nó. */
+.o-luoi {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
 /* ── Tầng 4 — chân trang ───────────────────────────────────────────────────────────────── */
 
 .chan {

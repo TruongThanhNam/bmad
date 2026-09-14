@@ -257,6 +257,16 @@ padding `12px/16px`, nội dung 12 dòng làm ô cao thêm mà **không** có th
 trang vẫn không cuộn, xóa hết chữ thì ô **co lại** đúng `92px`, focus làm viền đổi màu và ring
 hiện ra, và bóng lõm khác rỗng ở **cả hai** theme.
 
+Từ Story 2.4 nó chốt **bốn ghi chú thật** qua đúng đường của người dùng (gõ vào ô rồi
+`Ctrl+Enter`, chờ lưới vẽ xong chứ không chờ một khoảng cố định) rồi đo ba thứ: ba ô đầu nằm
+trên **một hàng ngang** với tọa độ trái **tăng dần** và mẩu chốt sau cùng **trái nhất**; ô thứ
+tư **xuống hàng mới và quay về cột đầu** — nửa "hết hàng xuống hàng, không masonry" mà ba ô ở
+lưới ba cột không bao giờ chạm tới; và một mẩu **hai đoạn cao hơn** mẩu một dòng, tức
+`white-space: pre-wrap` thật sự có hiệu lực. Vitest không thấy được cả ba: nó đọc `textContent`,
+mà `textContent` giữ `\n` bất kể CSS, và thứ tự DOM đúng bất kể grid xếp thế nào. Đo xong — kể
+cả khi một phép đo ném ở giữa — nó **xóa đúng những mẩu nó vừa tạo** (theo `id` đã gom, trong
+`finally`), nên bộ đo trả kho về y như trước và không đụng tới ghi chú thật nào.
+
 Nó **không** đo được phóng trình duyệt: CDP không đặt được mức zoom thật (`width` của
 `Emulation.setDeviceMetricsOverride` đã tính bằng điểm ảnh CSS, `deviceScaleFactor` chỉ đổi mật
 độ điểm ảnh vật lý). Phóng 200% vì thế vẫn là mục thử tay số 18 bên dưới.
@@ -296,9 +306,9 @@ con trỏ nháy, và nó không đóng được một tab thật.
     tới khi ô chạm trần `--composer-max-h` (320px): ô **dừng cao** và **chính nó** bắt đầu
     cuộn, lưới vẫn còn chỗ và chân trang vẫn trong khung nhìn. Dưới ô đúng **một** dòng nhỏ
     `Ctrl+Enter để chốt`. `Enter` **trần** chỉ xuống dòng như mọi `<textarea>`; `Ctrl+Enter`
-    thì **chốt** (mục 22) — ô trống lại, con trỏ ở lại, và giao diện im lặng tuyệt đối: mẩu
-    giấy chưa hiện ra ở đâu vì lưới thuộc Story 2.4/2.5. Không nút "Lưu", không chữ "đã lưu",
-    không số đếm ký tự ở đâu cả.
+    thì **chốt** — ô trống lại, con trỏ ở lại, và mẩu vừa chốt **nhô lên ở ô trên-cùng-trái**
+    của lưới (mục 22). Ngoài mẩu đó ra, giao diện im lặng tuyệt đối: không nút "Lưu", không
+    chữ "đã lưu", không số đếm ký tự ở đâu cả.
 
     **Suy giảm có ý thức, phải biết trước khi thấy:** dán một bản nháp dài hơn
     `MAX_NOTE_CHARS` (20.000 ký tự) thì chữ **vẫn nằm nguyên** trong ô và trong state — không
@@ -312,3 +322,23 @@ con trỏ nháy, và nó không đóng được một tab thật.
     Ca ngược của nó, khó thấy hơn và là lý do `dongBoTuState` so sánh trước khi gán: mở trang
     rồi **gõ ngay trong giây đầu tiên**, lúc kho còn đang trả lời. Chữ vừa gõ phải **thắng** —
     không bị bản nháp cũ đè lên, và con trỏ không nhảy về cuối giữa lúc đang gõ.
+
+### Lưới ghi chú của hôm nay — hai mục phải làm bằng mắt (Story 2.4)
+
+`npm run thu-bo-cuc` đã chốt ba mẩu thật và đo hình học của lưới, nên ở đây chỉ còn hai thứ nó
+không với tới: kho bền qua một lần tải lại, và ranh giới ngày.
+
+22. **Chốt là thấy, và tải lại vẫn thấy.** Gõ `phở` rồi `Ctrl+Enter`: mẩu hiện ra ngay ở ô
+    **trên-cùng-trái**, ô soạn thảo trống lại. Chốt thêm hai mẩu: mẩu mới nhất **luôn** ở đầu,
+    hai mẩu cũ dịch sang phải **cùng một hàng** (cửa sổ đủ rộng). Ở story này mỗi ô còn là một
+    **khối chữ trần** — chưa nền giấy, chưa giờ tạo, chưa nút xóa, và chữ nhiều dòng giữ nguyên
+    xuống dòng; hình dạng mẩu giấy là Story 2.5. Tải lại trang: đúng những mẩu đó hiện lại,
+    đúng thứ tự đó. Thu hẹp cửa sổ: lưới rớt 3 → 2 → 1 cột mượt, không breakpoint giật.
+23. **Chỉ hôm nay mới lên lưới.** DevTools → Application → IndexedDB → `ghichu` → `notes`: sửa
+    `createdAt` của một bản ghi sang **ngày hôm qua** rồi tải lại trang. Mẩu đó **không** còn
+    trên lưới — nhưng bản ghi **vẫn nguyên** trong kho. Lưới không có ngày nào hiện ra thì
+    **trống trơn, không một chữ nào** (trạng thái rỗng có lời nhắn là Story 2.6).
+
+    Ca biên đã nhận có ý thức: để tab mở qua **00:00** rồi chốt một mẩu. Lượt vẽ đó tính lại
+    "hôm nay", nên mẩu mới hiện ra và **mọi mẩu hôm qua biến mất cùng lúc** khỏi lưới. Dữ liệu
+    vẫn còn trong kho — chúng chỉ ra khỏi khung nhìn. Không có hẹn giờ nửa đêm nào.

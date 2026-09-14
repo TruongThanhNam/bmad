@@ -23,6 +23,7 @@ import { taoSessionStore } from './adapters/localstorage.js';
 import { DRAFT_BEAT_MS } from './core/limits.js';
 import { taoStore } from './core/state.js';
 import { PORT_METHODS } from './ports/index.js';
+import { noiLuoi } from './view/luoi.js';
 import { noiOSoan } from './view/o-soan.js';
 
 /**
@@ -69,11 +70,18 @@ export const store = taoStore(congThat());
 if (typeof document !== 'undefined') {
   // `khoiDong` không bao giờ bị từ chối: nạp hỏng đi ra bằng dải băng, không bằng một lời hứa
   // treo lại. Nên không có `.catch` ở đây, và không có lời hứa nào không ai bắt.
-  store.khoiDong();
+  const luoi = noiLuoi(store);
+  // `notes` nạp BẤT ĐỒNG BỘ, nên lượt vẽ đầu tiên phải chờ kho trả lời — vẽ ngay ở đây chỉ
+  // dựng lại một mảng rỗng. Không có cơ chế subscribe trong dự án này (và không được dựng
+  // một cái), nên cả hai lượt vẽ lại được nối TAY: một ở đây, một qua `sauKhiChot` bên dưới.
+  store.khoiDong().then(luoi.ve);
   // View nối TRƯỚC khi giành bản nháp, và thứ tự đó là điều kiện: `claimDraft` là bất đồng
   // bộ, nên mọi ký tự Nam gõ trong lúc kho còn đang trả lời chỉ vào được state nếu bộ nghe
   // `input` đã gắn xong. Nối sau là một cửa sổ im lặng ở đúng giây đầu tiên của trang.
-  const oSoan = noiOSoan(store);
+  //
+  // `luoi.ve` đi vào như THAM SỐ: `o-soan.js` không được import `luoi.js` — hai view không
+  // biết nhau, chỉ file này biết cả hai.
+  const oSoan = noiOSoan(store, document, luoi.ve);
   // Bốn bước khởi động bản nháp của AD-3, cùng một cửa và cùng một lý do.
   //
   // `khoiDongBanNhap()` không bao giờ bị từ chối (hỏng thì đi ra bằng dải băng), nên `.then`

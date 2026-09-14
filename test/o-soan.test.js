@@ -419,6 +419,43 @@ describe('Ctrl+Enter chốt, Enter trần xuống dòng (Story 2.3)', () => {
     expect(o.style.blockSize).toBe(caoTruoc);
   });
 
+  it('móc sauKhiChot chạy ĐÚNG MỘT LẦN, và state đã mang mẩu mới lúc nó chạy (Story 2.4)', async () => {
+    // Không có cơ chế subscribe trong dự án này, nên đây là sợi dây DUY NHẤT làm lưới vẽ lại
+    // sau một lần chốt. Gọi móc TRƯỚC khi `notes` đổi thì lưới vẽ lại đúng danh sách cũ và mẩu
+    // vừa chốt không nhô lên — nên ca này hỏi cả thời điểm, không chỉ số lần.
+    const o = oGia();
+    const { store } = storeGia();
+    const soNotesLucMocChay = [];
+    noiOSoan(store, gocGia(o), () => soNotesLucMocChay.push(store.state.notes.length));
+    await store.khoiDongBanNhap();
+
+    o.go('phở bò');
+    o.bam('Enter', { ctrlKey: true });
+    await nhipVi();
+
+    expect(soNotesLucMocChay).toEqual([1]);
+  });
+
+  it('chốt HỎNG thì móc vẫn chạy — vẽ lại đúng danh sách đang có là vô hại', async () => {
+    // `chotGhiChu` không bao giờ bị từ chối (hỏng đi ra bằng dải băng), nên móc nằm trong cùng
+    // một `.then`. Ghim điều đó để không ai thêm một nhánh điều kiện đọc `banner` vào view.
+    const o = oGia();
+    const { store } = storeGia({ chotHong: true });
+    let soLan = 0;
+    noiOSoan(store, gocGia(o), () => {
+      soLan += 1;
+    });
+    await store.khoiDongBanNhap();
+
+    o.go('phở bò');
+    o.bam('Enter', { ctrlKey: true });
+    await nhipVi();
+
+    expect(soLan).toBe(1);
+    expect(store.state.notes).toEqual([]);
+    expect(store.state.banner).toBe(MA_LOI.QUOTA);
+  });
+
   it('Ctrl+Enter trên ô TRỐNG: không cổng nào bị gọi, không một byte nào đổi', async () => {
     const o = oGia();
     const { store, nhatKy } = storeGia();
