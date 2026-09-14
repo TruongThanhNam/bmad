@@ -25,6 +25,7 @@ import { taoStore } from './core/state.js';
 import { PORT_METHODS } from './ports/index.js';
 import { noiLuoi } from './view/luoi.js';
 import { noiOSoan } from './view/o-soan.js';
+import { noiTieuDe } from './view/tieu-de.js';
 
 /**
  * Tập cổng tạm, dựng từ chính bảng phương thức của `app/ports/` — nên nó không thể thiếu
@@ -71,17 +72,29 @@ if (typeof document !== 'undefined') {
   // `khoiDong` không bao giờ bị từ chối: nạp hỏng đi ra bằng dải băng, không bằng một lời hứa
   // treo lại. Nên không có `.catch` ở đây, và không có lời hứa nào không ai bắt.
   const luoi = noiLuoi(store);
+  // Tiêu đề tab là view THỨ HAI, không phải một nhánh của lưới: con số nó hiện là số ghi chú
+  // của hôm nay bất kể điều kiện đang bật, còn lưới thì vẽ đúng tập ĐANG hiển thị. Hai câu
+  // hỏi khác nhau, nên hai tệp — và chúng không import nhau, chỉ file này biết cả hai.
+  const tieuDe = noiTieuDe(store, document);
+  // Một callback vẽ chung cho cả hai view: đây là chỗ DUY NHẤT biết rằng "vẽ lại" nghĩa là
+  // vẽ lại cả hai. Treo riêng từng cái vào từng điểm nối là cách một view mới bị quên ở một
+  // trong hai chỗ, và tiêu đề sẽ đứng yên sau lần chốt mà không làm gì đỏ cả.
+  const veTatCa = () => {
+    luoi.ve();
+    tieuDe.ve();
+  };
   // `notes` nạp BẤT ĐỒNG BỘ, nên lượt vẽ đầu tiên phải chờ kho trả lời — vẽ ngay ở đây chỉ
-  // dựng lại một mảng rỗng. Không có cơ chế subscribe trong dự án này (và không được dựng
-  // một cái), nên cả hai lượt vẽ lại được nối TAY: một ở đây, một qua `sauKhiChot` bên dưới.
-  store.khoiDong().then(luoi.ve);
+  // dựng lại một mảng rỗng và nháy một con số sai lên thanh tab. Không có cơ chế subscribe
+  // trong dự án này (và không được dựng một cái), nên cả hai lượt vẽ lại được nối TAY: một ở
+  // đây, một qua `sauKhiChot` bên dưới.
+  store.khoiDong().then(veTatCa);
   // View nối TRƯỚC khi giành bản nháp, và thứ tự đó là điều kiện: `claimDraft` là bất đồng
   // bộ, nên mọi ký tự Nam gõ trong lúc kho còn đang trả lời chỉ vào được state nếu bộ nghe
   // `input` đã gắn xong. Nối sau là một cửa sổ im lặng ở đúng giây đầu tiên của trang.
   //
-  // `luoi.ve` đi vào như THAM SỐ: `o-soan.js` không được import `luoi.js` — hai view không
-  // biết nhau, chỉ file này biết cả hai.
-  const oSoan = noiOSoan(store, document, luoi.ve);
+  // `veTatCa` đi vào như THAM SỐ: `o-soan.js` không được import `luoi.js` hay `tieu-de.js` —
+  // các view không biết nhau, chỉ file này biết cả ba.
+  const oSoan = noiOSoan(store, document, veTatCa);
   // Bốn bước khởi động bản nháp của AD-3, cùng một cửa và cùng một lý do.
   //
   // `khoiDongBanNhap()` không bao giờ bị từ chối (hỏng thì đi ra bằng dải băng), nên `.then`

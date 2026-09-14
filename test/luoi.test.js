@@ -75,12 +75,21 @@ function timTheoLop(phanTu, lop) {
  * Phần tử lưới giả: đúng những gì `noiLuoi` chạm tới — `ownerDocument.createElement` và
  * `replaceChildren`. Ghi lại số lần thay con, để ca "vẽ lại sau khi chốt" đo được MỘT lượt vẽ
  * chứ không chỉ đo kết quả cuối.
+ *
+ * Nó mang thêm `textContent` và `append` mà `noiLuoi` KHÔNG dùng, và đó là chủ ý: ca trạng thái
+ * rỗng của Story 2.6 phải thấy được một lời nhắn gắn THẲNG vào lưới. Không có hai thành viên
+ * này thì `luoi.textContent = 'Bạn chưa có ghi chú nào'` đi qua mọi phép so của file này mà
+ * xanh — tức cửa chặn canh đúng thứ nó không nhìn thấy.
  */
 function luoiGia() {
   const luoi = {
     con: [],
+    textContent: '',
     soLanThayCon: 0,
     ownerDocument: { createElement: () => phanTuGia() },
+    append(...moi) {
+      luoi.con.push(...moi);
+    },
     replaceChildren(...moi) {
       luoi.con = moi;
       luoi.soLanThayCon += 1;
@@ -164,8 +173,8 @@ describe('noiLuoi — lưới của hôm nay', () => {
   });
 
   it('hôm nay chưa có gì: không một phần tử con nào, và KHÔNG một chữ nào', async () => {
-    // Trạng thái rỗng có lời nhắn là Story 2.6. Một dòng "chưa có gì" thêm ở đây sẽ phải gỡ
-    // ra, nên nó bị ghim là không được tồn tại.
+    // Story 2.6 đã chốt: trạng thái rỗng KHÔNG nói gì. Một dòng "chưa có gì" thêm vào đây sẽ
+    // phải gỡ ra, nên nó bị ghim là không được tồn tại.
     const luoi = luoiGia();
     const store = storeVoiKho([ban(HOM_QUA, '23:00:00', 'hôm qua')]);
     await store.khoiDong();
@@ -173,6 +182,30 @@ describe('noiLuoi — lưới của hôm nay', () => {
 
     expect(luoi.con).toEqual([]);
     expect(luoi.chu().join('')).toBe('');
+  });
+
+  it('lưới rỗng là rỗng THẬT: không con nào, và tổng textContent là chuỗi rỗng', async () => {
+    // Cửa chặn của Story 2.6, và nó khác ca ngay trên: ca kia đọc chữ qua `.mau-than`, tức nó
+    // chỉ nhìn thấy những gì `veMau` dựng. Một lời nhắn "Bạn chưa có ghi chú nào" gắn thẳng
+    // vào lưới — một `textContent`, một node chữ, một phần tử minh họa không có `.mau-than` —
+    // đi qua toàn bộ suite mà xanh. Ở đây tổng chữ của CẢ lưới, con cháu tính hết, phải là
+    // chuỗi rỗng: không một ký tự nào, kể cả một khoảng trắng có nghĩa.
+    const luoi = luoiGia();
+    const store = storeVoiKho([]);
+    await store.khoiDong();
+    noiLuoi(store, gocGia(luoi), () => MOC).ve();
+
+    const tongChu = (phanTu) =>
+      (phanTu.textContent ?? '') + (phanTu.con ?? []).map(tongChu).join('');
+
+    expect(luoi.con).toEqual([]);
+    // Tính từ CHÍNH phần tử lưới, không từ `luoi.con`: cộng dồn con của một danh sách vừa được
+    // assert là rỗng thì luôn ra chuỗi rỗng, và phép so đó không bao giờ đỏ được. Chữ gắn thẳng
+    // vào `.luoi` — đúng thứ ca này sinh ra để chặn — chỉ đọc được ở đây.
+    expect(tongChu(luoi)).toBe('');
+    // Và lượt vẽ VẪN chạy: một `if (rỗng) return;` sớm trong `ve()` để lại danh sách con của
+    // lượt trước nằm nguyên trên lưới — đúng cái sẽ thấy khi tab mở qua nửa đêm.
+    expect(luoi.soLanThayCon).toBe(1);
   });
 
   it('kho rỗng: lưới trống, không ném', async () => {
@@ -341,12 +374,28 @@ describe('app/view/luoi.js — luật của tầng view, cưỡng chế được
   });
 
   it('app/main.js nối lưới trong cùng khối document: ve treo vào khoiDong, và làm sauKhiChot của noiOSoan', () => {
-    // Cả hai nửa vỡ trong IM LẶNG. Bỏ `.then(luoi.ve)` thì lưới trống trơn sau mỗi lần tải
-    // trang dù kho đầy ghi chú; bỏ tham số thứ ba của `noiOSoan` thì mẩu vừa chốt không nhô
-    // lên cho tới lần tải sau — đúng lời hứa trung tâm của story bị phá.
+    // Cả hai nửa vỡ trong IM LẶNG. Bỏ lượt vẽ treo vào `khoiDong` thì lưới trống trơn sau mỗi
+    // lần tải trang dù kho đầy ghi chú; bỏ tham số thứ ba của `noiOSoan` thì mẩu vừa chốt
+    // không nhô lên cho tới lần tải sau — đúng lời hứa trung tâm của story bị phá.
+    //
+    // Từ Story 2.6 hai điểm nối đó nhận một callback VẼ CHUNG chứ không còn nhận thẳng
+    // `luoi.ve`: có hai view phải vẽ lại, và treo riêng từng cái là cách một view bị quên ở
+    // một trong hai chỗ. Nên ca này ghim đúng vế đã đổi — CÙNG một callback ở cả hai điểm
+    // nối, và callback đó gọi cả hai `ve` — chứ không nới thành "có chứa chữ ve".
     const main = boChuThichJs(readFileSync(join(repoRoot, 'app', 'main.js'), 'utf8'));
-    expect(main).toMatch(/khoiDong\s*\(\s*\)\s*\.\s*then\s*\(\s*[\w$]+\s*\.\s*ve\s*\)/);
-    expect(main).toMatch(/noiOSoan\s*\(\s*store\s*,\s*document\s*,\s*[\w$]+\s*\.\s*ve\s*\)/);
+    const treo = /khoiDong\s*\(\s*\)\s*\.\s*then\s*\(\s*([\w$]+)\s*\)/.exec(main);
+    const soan = /noiOSoan\s*\(\s*store\s*,\s*document\s*,\s*([\w$]+)\s*\)/.exec(main);
+    expect(treo).not.toBeNull();
+    expect(soan).not.toBeNull();
+    expect(treo[1]).toBe(soan[1]);
+
+    const than = new RegExp(`\\b${treo[1]}\\s*=\\s*\\(\\s*\\)\\s*=>\\s*\\{([^}]*)\\}`).exec(main);
+    expect(than).not.toBeNull();
+    // Đúng HAI lượt vẽ trong callback chung, và một trong hai là của lưới.
+    expect([...than[1].matchAll(/([\w$]+)\s*\.\s*ve\s*\(\s*\)/g)].map((k) => k[1])).toEqual([
+      'luoi',
+      'tieuDe',
+    ]);
     // Lưới nối TRƯỚC khi kho được hỏi — `luoi.ve` phải tồn tại trước khi có chỗ treo nó vào.
     expect(main.search(/noiLuoi\s*\(/)).toBeLessThan(main.search(/store\s*\.\s*khoiDong\s*\(/));
   });

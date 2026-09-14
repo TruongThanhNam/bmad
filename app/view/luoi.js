@@ -66,8 +66,10 @@ export function noiLuoi(store, goc = document, mocHienTai = nowIso) {
         ve();
       }),
     );
-    // Danh sách rỗng cũng đi qua đúng lời gọi này: lưới sạch trơn, KHÔNG một chữ nào. Trạng
-    // thái rỗng có lời nhắn là Story 2.6, và một dòng chữ "chưa có gì" thêm ở đây sẽ phải gỡ.
+    // Danh sách rỗng cũng đi qua đúng lời gọi này: lưới sạch trơn, KHÔNG một chữ nào. Story
+    // 2.6 đã chốt đúng điều đó — trạng thái rỗng KHÔNG có lời nhắn nào, không hình minh họa,
+    // không skeleton. Mỗi sáng đều là trạng thái này; nó bình thường, không cần an ủi. Một
+    // dòng chữ "chưa có gì" thêm ở đây là thứ `luoi.test.js` ghim là không được tồn tại.
     luoi.replaceChildren(...o);
   }
 

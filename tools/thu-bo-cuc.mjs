@@ -739,6 +739,308 @@ try {
     }
   }
 
+  // ── Tiêu đề tab, trạng thái rỗng, và NFR-1 (Story 2.6) ──────────────────────────────
+  //
+  // Vì sao không phải một ca Vitest: `tieu-de.test.js` ghim được phép ĐẾM (đúng hôm nay, bỏ
+  // qua hôm qua, không đi theo điều kiện) trên một tài liệu giả, và nó dừng đúng ở đó. Ba
+  // câu hỏi còn lại chỉ trình duyệt trả lời được:
+  //   - `document.title` THẬT sau khi kho trả lời, và sau một lần chốt thật — nửa mà một
+  //     `main.js` quên nối view thứ hai vẫn đi qua toàn bộ suite Vitest mà xanh;
+  //   - "vùng lưới không một ký tự nào" đo trên DOM thật, con cháu tính hết — `luoi.test.js`
+  //     chỉ nhìn thấy những gì `veMau` dựng, nên một lời nhắn gắn thẳng vào `.luoi` thoát
+  //     khỏi nó;
+  //   - NFR-1 (mở tab tới gõ được ≤ 2 giây với 2.000 ghi chú) là một phép ĐO thời gian, và
+  //     không có cách nào hứa nó bằng văn bản.
+  {
+    await datKhungNhin(1280, 700);
+
+    const NEN = 'Ghi chú hàng ngày';
+    const mongDoi = (n) => (n === 0 ? NEN : `${n} - ${NEN}`);
+    /** Số ghi chú của HÔM NAY trong kho thật, hỏi thẳng bộ truy vấn với điều kiện rỗng. */
+    const SO_HOM_NAY = `
+      const m = await import('/app/main.js');
+      const q = await import('/app/core/query.js');
+      const t = await import('/app/core/time.js');
+      return q.locGhiChu(m.store.state.notes, { keyword: null, date: null }, t.nowIso()).length;
+    `;
+    /** Đợi tiêu đề đạt giá trị mong đợi — một lượt vẽ chậm phải hỏng thành TIMEOUT, không
+     *  thành một phép so sai. Trả về tiêu đề cuối cùng đọc được, để chỗ gọi ghi lại. */
+    const doiTieuDe = async (mong) => {
+      let thay = null;
+      for (let i = 0; i < 50; i += 1) {
+        thay = await cdp.chay(tab.sessionId, `return document.title;`);
+        if (thay === mong) return thay;
+        await nghi(100);
+      }
+      return thay;
+    };
+
+    // Tải lại để đo tiêu đề của một lần mở tab THẬT: khối trên vừa xóa mấy mẩu nó tạo, và
+    // phép xóa đó không đi kèm một lượt vẽ nào (không có subscribe trong dự án này).
+    await cdp.taiLai(tab.sessionId);
+    const homNay = await cdp.chay(tab.sessionId, SO_HOM_NAY);
+    {
+      const thay = await doiTieuDe(mongDoi(homNay));
+      ghi(
+        'tiêu đề tab sau khi nạp: đúng dạng `{số} - Ghi chú hàng ngày`, số là ghi chú của hôm nay',
+        thay === mongDoi(homNay),
+        `mong ${JSON.stringify(mongDoi(homNay))} · thấy ${JSON.stringify(thay)}`,
+      );
+    }
+
+    // ── Sau MỘT lần chốt thật: con số tăng đúng một, ngay ở lượt vẽ đó ─────────────────
+    {
+      const CHU_TIEU_DE = 'mẩu đo tiêu đề tab';
+      let idDaTao = null;
+      // Chụp số bản ghi TRƯỚC khi chốt: phép dọn ở `finally` phải so với một con số đã biết,
+      // không phải với chính nó đọc lại lần nữa — so một giá trị với chính nó thì một phép
+      // dọn không chạy cũng xanh.
+      const khoTruoc = await cdp.chay(
+        tab.sessionId,
+        `const m = await import('/app/main.js'); return m.store.state.notes.length;`,
+      );
+      try {
+        await cdp.chay(
+          tab.sessionId,
+          `
+          const o = document.querySelector('.o-soan');
+          o.value = ${JSON.stringify(CHU_TIEU_DE)};
+          o.dispatchEvent(new Event('input', { bubbles: true }));
+          o.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true }));
+          return true;
+        `,
+        );
+        const thay = await doiTieuDe(mongDoi(homNay + 1));
+        idDaTao = await cdp.chay(
+          tab.sessionId,
+          `
+          const m = await import('/app/main.js');
+          const n = m.store.state.notes.find((x) => x.text === ${JSON.stringify(CHU_TIEU_DE)});
+          return n === undefined ? null : n.id;
+        `,
+        );
+        ghi(
+          'chốt một mẩu: tiêu đề tab đổi NGAY ở lượt vẽ đó, số tăng đúng một',
+          thay === mongDoi(homNay + 1) && idDaTao !== null,
+          `${JSON.stringify(mongDoi(homNay))} → ${JSON.stringify(thay)}`,
+        );
+      } finally {
+        const conLai = await cdp.chay(
+          tab.sessionId,
+          `
+          const m = await import('/app/main.js');
+          if (${JSON.stringify(idDaTao)} !== null) await m.store.xoaGhiChu(${JSON.stringify(idDaTao)});
+          return m.store.state.notes.length;
+        `,
+        );
+        ghi(
+          'dọn mẩu của phép đo tiêu đề — kho trở lại y như trước',
+          conLai === khoTruoc,
+          `kho ${khoTruoc} → ${conLai} bản ghi`,
+        );
+      }
+    }
+
+    // ── Hôm nay RỖNG: vùng lưới không một ký tự nào, và tiêu đề bỏ hẳn tiền tố số ──────
+    //
+    // Kho thật trên máy Nam có thể đã mang ghi chú của hôm nay, và bộ đo KHÔNG được xóa
+    // chúng đi để dựng một trạng thái rỗng. Nên hai view được nối vào một store rỗng dựng
+    // tại chỗ: DOM vẫn là DOM thật, lượt vẽ vẫn là lượt vẽ thật, chỉ dữ liệu là rỗng. Một
+    // lần tải lại ngay sau đó trả trang về đúng state của kho.
+    {
+      const d = await cdp.chay(
+        tab.sessionId,
+        `
+        const l = await import('/app/view/luoi.js');
+        const td = await import('/app/view/tieu-de.js');
+        const rong = { state: { notes: [], dieuKien: { keyword: null, date: null }, expandedIds: [] } };
+        l.noiLuoi(rong, document).ve();
+        td.noiTieuDe(rong, document).ve();
+        const luoi = document.querySelector('.luoi');
+        return {
+          soCon: luoi.children.length,
+          chu: luoi.textContent,
+          soNode: luoi.childNodes.length,
+          title: document.title,
+        };
+      `,
+      );
+      ghi(
+        'hôm nay rỗng: vùng lưới KHÔNG một ký tự nào, không node nào — và tiêu đề bỏ hẳn tiền tố số',
+        d.soCon === 0 && d.soNode === 0 && d.chu === '' && d.title === NEN,
+        JSON.stringify(d),
+      );
+      await cdp.taiLai(tab.sessionId);
+    }
+
+    // ── NFR-1: 2.000 ghi chú trong máy, mở tab tới gõ được ≤ 2 giây ───────────────────
+    //
+    // Bơm thẳng vào IndexedDB bằng một giao dịch RIÊNG, không qua `store`: 2.000 lần
+    // `chotGhiChu` là 2.000 giao dịch và mất hàng chục giây. Bản ghi mang đúng năm trường
+    // của AD-13, `textFolded` gấp bằng chính `core/fold.js` — một bản ghi lệch chuẩn sẽ đo
+    // một trang không giống trang thật.
+    //
+    // Ngày TRẢI RA QUÁ KHỨ, không dồn vào hôm nay: NFR-1 nói "2.000 ghi chú trong máy", và
+    // khung nhìn mặc định chỉ vẽ hôm nay — đó chính là tính chất đang được đo (chiều dài
+    // lưới không phụ thuộc tổng số ghi chú). Dồn cả 2.000 vào hôm nay là đo một màn hình mà
+    // sản phẩm không bao giờ dựng.
+    {
+      const SO_BAN_GHI = 2000;
+      const TIEN_TO = 'thu-nfr-';
+      const TRAN_MS = 2000;
+      /** `id` dựng bằng một quy tắc, không lấy từ giá trị trả về của phép bơm: nếu phép bơm
+       *  ném SAU khi giao dịch đã ghi một phần (hay ném lúc tuần tự hóa 2.000 `id`), một danh
+       *  sách rỗng nghĩa là `finally` xóa đúng không bản ghi nào — và 2.000 mẩu rác ở lại
+       *  trong kho thật của Nam, đúng thứ khối này nói nó không bao giờ làm. */
+      const idNfr = Array.from({ length: SO_BAN_GHI }, (_, i) => `${TIEN_TO}${i}`);
+      /** Đếm bằng CHÍNH phép đếm mà `finally` dùng: so một con số của RAM với một con số của
+       *  IndexedDB là so hai đại lượng khác nguồn, và chúng chỉ bằng nhau khi không có gì lệch. */
+      const DEM_KHO = `
+        const kho = await new Promise((ok, no) => {
+          const y = indexedDB.open('ghichu');
+          y.onsuccess = () => ok(y.result);
+          y.onerror = () => no(y.error);
+        });
+        const con = await new Promise((ok, no) => {
+          const gd = kho.transaction(['notes'], 'readonly');
+          const y = gd.objectStore('notes').count();
+          y.onsuccess = () => ok(y.result);
+          y.onerror = () => no(y.error);
+        });
+        kho.close();
+        return con;
+      `;
+      const khoTruoc = await cdp.chay(tab.sessionId, DEM_KHO);
+      try {
+        await cdp.chay(
+          tab.sessionId,
+          `
+          const { fold } = await import('/app/core/fold.js');
+          const ban = [];
+          for (let i = 0; i < ${SO_BAN_GHI}; i += 1) {
+            // Trải đều lùi về quá khứ, bắt đầu từ HÔM QUA: không bản ghi nào rơi vào hôm nay.
+            const moc = new Date();
+            moc.setHours(12, 0, 0, 0);
+            moc.setDate(moc.getDate() - 1 - (i % 500));
+            const hai = (n) => String(n).padStart(2, '0');
+            const ngay = moc.getFullYear() + '-' + hai(moc.getMonth() + 1) + '-' + hai(moc.getDate());
+            const gio = hai(Math.floor(i / 500)) + ':' + hai(i % 60) + ':' + hai((i * 7) % 60);
+            const createdAt = ngay + 'T' + gio + '+00:00';
+            const text = 'ghi chú đo hiệu năng số ' + i;
+            ban.push({ id: ${JSON.stringify(TIEN_TO)} + i, createdAt, localDate: ngay, text, textFolded: fold(text) });
+          }
+          const kho = await new Promise((ok, no) => {
+            const y = indexedDB.open('ghichu');
+            y.onsuccess = () => ok(y.result);
+            y.onerror = () => no(y.error);
+          });
+          await new Promise((ok, no) => {
+            const gd = kho.transaction(['notes'], 'readwrite');
+            const st = gd.objectStore('notes');
+            for (const b of ban) st.put(b);
+            gd.oncomplete = ok;
+            gd.onerror = () => no(gd.error);
+            gd.onabort = () => no(gd.error);
+          });
+          kho.close();
+          return true;
+        `,
+        );
+
+        // Đồng hồ chạy TRONG tab và bắt đầu từ lúc điều hướng, không phải từ lúc Node hỏi:
+        // mọi vòng lặp thăm dò của bộ đo đều nằm ngoài phép đo. Kịch bản dưới được cài
+        // TRƯỚC khi tài liệu tồn tại, nên nó thấy được cả khung hình đầu tiên.
+        //
+        // "Gõ được" là một câu hỏi về cả hai nửa: con trỏ đã nằm trong ô (thuộc tính
+        // `autofocus`, có mặt từ lúc phân tích HTML) VÀ `noiOSoan` đã chạy xong (chỉ lúc đó
+        // bộ nghe `input` mới gắn và ký tự mới vào được state).
+        //
+        // Phép thăm dò là THUẦN ĐỌC: nó không phát một sự kiện nào. `noiOSoan` gọi
+        // `caoTheoNoiDung()` ở dòng cuối cùng của nó, và lời gọi đó đặt `style.blockSize` —
+        // nên một `blockSize` khác rỗng CHÍNH LÀ bằng chứng bộ nghe đã gắn, đọc được mà không
+        // chạm vào gì. Một `input` giả phát ra ở đây thì chạy thẳng vào `datBanNhap(o.value)`
+        // với `o.value` còn rỗng (bản nháp chưa kịp đồng bộ về ô), tức bộ đo GHI ĐÈ bản nháp
+        // thật của Nam bằng chuỗi rỗng — đúng thứ bộ đo không bao giờ được làm.
+        const { identifier } = await cdp.goi(
+          'Page.addScriptToEvaluateOnNewDocument',
+          {
+            source: `
+              window.__nfr = null;
+              const thu = () => {
+                const o = document.querySelector('.o-soan');
+                if (o !== null && document.activeElement === o && o.style.blockSize !== '') {
+                  window.__nfr = performance.now();
+                  return;
+                }
+                requestAnimationFrame(thu);
+              };
+              requestAnimationFrame(thu);
+            `,
+          },
+          tab.sessionId,
+        );
+        let moc = null;
+        try {
+          await cdp.taiLai(tab.sessionId);
+          for (let i = 0; i < 100; i += 1) {
+            moc = await cdp.chay(tab.sessionId, `return window.__nfr;`);
+            if (moc !== null) break;
+            await nghi(50);
+          }
+        } finally {
+          // Gỡ trong `finally`: kịch bản này chạy lại ở MỌI lần tải trang sau đó, kể cả các
+          // khối đo bên dưới. Một lần ném ở giữa mà không gỡ là để nó sống hết cả lượt chạy.
+          await cdp.goi('Page.removeScriptToEvaluateOnNewDocument', { identifier }, tab.sessionId);
+        }
+        const trongKho = await cdp.chay(
+          tab.sessionId,
+          `const m = await import('/app/main.js'); return m.store.state.notes.length;`,
+        );
+        ghi(
+          `NFR-1: ${SO_BAN_GHI} ghi chú trong kho, mở tab tới gõ được ≤ ${TRAN_MS}ms`,
+          moc !== null && moc <= TRAN_MS && trongKho >= SO_BAN_GHI,
+          `${moc === null ? 'không đo được' : `${Math.round(moc)}ms`} · kho ${trongKho} bản ghi`,
+        );
+      } finally {
+        // Dọn bằng một giao dịch RIÊNG và theo đúng `id` đã bơm — cùng luật với hai khối
+        // trên: kho thật của Nam phải trở lại y như trước, kể cả khi phép đo ném giữa chừng.
+        const conLai = await cdp.chay(
+          tab.sessionId,
+          `
+          const kho = await new Promise((ok, no) => {
+            const y = indexedDB.open('ghichu');
+            y.onsuccess = () => ok(y.result);
+            y.onerror = () => no(y.error);
+          });
+          await new Promise((ok, no) => {
+            const gd = kho.transaction(['notes'], 'readwrite');
+            const st = gd.objectStore('notes');
+            for (const id of ${JSON.stringify(idNfr)}) st.delete(id);
+            gd.oncomplete = ok;
+            gd.onerror = () => no(gd.error);
+            gd.onabort = () => no(gd.error);
+          });
+          const con = await new Promise((ok, no) => {
+            const gd = kho.transaction(['notes'], 'readonly');
+            const y = gd.objectStore('notes').count();
+            y.onsuccess = () => ok(y.result);
+            y.onerror = () => no(y.error);
+          });
+          kho.close();
+          return con;
+        `,
+        );
+        ghi(
+          'dọn sạch đúng 2.000 bản ghi bộ đo vừa bơm — kho trở lại y như trước',
+          conLai === khoTruoc,
+          `kho ${khoTruoc} → ${conLai} (đã bơm ${idNfr.length})`,
+        );
+        // Trả trang về đúng kho đã dọn, để các khối đo sau không thừa hưởng 2.000 bản ghi.
+        await cdp.taiLai(tab.sessionId);
+      }
+    }
+  }
+
   // ── Hai theme: mọi màu thật sự ĐỔI khi theme đổi ─────────────────────────────────────
   //
   // So sánh light với dark chứ không kiểm dạng chuỗi: một màu viết thẳng, hay một token

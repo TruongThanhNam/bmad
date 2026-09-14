@@ -278,6 +278,20 @@ mẩu về **thu gọn**, `expandedIds` rỗng, và không khóa nào trong `loc
 trạng thái mở — đó là cách "chỉ RAM" được chứng minh chứ không chỉ được hứa. Dọn dẹp theo `id`
 trong `finally`, y như khối của Story 2.4.
 
+Từ Story 2.6 nó đo thêm ba thứ mà Vitest không với tới. **Tiêu đề tab thật**: sau khi kho trả
+lời, `document.title` đúng dạng `{số} - Ghi chú hàng ngày` với số là ghi chú **của hôm nay**; rồi
+nó chốt một mẩu thật và tiêu đề đổi **ngay ở lượt vẽ đó**, số tăng đúng một (nửa mà một `main.js`
+quên nối view thứ hai vẫn đi qua toàn bộ suite Vitest mà xanh). **Trạng thái rỗng trên DOM thật**:
+hai view được nối vào một store rỗng dựng tại chỗ — kho của bạn không bị đụng tới — và vùng lưới
+phải **không một node nào, không một ký tự nào**, tiêu đề **bỏ hẳn tiền tố số**; `luoi.test.js`
+chỉ nhìn thấy những gì `veMau` dựng, nên một lời nhắn gắn thẳng vào `.luoi` chỉ chết ở đây. Và
+**NFR-1**: nó bơm **2.000 bản ghi** thẳng vào IndexedDB bằng một giao dịch riêng (2.000 lần
+`chotGhiChu` là 2.000 giao dịch), ngày **trải ra quá khứ** chứ không dồn vào hôm nay — vì tính
+chất đang đo chính là *chiều dài lưới không phụ thuộc tổng số ghi chú* — rồi tải lại trang và đo
+bằng đồng hồ **trong tab**, tính từ lúc điều hướng tới lúc **gõ được thật**: con trỏ đã ở trong ô
+*và* bộ nghe `input` của `o-soan.js` đã gắn xong. Trần là **2 giây**. Dọn theo `id` đã bơm trong
+`finally`, rồi tải lại để các khối sau không thừa hưởng 2.000 bản ghi.
+
 Nó **không** đo được phóng trình duyệt: CDP không đặt được mức zoom thật (`width` của
 `Emulation.setDeviceMetricsOverride` đã tính bằng điểm ảnh CSS, `deviceScaleFactor` chỉ đổi mật
 độ điểm ảnh vật lý). Phóng 200% vì thế vẫn là mục thử tay số 18 bên dưới.
