@@ -5,7 +5,7 @@
 // - View CHỈ ĐỌC state. Ở đây là đúng hai phép đọc (`store.state.notes`, `store.state.dieuKien`)
 //   và không một phép ghi nào. Phép LỌC không sống ở đây: nó là `locGhiChu` của `core/query.js`,
 //   nên nó kiểm được mà không cần DOM lẫn đồng hồ.
-// - View không giữ state riêng. Không danh sách đã vẽ, không `expandedId`, không bộ nhớ đệm —
+// - View không giữ state riêng. Không danh sách đã vẽ, không tập `expandedIds`, không bộ nhớ đệm —
 //   mỗi lượt `ve()` dựng lại toàn bộ danh sách con từ state, nên không có gì để lệch.
 // - View không bao giờ import `app/adapters/`. Nó nhận `store` qua THAM SỐ.
 //
@@ -18,23 +18,17 @@
 // đầu tiên của ngày mới quét sạch mẩu hôm qua khỏi lưới. Dữ liệu vẫn nguyên trong kho — chúng
 // chỉ ra khỏi KHUNG NHÌN, và không có hẹn giờ nửa đêm nào được dựng cho một ca hiếm như vậy.
 //
-// Hình dạng đầy đủ của mẩu giấy — giờ tạo, cắt bớt, mở rộng, nút xóa — là Story 2.5. Ở đây mỗi
-// ô là một khối chữ trần thừa hưởng `--font-note`/`--ink` từ tổ tiên, nên story này không thêm
-// một luật CSS nào.
+// Hình dạng đầy đủ của mẩu giấy — giờ tạo, cắt bớt, mở rộng, nút xóa — sống ở `mau-giay.js`
+// (Story 2.5), không ở đây. Chia việc như vậy để tệp này giữ đúng MỘT trách nhiệm: chọn hiển
+// thị cái gì, theo thứ tự nào. "Hiển thị ra sao" là câu hỏi khác, và nó kiểm được từng mẩu một
+// mà không cần cả lưới.
 
 import { locGhiChu } from '../core/query.js';
 import { nowIso } from '../core/time.js';
+import { veMau } from './mau-giay.js';
 
 /** Lưới trong DOM. Phần tử rỗng nguyên ở dạng tĩnh; mọi ô do lượt vẽ sinh ra lúc chạy. */
 const CHON_LUOI = '.luoi';
-
-/** Thẻ của một ô lưới — khối chữ trần, không ngữ nghĩa nào mà Story 2.5 sẽ phải gỡ ra. */
-const THE_O = 'div';
-
-/** Class của ô lưới. Nó treo đúng MỘT luật CSS, và luật đó chỉ nói về chữ: `white-space` giữ
- *  xuống dòng Nam đã gõ, `overflow-wrap` cắt một chuỗi dài không dấu cách. Tên cố ý không mang
- *  từ giấy/thẻ — vật liệu mẩu giấy là Story 2.5 và nó phải còn chỗ tự đặt tên. */
-const LOP_O = 'o-luoi';
 
 /**
  * Nối lưới vào store.
@@ -58,18 +52,20 @@ export function noiLuoi(store, goc = document, mocHienTai = nowIso) {
    * `replaceChildren(...)` trong MỘT lời gọi, không phải một vòng `append`: nó thay cả danh
    * sách con bằng một phép đổi DOM duy nhất, nên không có khung hình nào lưới rỗng giữa chừng.
    *
-   * Nội dung đặt bằng `textContent`, và đó là một luật chứ không phải một sở thích: chữ của
-   * Nam KHÔNG BAO GIỜ được thành markup. `'<script>x</script>'` phải hiện ra nguyên văn như
-   * chữ, và `textContent` cũng giữ nguyên mọi ký tự xuống dòng cho `white-space` của CSS xử.
+   * Hình dạng từng mẩu là việc của `veMau`; ở đây chỉ có hai phép ĐỌC state đi vào nó —
+   * `notes`/`dieuKien` cho tập hiển thị, `expandedIds` cho cờ mở rộng — và một handler gọi
+   * đúng MỘT action của lõi rồi vẽ lại. Không có cơ chế subscribe trong dự án này (và không
+   * được dựng một cái), nên lượt vẽ sau khi mở/thu được nối tay ngay tại đây.
    */
   function ve() {
     const hienThi = locGhiChu(store.state.notes, store.state.dieuKien, mocHienTai());
-    const o = hienThi.map((note) => {
-      const phanTu = luoi.ownerDocument.createElement(THE_O);
-      phanTu.className = LOP_O;
-      phanTu.textContent = note.text;
-      return phanTu;
-    });
+    const dangMo = store.state.expandedIds;
+    const o = hienThi.map((note) =>
+      veMau(note, luoi.ownerDocument, dangMo.includes(note.id), () => {
+        store.batTatMoRong(note.id);
+        ve();
+      }),
+    );
     // Danh sách rỗng cũng đi qua đúng lời gọi này: lưới sạch trơn, KHÔNG một chữ nào. Trạng
     // thái rỗng có lời nhắn là Story 2.6, và một dòng chữ "chưa có gì" thêm ở đây sẽ phải gỡ.
     luoi.replaceChildren(...o);

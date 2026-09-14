@@ -16,6 +16,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fold } from '../app/core/fold.js';
+import { COLLAPSED_LINES } from '../app/core/limits.js';
 import { taoStore } from '../app/core/state.js';
 import { nowIso } from '../app/core/time.js';
 import { PORT_METHODS } from '../app/ports/index.js';
@@ -32,9 +33,42 @@ const HOM_QUA = '2026-09-13';
 // Gốc DOM tối giản
 // ---------------------------------------------------------------------------
 
-/** Một phần tử con do view dựng: chỉ cần `textContent`. */
+/**
+ * Một phần tử con do view dựng.
+ *
+ * Từ Story 2.5 mỗi ô là một CÂY nhỏ (đầu mẩu · thân · dòng gấp), không còn một khối chữ phẳng,
+ * nên phần tử giả phải biết `append`, `className`, `setAttribute` và `addEventListener`. Đây là
+ * bộ ĐỒ NGHỀ của ca test, không phải một ca hành vi: mọi phép nghiệm thu bên dưới giữ nguyên
+ * từng chữ, chúng chỉ đọc chữ của mẩu qua `.mau-than` thay vì qua gốc của ô.
+ */
 function phanTuGia() {
-  return { textContent: '' };
+  return {
+    textContent: '',
+    className: '',
+    type: '',
+    con: [],
+    thuocTinh: {},
+    boNghe: {},
+    append(...moi) {
+      this.con.push(...moi);
+    },
+    setAttribute(ten, giaTri) {
+      this.thuocTinh[ten] = giaTri;
+    },
+    addEventListener(ten, ham) {
+      this.boNghe[ten] = ham;
+    },
+  };
+}
+
+/** Con cháu của một ô mang đúng một class — `null` nếu không có. */
+function timTheoLop(phanTu, lop) {
+  if (phanTu.className !== undefined && phanTu.className.split(' ').includes(lop)) return phanTu;
+  for (const con of phanTu.con ?? []) {
+    const thay = timTheoLop(con, lop);
+    if (thay !== null) return thay;
+  }
+  return null;
 }
 
 /**
@@ -52,7 +86,7 @@ function luoiGia() {
       luoi.soLanThayCon += 1;
     },
     chu() {
-      return luoi.con.map((c) => c.textContent);
+      return luoi.con.map((c) => timTheoLop(c, 'mau-than').textContent);
     },
   };
   return luoi;
@@ -175,6 +209,33 @@ describe('noiLuoi — lưới của hôm nay', () => {
     expect(luoi.soLanThayCon).toBe(2);
   });
 
+  it('click một mẩu bị cắt: gọi action của lõi VÀ vẽ lại — click nữa thì thu lại', async () => {
+    // Không ca này thì cả đường nối `luoi.js` ↔ `veMau` không được chạy ở đâu cả: bỏ `ve()`
+    // khỏi handler, hay truyền cứng `false` thay cho `dangMo.includes(note.id)`, đều đi qua
+    // toàn bộ suite mà xanh — và mẩu sẽ không bao giờ mở ra dưới tay Nam.
+    const dai = Array.from({ length: COLLAPSED_LINES + 2 }, (_, i) => `dòng ${i}`).join('\n');
+    const luoi = luoiGia();
+    const store = storeVoiKho([ban(HOM_NAY, '09:00:00', dai)]);
+    await store.khoiDong();
+    const v = noiLuoi(store, gocGia(luoi), () => MOC);
+    v.ve();
+
+    const moRong = () => timTheoLop(luoi.con[0], 'mau-than').className.split(' ');
+    expect(moRong()).not.toContain('mau-than-mo');
+    expect(store.state.expandedIds).toEqual([]);
+
+    luoi.con[0].boNghe.click();
+    expect(store.state.expandedIds).toEqual([store.state.notes[0].id]);
+    // Lượt vẽ lại là nửa thứ hai, và là nửa vỡ trong im lặng: state đổi mà DOM không đổi thì
+    // mẩu vẫn nằm nguyên đó thu gọn.
+    expect(moRong()).toContain('mau-than-mo');
+    expect(luoi.soLanThayCon).toBe(2);
+
+    luoi.con[0].boNghe.click();
+    expect(store.state.expandedIds).toEqual([]);
+    expect(moRong()).not.toContain('mau-than-mo');
+  });
+
   it('đọc store.state.dieuKien: đặt một điều kiện thì lưới HẸP lại theo', async () => {
     // Không có ca này thì một `{ keyword: null, date: null }` viết cứng trong `ve()` vẫn xanh ở
     // mọi ca khác — và khung nhìn sẽ không bao giờ phản ứng với ô tìm kiếm của Epic 6.
@@ -221,8 +282,16 @@ describe('noiLuoi — lưới của hôm nay', () => {
     expect(khoi).not.toBeNull();
     expect(khoi[1]).toMatch(/white-space\s*:\s*pre-wrap/);
     expect(khoi[1]).toMatch(/overflow-wrap\s*:\s*anywhere/);
-    // Đúng ngữ nghĩa CHỮ và không gì khác: vật liệu mẩu giấy là Story 2.5.
-    expect(khoi[1]).not.toMatch(/color|background|border|radius|shadow|padding/);
+    // Cửa chặn "không màu/nền/bo góc/bóng/khoảng đệm" của Story 2.4 được NỚI ở Story 2.5, có
+    // chủ ý và có ghi chép: nó ghim "mẩu giấy chưa tồn tại", không ghim một bất biến. Ô lưới
+    // giờ LÀ mẩu giấy, nên nó mang vật liệu. Cái bất biến thật thì ở lại: mọi giá trị phải là
+    // một token, không một giá trị viết thẳng nào.
+    // (Tập token bóng và tập selector mang bóng bị ghim riêng ở `bo-cuc-bon-tang.test.js`;
+    //  hình dạng và hành vi của mẩu thì ở `mau-giay.test.js`.)
+    for (const thuocTinh of ['background', 'border-radius', 'padding', 'box-shadow']) {
+      expect(khoi[1]).toMatch(new RegExp(`${thuocTinh}\\s*:`));
+    }
+    expect(khoi[1]).not.toMatch(/#[0-9a-f]{3,8}\b|\brgba?\s*\(|\bhsla?\s*\(/i);
   });
 
   it('không có .luoi trong DOM thì không ném, và ve() vẫn gọi được', () => {
@@ -239,9 +308,13 @@ describe('noiLuoi — lưới của hôm nay', () => {
 describe('app/view/luoi.js — luật của tầng view, cưỡng chế được', () => {
   const nguon = boChuThichJs(readFileSync(join(repoRoot, 'app', 'view', 'luoi.js'), 'utf8'));
 
-  it('chỉ ĐỌC state, và không một cơ chế subscribe nào', () => {
+  it('chạm store ở đúng hai chỗ: đọc state, và gọi MỘT action của lõi', () => {
+    // Tập này nới từ `['state']` ở Story 2.5, và nó là một bề mặt mới chứ không phải một lần
+    // lách: trạng thái mở rộng sống ở tầng C của `core/state.js` và chỉ đổi bên trong một
+    // action, nên view PHẢI gọi được đúng cái action đó. Ghim ĐÚNG tập, không nới thành "có
+    // chứa": một `store.notes.push(...)` thêm vào ngày mai vẫn phải đỏ ngay ở đây.
     const goiStore = [...nguon.matchAll(/store\s*\.\s*([\w$]+)/g)].map((k) => k[1]);
-    expect([...new Set(goiStore)].sort()).toEqual(['state']);
+    expect([...new Set(goiStore)].sort()).toEqual(['batTatMoRong', 'state']);
     expect(nguon).not.toMatch(/subscribe|onChange|theoDoi/i);
   });
 
@@ -259,8 +332,11 @@ describe('app/view/luoi.js — luật của tầng view, cưỡng chế được
     expect(so).toEqual([]);
   });
 
-  it('nội dung ô đặt bằng textContent, không bao giờ innerHTML', () => {
-    expect(nguon).toMatch(/\.textContent\s*=/);
+  it('không dựng DOM bằng chuỗi, và giao hình dạng mẩu cho veMau', () => {
+    // Phép đặt `textContent` chuyển sang `mau-giay.js` cùng với hình dạng mẩu (Story 2.5), và
+    // `mau-giay.test.js` ghim nó ở đó. Vế ở lại đây là vế không bao giờ được đổi: tệp này
+    // không dựng DOM từ chuỗi, bằng bất cứ cách viết nào.
+    expect(nguon).toMatch(/veMau\s*\(/);
     expect(nguon).not.toMatch(/innerHTML|insertAdjacentHTML|outerHTML/);
   });
 

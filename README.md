@@ -267,6 +267,17 @@ mà `textContent` giữ `\n` bất kể CSS, và thứ tự DOM đúng bất k�
 cả khi một phép đo ném ở giữa — nó **xóa đúng những mẩu nó vừa tạo** (theo `id` đã gom, trong
 `finally`), nên bộ đo trả kho về y như trước và không đụng tới ghi chú thật nào.
 
+Từ Story 2.5 nó chốt thêm **bốn mẩu giấy thật** — ba mẩu chín dòng và một đoạn dài **không hề
+xuống dòng** — rồi đo năm thứ mà Vitest không với tới, vì cả năm là hình học của layout đã tính:
+mọi mẩu **thu gọn cao bằng nhau** (kể cả đoạn dài một-dòng-logic, thứ mà phép đếm dòng của JS cố
+tình không thấy và chỉ trần CSS cắt); mẩu nhiều dòng mang `còn N dòng ▾` đúng số còn đoạn dài thì
+**không** và cũng **không** vào thứ tự Tab; click một mẩu bị cắt **mở tại chỗ**, dòng đổi
+`thu lại ▴` và **hàng dưới bị đẩy xuống**; click mẩu thứ hai thì **cả hai** cùng mở; click một
+mẩu không bị cắt thì **không một thứ gì đổi**. Rồi nó **tải lại trang thật** và đo lần cuối: mọi
+mẩu về **thu gọn**, `expandedIds` rỗng, và không khóa nào trong `localStorage` mang dấu vết
+trạng thái mở — đó là cách "chỉ RAM" được chứng minh chứ không chỉ được hứa. Dọn dẹp theo `id`
+trong `finally`, y như khối của Story 2.4.
+
 Nó **không** đo được phóng trình duyệt: CDP không đặt được mức zoom thật (`width` của
 `Emulation.setDeviceMetricsOverride` đã tính bằng điểm ảnh CSS, `deviceScaleFactor` chỉ đổi mật
 độ điểm ảnh vật lý). Phóng 200% vì thế vẫn là mục thử tay số 18 bên dưới.
@@ -285,8 +296,9 @@ Hai mục còn lại phải làm bằng mắt:
     nhìn kỹ khay tìm kiếm, ô ngày, icon lịch, hai nút dáng link ở chân trang và nút theme: mọi màu đổi
     theo theme, không một mảng nào giữ nguyên màu của bản kia. Icon lịch ăn theo `currentColor`
     nên nó phải đổi cùng chữ quanh nó. Cái bóng **duy nhất** trong app lúc này là bóng **lõm**
-    của ô soạn thảo — nó phải thấy được ở cả hai theme, và không mẩu nào khác có bóng (bóng nhị
-    mẩu giấy thuộc Story 2.5).
+    của ô soạn thảo — nó phải thấy được ở cả hai theme. Từ Story 2.5 có cái bóng thứ hai và
+    **chỉ hai**: bóng **nhị** của mẩu giấy, ngược chiều (nhô lên). Chốt một ghi chú rồi nhìn kỹ
+    ở **cả hai** theme: nền giấy, dải keo mép trên và bóng nổi đều phải đổi, và chữ vẫn đọc được.
 
     Tầng 2 và tầng 4 ở story này là **hình dạng, chưa có hành vi**: bấm vào ô tìm, ô ngày,
     `xuất sao lưu`, `nạp lại` hay nút theme thì không có gì xảy ra — kể cả thanh địa chỉ cũng
@@ -330,9 +342,11 @@ không với tới: kho bền qua một lần tải lại, và ranh giới ngày
 
 22. **Chốt là thấy, và tải lại vẫn thấy.** Gõ `phở` rồi `Ctrl+Enter`: mẩu hiện ra ngay ở ô
     **trên-cùng-trái**, ô soạn thảo trống lại. Chốt thêm hai mẩu: mẩu mới nhất **luôn** ở đầu,
-    hai mẩu cũ dịch sang phải **cùng một hàng** (cửa sổ đủ rộng). Ở story này mỗi ô còn là một
-    **khối chữ trần** — chưa nền giấy, chưa giờ tạo, chưa nút xóa, và chữ nhiều dòng giữ nguyên
-    xuống dòng; hình dạng mẩu giấy là Story 2.5. Tải lại trang: đúng những mẩu đó hiện lại,
+    hai mẩu cũ dịch sang phải **cùng một hàng** (cửa sổ đủ rộng). Từ Story 2.5 mỗi ô là một
+    **mẩu giấy** — nền `--paper`, dải keo mép trên, bóng nhị, giờ tạo `HH:mm` bên trái và nút
+    `xóa` bên phải — và chữ nhiều dòng giữ nguyên xuống dòng. Mẩu vừa chốt luôn ở dạng **thu
+    gọn**. Nút `xóa` ở đây là **hình dạng, chưa có hành vi**: bấm vào nó không xóa gì cả (hộp
+    thoại xác nhận và phép xóa thật là Epic 5). Tải lại trang: đúng những mẩu đó hiện lại,
     đúng thứ tự đó. Thu hẹp cửa sổ: lưới rớt 3 → 2 → 1 cột mượt, không breakpoint giật.
 23. **Chỉ hôm nay mới lên lưới.** DevTools → Application → IndexedDB → `ghichu` → `notes`: sửa
     `createdAt` của một bản ghi sang **ngày hôm qua** rồi tải lại trang. Mẩu đó **không** còn

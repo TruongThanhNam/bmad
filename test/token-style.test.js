@@ -100,6 +100,12 @@ const SPACING = Object.freeze({
   '--container-max': '1040px',
   '--composer-min-h': '92px',
   '--composer-max-h': '320px',
+  // Cặp thu gọn của mẩu giấy (Story 2.5). Chúng là token BỐ CỤC chứ không phải trang trí:
+  // `--note-collapsed-lines` phải bằng đúng `COLLAPSED_LINES` của `app/core/limits.js` — ca
+  // riêng bên dưới ghim điều đó — và `--note-line-h` phải bằng phần line-height của
+  // `--font-note`, nếu không trần chiều cao cắt ở một chỗ không phải ranh giới dòng nào.
+  '--note-collapsed-lines': '3',
+  '--note-line-h': '1.55em',
 });
 
 // Bóng là token, và buộc phải vậy: giá trị có `rgba()`, nên viết nó thẳng vào một luật CSS là
@@ -110,13 +116,19 @@ const SPACING = Object.freeze({
 // Nó cũng là token KHÔNG-MÀU DUY NHẤT đổi theo theme, và đó là một ngoại lệ có ý thức chứ
 // không phải một chỗ lọt: bóng đen trên nền đen không đọc được, nên bản dark cần một giá trị
 // khác. Ca "khối dark ghi đè đúng tập tên" bên dưới vì thế ghim `TOKEN_DOI_THEO_THEME` —
-// 12 màu CỘNG đúng một token bóng — chứ không nới ra thành "có chứa".
+// 12 màu CỘNG đúng hai token bóng — chứ không nới ra thành "có chứa".
 const BONG = Object.freeze({
   '--shadow-inset': 'inset 0 1px 2px rgba(60, 48, 28, 0.07)',
+  // Bóng NHỊ của mẩu giấy (Story 2.5), nguồn: `DESIGN.md` frontmatter `note-paper.shadow` và
+  // mục *Elevation & Depth*. Hai lớp, và cả hai đều cần: lớp sát mép cho giấy một bề dày, lớp
+  // tán làm nó rời khỏi mặt bàn. Ghim ở đây vì một `rgba()` gõ sai vẫn ra một cái bóng trông
+  // giống, và không ca nào khác trong repo phân biệt được.
+  '--shadow-paper': '0 1px 0 rgba(60, 48, 28, 0.1), 0 3px 8px rgba(60, 48, 28, 0.1)',
 });
 
 const BONG_DARK = Object.freeze({
   '--shadow-inset': 'inset 0 1px 2px rgba(0, 0, 0, 0.35)',
+  '--shadow-paper': '0 1px 0 rgba(0, 0, 0, 0.45), 0 4px 12px rgba(0, 0, 0, 0.35)',
 });
 
 const BO_GOC = Object.freeze({
@@ -135,7 +147,7 @@ const TOKEN_CUA_ROOT = Object.freeze([
   ...Object.keys(BONG),
 ]);
 
-/** Đúng những token mà khối dark được phép ghi đè: 12 màu cộng token bóng. */
+/** Đúng những token mà khối dark được phép ghi đè: 12 màu cộng HAI token bóng. */
 const TOKEN_DOI_THEO_THEME = Object.freeze([...Object.keys(MAU_DARK), ...Object.keys(BONG_DARK)]);
 
 /** Khai báo KHÔNG phải custom property duy nhất được phép trong hai khối token.
@@ -254,14 +266,14 @@ describe('style.css — hai bảng màu ghim theo DESIGN.md', () => {
     expect(lechSoVoiBang(khaiBaoDark, MAU_DARK, 'khối dark')).toEqual([]);
   });
 
-  it('khối dark ghi đè ĐÚNG 12 màu cộng --shadow-inset, không thừa không thiếu', () => {
+  it('khối dark ghi đè ĐÚNG 12 màu cộng hai token bóng, không thừa không thiếu', () => {
     // Thừa một token typography/spacing ở đây nghĩa là một giá trị bố cục đổi theo theme —
     // thứ DESIGN.md không nói, và thứ không ai sẽ nhớ là đã xảy ra. `--shadow-inset` nằm
     // trong tập này vì bóng đen trên nền đen không đọc được, không vì nó "cũng nên đổi".
     expect([...khaiBaoDark.keys()].sort()).toEqual([...TOKEN_DOI_THEO_THEME].sort());
   });
 
-  it('bóng lõm mang đúng giá trị của DESIGN.md ở CẢ HAI theme', () => {
+  it('hai token bóng mang đúng giá trị của DESIGN.md ở CẢ HAI theme', () => {
     // Ghim cả hai bên vì hai khối token là chỗ mù duy nhất của bộ quét màu: một `rgba()` gõ
     // sai trong đó vẫn là CSS hợp lệ, vẫn ra một cái bóng trông giống, và không ca nào khác
     // phân biệt được.
@@ -300,7 +312,7 @@ describe('style.css — typography, spacing, bo góc ghim theo DESIGN.md', () =>
     expect(lechSoVoiBang(khaiBaoLight, FONT, ':root')).toEqual([]);
   });
 
-  it('7 bậc thang spacing cộng 8 token bố cục mang đúng giá trị', () => {
+  it('7 bậc thang spacing cộng 10 token bố cục mang đúng giá trị', () => {
     expect(lechSoVoiBang(khaiBaoLight, SPACING, ':root')).toEqual([]);
   });
 

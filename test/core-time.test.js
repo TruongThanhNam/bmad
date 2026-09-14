@@ -1,5 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
-import { daysBetween, localDate, localStamp, msBetweenIso, nowIso } from '../app/core/time.js';
+import {
+  daysBetween,
+  localDate,
+  localStamp,
+  localTime,
+  msBetweenIso,
+  nowIso,
+} from '../app/core/time.js';
 
 // Độ dài ghim bằng số literal chứ không bằng hằng của `limits.js`: so khóa với chính hằng mà
 // mã dùng để cắt thì đổi hằng cũng vẫn xanh. Test không bị `nguong-tap-trung` quét.
@@ -15,6 +22,43 @@ describe('core/time.js — localStamp', () => {
 
   it('giây lẻ và offset Z vẫn ra đúng 19 ký tự', () => {
     expect(localStamp({ createdAt: '2026-09-03T16:40:12.345Z' })).toBe('2026-09-03T16:40:12');
+  });
+});
+
+describe('core/time.js — localTime', () => {
+  it('cắt đúng `HH:mm` của giờ TẠI CHỖ, không giây, không ngày', () => {
+    expect(localTime({ createdAt: '2026-09-03T16:40:12+07:00' })).toBe('16:40');
+    expect(localTime({ createdAt: '2026-09-03T16:40:12+07:00' })).toHaveLength(5);
+  });
+
+  it('nửa đêm và đúng trưa không rơi mất số 0 đứng đầu', () => {
+    expect(localTime({ createdAt: '2026-09-03T00:00:00+07:00' })).toBe('00:00');
+    expect(localTime({ createdAt: '2026-09-03T12:00:00+07:00' })).toBe('12:00');
+    expect(localTime({ createdAt: '2026-09-03T09:05:00+07:00' })).toBe('09:05');
+  });
+
+  it('offset khác KHÔNG đổi giờ hiện ra — đây là giờ tại chỗ lúc tạo, không phải UTC', () => {
+    // Nửa mà một `new Date(createdAt).getHours()` làm sai trong im lặng: nó quy về múi giờ của
+    // MÁY ĐANG XEM, nên một sao lưu nạp trên máy khác sẽ hiện một giờ khác cho cùng mẩu giấy.
+    expect(localTime({ createdAt: '2026-09-03T16:40:12-03:00' })).toBe('16:40');
+    expect(localTime({ createdAt: '2026-09-03T16:40:12Z' })).toBe('16:40');
+    expect(localTime({ createdAt: '2026-09-03T23:59:59+05:30' })).toBe('23:59');
+  });
+
+  it('giây lẻ không lọt vào', () => {
+    expect(localTime({ createdAt: '2026-09-03T16:40:12.345Z' })).toBe('16:40');
+  });
+
+  it('createdAt hỏng thì ném TypeError — cùng phép kiểm với localStamp/localDate', () => {
+    expect(() => localTime({})).toThrow(TypeError);
+    expect(() => localTime(null)).toThrow(TypeError);
+    expect(() => localTime({ createdAt: '2026-09-03T16:40:12' })).toThrow(TypeError);
+    expect(() => localTime({ createdAt: '2026-02-30T16:40:12+07:00' })).toThrow(TypeError);
+    expect(() => localTime({ createdAt: '2026-09-03T25:40:12+07:00' })).toThrow(TypeError);
+  });
+
+  it('nhận được chính đầu ra của nowIso', () => {
+    expect(localTime({ createdAt: nowIso() })).toMatch(/^\d{2}:\d{2}$/);
   });
 });
 

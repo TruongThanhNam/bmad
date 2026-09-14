@@ -41,7 +41,7 @@ const KHOA_STATE = [
   'notes',
   'draft',
   'dieuKien',
-  'expandedId',
+  'expandedIds',
   'editing',
   'banner',
   'readOnly',
@@ -54,7 +54,7 @@ describe('taoStore — khởi tạo', () => {
       notes: [],
       draft: { text: '', seq: 0 },
       dieuKien: { keyword: null, date: null },
-      expandedId: null,
+      expandedIds: [],
       editing: { id: null, text: '', seq: 0 },
       banner: null,
       readOnly: false,
@@ -977,6 +977,82 @@ describe('tuLuuNoiDung — state đổi ngay, phép ghi đi sau với debounce +
   });
 });
 
+describe('batTatMoRong — trạng thái mở rộng, tầng C, chỉ RAM', () => {
+  it('mặc định không mẩu nào mở rộng', () => {
+    expect(taoStore(portsDay()).state.expandedIds).toEqual([]);
+  });
+
+  it('bật rồi tắt cùng một id — đúng một nhịp click, đúng một nhịp thu lại', () => {
+    const store = taoStore(portsDay());
+    store.batTatMoRong('a');
+    expect(store.state.expandedIds).toEqual(['a']);
+    store.batTatMoRong('a');
+    expect(store.state.expandedIds).toEqual([]);
+  });
+
+  it('NHIỀU mẩu cùng mở — mở mẩu thứ hai KHÔNG thu mẩu thứ nhất', () => {
+    // Nửa mà một ô nhớ đơn (`expandedId`) làm sai trong im lặng, và là lý do tầng C mang một
+    // TẬP chứ không một id.
+    const store = taoStore(portsDay());
+    store.batTatMoRong('a');
+    store.batTatMoRong('b');
+    expect(store.state.expandedIds).toEqual(['a', 'b']);
+    store.batTatMoRong('a');
+    expect(store.state.expandedIds).toEqual(['b']);
+  });
+
+  it('id lạ không ném, và không nhân đôi khi bật hai lần liên tiếp', () => {
+    const store = taoStore(portsDay());
+    expect(() => store.batTatMoRong('khong-co-mau-nao-mang-id-nay')).not.toThrow();
+    expect(store.state.expandedIds).toEqual(['khong-co-mau-nao-mang-id-nay']);
+  });
+
+  it('id không phải chuỗi khác rỗng thì ném TypeError', () => {
+    const store = taoStore(portsDay());
+    for (const xau of [undefined, null, '', 7, {}]) {
+      expect(() => store.batTatMoRong(xau)).toThrow(TypeError);
+    }
+  });
+
+  it('KHÔNG chạm một cổng nào — không phép ghi nào xuống kho bền', () => {
+    // `portsDay()` ném ở MỌI phương thức, nên một lời gọi cổng lén lút sẽ ném ngay đây. Đó là
+    // cách "tải lại trang thì mọi mẩu về thu gọn" được bảo đảm bằng cách dựng được, chứ không
+    // bằng một mục thử tay.
+    const store = taoStore(portsDay());
+    expect(() => store.batTatMoRong('a')).not.toThrow();
+  });
+
+  it('chốt một ghi chú KHÔNG thu các mẩu đang mở lại', async () => {
+    // Dòng I/O Matrix "Chốt khi đang mở": mẩu mới hiện ra ở dạng thu gọn, nhưng những mẩu Nam
+    // đã mở ra để đọc phải ở NGUYÊN như vậy. Đây là nửa mà một `datLai` viết rộng tay trong
+    // `chotGhiChu` — hay một `xoaHetDieuKien` nới ra quá — làm sai trong im lặng.
+    const { store } = storeVoiKho({ banDau: banGhiMau() });
+    await store.khoiDong();
+    store.datBanNhap('mẩu mới');
+    store.batTatMoRong('a');
+    store.batTatMoRong('b');
+    await store.chotGhiChu();
+    expect(store.state.expandedIds).toEqual(['a', 'b']);
+  });
+
+  it('xoaGhiChu dọn id đó khỏi tập — cái nhớ phù du không phình theo số lần xóa', async () => {
+    const { store } = storeVoiKho({ banDau: banGhiMau() });
+    await store.khoiDong();
+    const [dau, sau] = store.state.notes;
+    store.batTatMoRong(dau.id);
+    store.batTatMoRong(sau.id);
+    await store.xoaGhiChu(dau.id);
+    expect(store.state.expandedIds).toEqual([sau.id]);
+  });
+
+  it('tập đọc ra ĐÓNG BĂNG — không đẩy thêm được từ ngoài (AD-1)', () => {
+    const store = taoStore(portsDay());
+    store.batTatMoRong('a');
+    expect(() => store.state.expandedIds.push('b')).toThrow(TypeError);
+    expect(store.state.expandedIds).toEqual(['a']);
+  });
+});
+
 describe('action của luồng ghi chuẩn đều nằm trên store, và tập khóa state KHÔNG nới ra', () => {
   afterEach(() => {
     vi.useRealTimers();
@@ -992,6 +1068,7 @@ describe('action của luồng ghi chuẩn đều nằm trên store, và tập k
       'khoiDongBanNhap',
       'datBanNhap',
       'nhipTimBanNhap',
+      'batTatMoRong',
     ]) {
       expect(typeof store[ten]).toBe('function');
     }

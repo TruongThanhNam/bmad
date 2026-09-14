@@ -183,28 +183,35 @@ describe('Hình dạng tĩnh của tầng 2 và tầng 4', () => {
   });
 });
 
-describe('Bóng: đúng một cái, và nó là token', () => {
+/** Đúng những token bóng tồn tại trong sản phẩm: lõm cho chỗ gõ, nhị cho thứ đã ghi. */
+const TOKEN_BONG = /var\(--shadow-(?:inset|paper)\)/;
+
+describe('Bóng: đúng hai cái, và cả hai là token', () => {
   // Story 2.1 chặn MỌI cái bóng vì cả hai cái bóng của DESIGN.md đều cần token mới. Story 2.2
-  // mở đúng một cái — bóng lõm ô soạn thảo — nên cửa chặn hẹp lại chứ không biến mất: bóng
-  // nhị mẩu giấy vẫn thuộc Story 2.5, và một giá trị bóng viết thẳng vẫn là một màu đi cửa sau.
+  // mở đúng một cái — bóng lõm ô soạn thảo. Story 2.5 mở cái thứ hai — bóng nhị mẩu giấy — và
+  // đây là một lần RENEGOTIATE có ghi chép, không phải một lần lách: hai cửa chặn dưới đây
+  // được viết khi mẩu giấy chưa tồn tại, nên chúng ghim "chưa có vật liệu nổi nào" chứ không
+  // ghim một bất biến thật. Cái bất biến THẬT thì không đổi một chữ: mỗi cái bóng phải đến từ
+  // một token, và tập selector mang bóng bị ghim ĐÚNG chứ không nới thành "có chứa".
   it('mọi box-shadow chỉ dùng var(--…), không một giá trị bóng viết thẳng nào', () => {
     const giaTri = [...css.matchAll(/box-shadow\s*:\s*([^;}]*)/g)].map((k) => k[1].trim());
     expect(giaTri.length).toBeGreaterThan(0);
-    // Ring focus được phép đứng sau token bóng trong cùng một khai báo, nhưng màu của nó cũng
-    // phải đến từ token — `color-mix` trên `var(--focus)`, không một hex nào.
+    // Ring focus được phép đứng sau token bóng trong cùng một khai báo, và dải keo của mẩu
+    // giấy được phép đứng trước nó — nhưng màu của cả hai cũng phải đến từ token: `color-mix`
+    // trên `var(--focus)`, `var(--paper-tape)`, không một hex nào.
     for (const v of giaTri) {
-      expect(v).toMatch(/^var\(--shadow-inset\)/);
+      expect(v).toMatch(TOKEN_BONG);
       expect(v).not.toMatch(/#[0-9a-f]{3,8}\b|\brgba?\s*\(|\bhsla?\s*\(/i);
     }
   });
 
-  it('chỉ .o-soan mang bóng — mẩu giấy và khay thì không (Story 2.5, DESIGN.md)', () => {
+  it('chỉ .o-soan và mẩu giấy mang bóng — khay thì không (DESIGN.md)', () => {
     const chon = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
       .filter(([, , than]) => /box-shadow\s*:/.test(than))
       .map(([, s]) => s.trim());
-    // Sắp cả hai vế: thứ tự hai luật trong file không đổi một điểm ảnh nào, nên nó không được
+    // Sắp cả hai vế: thứ tự các luật trong file không đổi một điểm ảnh nào, nên nó không được
     // là thứ làm ca này đỏ.
-    expect(chon.sort()).toEqual(['.o-soan', '.o-soan:focus-visible'].sort());
+    expect(chon.sort()).toEqual(['.o-luoi', '.o-soan', '.o-soan:focus-visible'].sort());
   });
 
   it('không dùng drop-shadow hay text-shadow ở bất cứ đâu', () => {

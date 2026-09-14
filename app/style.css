@@ -70,17 +70,31 @@
    * ba tầng ngoài là `flex: none` và `body` là `overflow: hidden`, nên một ô cao vô hạn đẩy
    * lưới về 0 và đẩy chân trang ra khỏi khung nhìn VĨNH VIỄN. Chạm trần thì chính ô cuộn. */
   --composer-max-h: 320px;
+  /* Số dòng của một mẩu THU GỌN, và chiều cao một dòng của `--font-note` (14.5px × 1.55).
+   * Cặp này dựng trần chiều cao ở `.mau-than`, và nó CỐ Ý trùng giá trị với `COLLAPSED_LINES`
+   * của `app/core/limits.js`: JS đếm dòng logic bằng hằng đó, CSS kẹp chiều cao bằng token này.
+   * Không có cách nào cho CSS đọc một hằng JS mà không dựng một đường ghi style từ view — thứ
+   * luật tầng view cấm — nên hai nơi là có chủ ý, và một ca Vitest đọc cả hai để chúng không
+   * trôi khỏi nhau. `em` chứ không `px`: nó bám theo cỡ chữ của vai `note`, nên đổi cỡ chữ thì
+   * trần tự đúng theo. */
+  --note-collapsed-lines: 3;
+  --note-line-h: 1.55em;
   /* Bóng lõm của ô soạn thảo (Story 2.2). Nó là TOKEN vì giá trị mang `rgba()`, và một màu
    * viết thẳng trong một luật CSS là đúng thứ AD-20 mục 4 cấm — hai khối này là chỗ duy nhất
    * một giá trị màu được phép tồn tại. Nó cũng là token KHÔNG-MÀU duy nhất đổi theo theme. */
   --shadow-inset: inset 0 1px 2px rgba(60, 48, 28, 0.07);
+  /* Bóng NHỊ của mẩu giấy (Story 2.5), ngược chiều với bóng lõm ở trên: lớp sát mép cho giấy
+   * một bề dày, lớp tán làm nó rời khỏi mặt bàn (`DESIGN.md`, *Elevation & Depth*). Cũng là
+   * token vì cùng lý do — `rgba()` trong một luật CSS là một màu viết thẳng. Bản dark có giá
+   * trị riêng: bóng nâu trên nền tối không đọc được. */
+  --shadow-paper: 0 1px 0 rgba(60, 48, 28, 0.1), 0 3px 8px rgba(60, 48, 28, 0.1);
   --radius-paper: 3px;
   --radius-input: 6px;
   --radius-tray: 8px;
   --radius-full: 9999px;
 }
 
-/* Bản dark ghi đè ĐÚNG 12 token màu, cộng `--shadow-inset` — không token typography/spacing/bo
+/* Bản dark ghi đè ĐÚNG 12 token màu, cộng hai token bóng — không token typography/spacing/bo
  * góc nào đổi theo theme. Ngoại lệ của bóng không phải một chỗ lọt: bóng nâu trên nền tối
  * không đọc được (`DESIGN.md`, *Elevation & Depth*), nên bản dark cần một giá trị khác.
  * Thuộc tính `data-theme` do script nội tuyến trong `<head>` của `index.html` đặt trước lần vẽ
@@ -101,6 +115,7 @@
   --chip-bg: #332F26;
   --hl: #4E4322;
   --shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  --shadow-paper: 0 1px 0 rgba(0, 0, 0, 0.45), 0 4px 12px rgba(0, 0, 0, 0.35);
 }
 
 html {
@@ -145,8 +160,8 @@ body {
  * 16px còn 1008px — vừa 3 cột (3×260 + 2×8 = 796) và thiếu so với 4 cột (4×260 + 3×8 = 1064).
  * Thêm một breakpoint để "giúp" nó là phá đúng bất biến đang được ghim.
  *
- * Cái bóng DUY NHẤT được phép dưới đây là `var(--shadow-inset)` trên `.o-soan` (Story 2.2);
- * bóng nhị mẩu giấy thuộc Story 2.5 và cần token riêng của nó. Một cái bóng viết thẳng ở đây
+ * Đúng HAI cái bóng được phép dưới đây, và cả hai là token: `var(--shadow-inset)` trên `.o-soan`
+ * (Story 2.2) và `var(--shadow-paper)` trên `.o-luoi` (Story 2.5). Một cái bóng viết thẳng ở đây
  * là một giá trị màu đi cửa sau.
  */
 
@@ -327,17 +342,88 @@ body {
   align-content: start;
 }
 
-/* Ô lưới ở Story 2.4 là một khối CHỮ, không phải mẩu giấy: đúng một luật, và luật đó chỉ mang
- * ngữ nghĩa chữ. `pre-wrap` vì mặc định `normal` gộp mọi `\n` thành khoảng trắng — một ghi chú
- * ba đoạn sẽ hiện ra thành một dòng chạy dài, tức lưới hiển thị SAI nội dung Nam đã gõ.
- * `anywhere` vì `pre-wrap` một mình không cắt được một chuỗi dài không dấu cách (một URL), và
- * chuỗi đó sẽ tràn ra khỏi cột.
+/* Ô lưới LÀ mẩu giấy (Story 2.5). Class giữ nguyên tên của Story 2.4 — nó vẫn là "một ô của
+ * lưới"; thứ 2.5 thêm vào là VẬT LIỆU treo trên nó.
  *
- * Không màu, không nền, không bo góc, không bóng, không khoảng đệm — vật liệu của mẩu giấy là
- * Story 2.5, và tên class cố ý KHÔNG mang từ giấy/thẻ để 2.5 còn tự đặt tên của nó. */
+ * Ngữ nghĩa chữ có trước: `pre-wrap` vì mặc định `normal` gộp mọi `\n` thành khoảng trắng —
+ * một ghi chú ba đoạn sẽ hiện ra thành một dòng chạy dài, tức lưới hiển thị SAI nội dung Nam
+ * đã gõ. `anywhere` vì `pre-wrap` một mình không cắt được một chuỗi dài không dấu cách (một
+ * URL), và chuỗi đó sẽ tràn ra khỏi cột.
+ *
+ * Rồi mới tới vật liệu. Dải keo là lớp ĐẦU của `box-shadow` chứ không phải một `border-top`:
+ * viền cộng vào kích thước hộp và ăn vào `--radius-paper` ở hai góc trên, còn một `inset`
+ * nằm bên trong bo góc và không đẩy nội dung đi đâu cả. Hai lớp sau là bóng nhị của
+ * `--shadow-paper`: mẩu giấy nhô lên, ngược chiều với bóng lõm của ô soạn thảo. */
 .o-luoi {
+  box-sizing: border-box;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
+  padding: var(--note-padding-y) var(--note-padding-x);
+  border-radius: var(--radius-paper);
+  background: var(--paper);
+  box-shadow: inset 0 3px 0 var(--paper-tape), var(--shadow-paper);
+}
+
+/* Đầu mẩu: giờ tạo bên trái, nút xóa bên phải. `white-space: normal` đặt lại cái `pre-wrap`
+ * thừa hưởng từ mẩu — nó chỉ có nghĩa với chữ của Nam, không với hai nhãn cố định ở đây. */
+
+.mau-dau {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block-end: var(--space-1);
+  white-space: normal;
+}
+
+/* Monospace dành RIÊNG cho thời gian — đó là cách `HH:mm` đọc ra được ở một liếc mắt mà không
+ * cần một nhãn nào bên cạnh. */
+
+.mau-gio {
+  color: var(--ink-2);
+  font: var(--font-time);
+  letter-spacing: var(--tracking-time);
+}
+
+/* Nút xóa LUÔN hiện và mờ nhạt, không hover-only: một điều khiển chỉ xuất hiện khi chuột đi
+ * ngang qua là một điều khiển không tồn tại với bàn phím. Gạch chân chấm chấm thay cho một
+ * khung nút, vì nó là hành động chứ không phải một vật chứa. */
+
+.mau-xoa {
+  margin-inline-start: auto;
+  padding: 0;
+  border: 0;
+  border-block-end: 1px dotted var(--ink-decor);
+  background: none;
+  color: var(--ink-2);
+  font: var(--font-foot);
+}
+
+/* Thân mẩu — chỗ DUY NHẤT bị kẹp chiều cao. Trần đặt ở đây chứ không ở `.o-luoi` để đầu mẩu và
+ * dòng gấp luôn thấy được: kẹp cả mẩu thì đúng thứ nói "còn N dòng" lại là thứ bị cắt mất.
+ *
+ * `overflow: hidden` đi cùng trần, và cặp đó là toàn bộ phép "cắt": mọi mẩu thu gọn vì thế có
+ * CÙNG chiều cao trần, kể cả một đoạn dài không xuống dòng — hàng luôn đều, và liếc một cái
+ * quét được cả ngày. */
+
+.mau-than {
+  max-block-size: calc(var(--note-collapsed-lines) * var(--note-line-h));
+  overflow: hidden;
+}
+
+/* Mở rộng = gỡ trần, không gì khác. Mẩu cao lên tại chỗ và đẩy hàng dưới xuống. */
+
+.mau-than-mo {
+  max-block-size: none;
+}
+
+/* Dòng gấp — chỉ có mặt khi số dòng LOGIC vượt ngưỡng thu gọn. Nó là dấu hiệu duy nhất ngoài
+ * mẩu giấy và giờ tạo mà story này được phép hiện ra. */
+
+.mau-gap {
+  margin-block-start: var(--space-1);
+  color: var(--ink-2);
+  font: var(--font-foot);
+  white-space: normal;
 }
 
 /* ── Tầng 4 — chân trang ───────────────────────────────────────────────────────────────── */

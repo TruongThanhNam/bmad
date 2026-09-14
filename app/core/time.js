@@ -23,6 +23,8 @@
 import {
   LOCAL_DATE_CHARS,
   LOCAL_STAMP_CHARS,
+  LOCAL_TIME_CHARS,
+  LOCAL_TIME_START,
   MINUTES_PER_HOUR,
   MS_PER_DAY,
   TIME_FIELD_CHARS,
@@ -137,6 +139,20 @@ export function localStamp(note) {
 /** Khóa lọc ngày: `yyyy-MM-dd` theo giờ tại chỗ lúc tạo (AD-13 đánh index trên trường này). */
 export function localDate(note) {
   return createdAtHopLe(note).slice(0, LOCAL_DATE_CHARS);
+}
+
+/**
+ * Giờ HIỂN THỊ của một mẩu giấy: `HH:mm` theo giờ tại chỗ lúc tạo (Story 2.5).
+ *
+ * Sống ở đây chứ không ở view vì đây là chỗ DUY NHẤT được dựng và cắt một mốc thời gian — một
+ * `createdAt.slice(11, 16)` viết trong `app/view/` là đường thứ hai cho cùng một phép, và nó
+ * sẽ lệch khỏi `localStamp`/`localDate` vào đúng ngày ai đó đổi hình dạng chuỗi.
+ *
+ * Dùng CHUNG `createdAtHopLe` với hai khóa kia: một bản ghi hỏng trong kho phải ném `TypeError`
+ * ở cả ba cửa, không phải hiện ra một ô giờ rỗng rồi im lặng.
+ */
+export function localTime(note) {
+  return createdAtHopLe(note).slice(LOCAL_TIME_START, LOCAL_TIME_START + LOCAL_TIME_CHARS);
 }
 
 /** Mốc tuyệt đối (mili giây) của một chuỗi ISO-8601 CÓ offset, hoặc ném nêu hình dạng mong đợi.

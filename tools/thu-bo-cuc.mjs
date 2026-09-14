@@ -491,7 +491,9 @@ try {
         const o = [...document.querySelectorAll('.luoi > *')].slice(0, 4);
         const r = (x) => x.getBoundingClientRect();
         return {
-          chu: o.map((x) => x.textContent),
+          // Chữ của Nam đọc qua thân mẩu, không qua gốc của ô: từ Story 2.5 gốc ô còn mang
+          // giờ tạo và nhãn nút xóa, nên textContent của nó không còn là nội dung ghi chú.
+          chu: o.map((x) => x.querySelector('.mau-than').textContent),
           dinh: o.map((x) => Math.round(r(x).top)),
           trai: o.map((x) => Math.round(r(x).left)),
           cao: o.map((x) => Math.round(r(x).height)),
@@ -535,6 +537,204 @@ try {
         'dọn sạch đúng những mẩu bộ đo vừa tạo — kho trở lại y như trước',
         conLai === khoTruoc,
         `kho ${khoTruoc} → ${conLai} (đã tạo ${idDaTao.length})`,
+      );
+    }
+  }
+
+  // ── Mẩu giấy: cắt, mở rộng, và chiều cao trần (Story 2.5) ───────────────────────────
+  //
+  // Vì sao không phải một ca Vitest: `mau-giay.test.js` ghim được HÌNH DẠNG (mẩu nào có dòng
+  // `còn N dòng ▾`, `N` bằng mấy, cờ mở rộng treo ở đâu) và nó dừng đúng ở đó. Bốn câu hỏi
+  // còn lại là câu hỏi về LAYOUT ĐÃ TÍNH, và không có layout engine thì không ai trả lời được:
+  //   - "mọi mẩu thu gọn CÙNG chiều cao trần" — kể cả một đoạn dài không xuống dòng, thứ mà
+  //     phép đếm dòng logic của JS cố tình không thấy; chỉ `max-block-size` + `overflow` cắt.
+  //   - "mở rộng TẠI CHỖ và đẩy hàng dưới xuống" — một phép so tọa độ đỉnh trước/sau.
+  //   - "hai mẩu cùng mở" — nửa mà một ô nhớ đơn ở tầng C làm sai trong im lặng.
+  //   - "tải lại trang thì MỌI mẩu về thu gọn" — chỉ một lần tải lại THẬT chứng minh được
+  //     rằng trạng thái mở không rơi xuống IndexedDB hay localStorage ở đâu đó.
+  {
+    await datKhungNhin(1280, 700);
+
+    const CHOT_MAU = (chu) => `
+      const o = document.querySelector('.o-soan');
+      o.value = ${JSON.stringify(chu)};
+      o.dispatchEvent(new Event('input', { bubbles: true }));
+      o.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true }));
+      return true;
+    `;
+    /** Đọc hình học của mọi mẩu đang trên lưới, theo đúng thứ tự DOM. */
+    const DO_MAU = `
+      const o = [...document.querySelectorAll('.luoi > *')];
+      const r = (x) => x.getBoundingClientRect();
+      return o.map((x) => ({
+        chu: x.querySelector('.mau-than').textContent,
+        cao: Math.round(r(x).height),
+        dinh: Math.round(r(x).top),
+        gap: x.querySelector('.mau-gap') === null ? null : x.querySelector('.mau-gap').textContent,
+        mo: x.querySelector('.mau-than.mau-than-mo') !== null,
+        tab: x.getAttribute('tabindex'),
+        gio: x.querySelector('.mau-gio').textContent,
+      }));
+    `;
+
+    // Ba mẩu DÀI và một mẩu một-đoạn-dài-không-xuống-dòng. Mẩu cuối là ca "suy giảm có ý
+    // thức": nó KHÔNG có dòng `còn N dòng ▾` (một dòng logic), nhưng vẫn phải bị trần CSS cắt
+    // về đúng chiều cao của những mẩu kia — nếu không, hàng hết đều.
+    const DAI = (ten) => Array.from({ length: 9 }, (_, i) => `${ten} dòng ${i}`).join('\n');
+    const MOT_DOAN = `một đoạn rất dài không hề xuống dòng `.repeat(20);
+    const CHU_MAU = [DAI('A'), DAI('B'), MOT_DOAN, DAI('D')];
+
+    const khoTruoc = await cdp.chay(
+      tab.sessionId,
+      `const m = await import('/app/main.js'); return m.store.state.notes.length;`,
+    );
+    const oTruoc = await cdp.chay(
+      tab.sessionId,
+      `
+      const m = await import('/app/main.js');
+      const q = await import('/app/core/query.js');
+      const t = await import('/app/core/time.js');
+      return q.locGhiChu(m.store.state.notes, m.store.state.dieuKien, t.nowIso()).length;
+    `,
+    );
+    const doiSoMau = async (mong) => {
+      for (let i = 0; i < 50; i += 1) {
+        const so = await cdp.chay(
+          tab.sessionId,
+          `return document.querySelectorAll('.luoi > *').length;`,
+        );
+        if (so === mong) return;
+        await nghi(100);
+      }
+      throw new Error(`lưới không đạt ${mong} mẩu sau 5s — phép ghi hỏng hoặc lưới không vẽ lại`);
+    };
+
+    const idMau = [];
+    try {
+      for (const chu of CHU_MAU) {
+        await cdp.chay(tab.sessionId, CHOT_MAU(chu));
+        await doiSoMau(oTruoc + idMau.length + 1);
+        const moi = await cdp.chay(
+          tab.sessionId,
+          `
+          const m = await import('/app/main.js');
+          const n = m.store.state.notes.find((x) => x.text === ${JSON.stringify(chu)});
+          return n === undefined ? null : n.id;
+        `,
+        );
+        // Tra không ra `id` là một lỗi, không phải một ca để bỏ qua: mẩu ĐÃ được tạo (lưới vừa
+        // đếm đủ số ô), nên bỏ qua im lặng là để nó ở lại trong IndexedDB thật của máy người
+        // chạy, ngoài tầm với của phép dọn trong `finally`. Ném ở đây thì `finally` vẫn chạy và
+        // dọn đúng những mẩu đã gom được, còn bộ đo thoát khác `0` như nó phải thế.
+        if (moi === null) {
+          throw new Error(`chốt xong nhưng không tra ra id của mẩu — kho có thể còn mẩu rác`);
+        }
+        idMau.push(moi);
+      }
+
+      // Chỉ đo những mẩu bộ đo vừa tạo: kho trên máy người chạy có thể đã mang ghi chú thật
+      // của hôm nay, và chúng đứng SAU trong danh sách (cũ hơn).
+      const thuGon = (await cdp.chay(tab.sessionId, DO_MAU)).slice(0, CHU_MAU.length);
+      ghi(
+        'mọi mẩu THU GỌN cao bằng nhau — kể cả đoạn dài không xuống dòng, hàng vẫn đều',
+        new Set(thuGon.map((m) => m.cao)).size === 1 && thuGon.every((m) => !m.mo),
+        JSON.stringify(thuGon.map((m) => m.cao)),
+      );
+      ghi(
+        'mẩu nhiều dòng có `còn N dòng ▾` đúng số; đoạn dài một-dòng-logic thì KHÔNG có',
+        thuGon[0].gap === 'còn 6 dòng ▾' &&
+          thuGon[1].gap === null &&
+          thuGon[1].tab === null &&
+          thuGon[2].gap === 'còn 6 dòng ▾',
+        JSON.stringify(thuGon.map((m) => [m.gap, m.tab])),
+      );
+      ghi(
+        'mỗi mẩu mang giờ tạo HH:mm, và chỉ mẩu BỊ CẮT mới vào thứ tự Tab',
+        thuGon.every((m) => /^\d{2}:\d{2}$/.test(m.gio)) &&
+          thuGon.filter((m) => m.tab === '0').length === thuGon.filter((m) => m.gap !== null).length,
+        JSON.stringify(thuGon.map((m) => [m.gio, m.tab])),
+      );
+
+      /** Click mẩu thứ `i` đúng đường của người dùng. */
+      const CLICK = (i) => `
+        document.querySelectorAll('.luoi > *')[${i}].dispatchEvent(
+          new MouseEvent('click', { bubbles: true }),
+        );
+        return true;
+      `;
+      // Mẩu cuối trong danh sách là mẩu CŨ NHẤT bộ đo tạo; ở lưới 3 cột nó nằm ở hàng thứ hai,
+      // nên đỉnh của nó là thước đo "hàng dưới bị đẩy xuống".
+      const hangDuoi = CHU_MAU.length - 1;
+      await cdp.chay(tab.sessionId, CLICK(0));
+      await nghi(100);
+      const motMo = (await cdp.chay(tab.sessionId, DO_MAU)).slice(0, CHU_MAU.length);
+      ghi(
+        'click mẩu bị cắt: mở TẠI CHỖ, dòng đổi `thu lại ▴`, và hàng dưới bị đẩy xuống',
+        motMo[0].mo &&
+          motMo[0].gap === 'thu lại ▴' &&
+          motMo[0].cao > thuGon[0].cao &&
+          motMo[hangDuoi].dinh > thuGon[hangDuoi].dinh,
+        `cao ${thuGon[0].cao}→${motMo[0].cao} · đỉnh hàng dưới ${thuGon[hangDuoi].dinh}→${motMo[hangDuoi].dinh}`,
+      );
+
+      await cdp.chay(tab.sessionId, CLICK(2));
+      await nghi(100);
+      const haiMo = (await cdp.chay(tab.sessionId, DO_MAU)).slice(0, CHU_MAU.length);
+      ghi(
+        'click mẩu bị cắt thứ hai: CẢ HAI cùng mở, mẩu trước KHÔNG bị thu lại',
+        haiMo[0].mo && haiMo[2].mo,
+        JSON.stringify(haiMo.map((m) => m.mo)),
+      );
+
+      // Click một mẩu KHÔNG bị cắt không đổi gì cả — kể cả chiều cao của chính nó.
+      await cdp.chay(tab.sessionId, CLICK(1));
+      await nghi(100);
+      const sauClickNgan = (await cdp.chay(tab.sessionId, DO_MAU)).slice(0, CHU_MAU.length);
+      ghi(
+        'click mẩu KHÔNG bị cắt: không một thứ gì đổi',
+        JSON.stringify(sauClickNgan) === JSON.stringify(haiMo),
+        JSON.stringify(sauClickNgan.map((m) => m.mo)),
+      );
+
+      // Tải lại trang THẬT: đây là phép đo duy nhất chứng minh trạng thái mở rộng không rơi
+      // xuống một kho bền nào. Hỏi thẳng cả hai kho sau đó, vì "trông thấy thu gọn" vẫn có thể
+      // là một giá trị còn nằm đâu đó mà lượt vẽ đầu chưa đọc tới.
+      await cdp.taiLai(tab.sessionId);
+      await doiSoMau(oTruoc + idMau.length);
+      // Đếm đủ mẩu chưa có nghĩa là layout đã ổn định: lượt vẽ đầu sau một lần tải lại có thể
+      // đo trúng khung hình trước khi phông của `--font-note` xong, và chiều cao đo được lệch
+      // một lần rồi tự đúng. Một nhịp nghỉ như mọi phép đo sau click ở trên.
+      await nghi(100);
+      const sauTaiLai = (await cdp.chay(tab.sessionId, DO_MAU)).slice(0, CHU_MAU.length);
+      const dauVet = await cdp.chay(
+        tab.sessionId,
+        `
+        const m = await import('/app/main.js');
+        const khoaLocal = Object.keys(localStorage).filter((k) => /expand|mo-rong|collaps/i.test(k));
+        return { trongState: m.store.state.expandedIds.length, khoaLocal };
+      `,
+      );
+      ghi(
+        'tải lại trang: MỌI mẩu về thu gọn, và không dấu vết nào của trạng thái mở trong kho',
+        sauTaiLai.every((m) => !m.mo) &&
+          dauVet.trongState === 0 &&
+          dauVet.khoaLocal.length === 0 &&
+          JSON.stringify(sauTaiLai.map((m) => m.cao)) === JSON.stringify(thuGon.map((m) => m.cao)),
+        `mở ${JSON.stringify(sauTaiLai.map((m) => m.mo))} · cao ${JSON.stringify(thuGon.map((m) => m.cao))}→${JSON.stringify(sauTaiLai.map((m) => m.cao))} · ${JSON.stringify(dauVet)}`,
+      );
+    } finally {
+      const conLai = await cdp.chay(
+        tab.sessionId,
+        `
+        const m = await import('/app/main.js');
+        for (const id of ${JSON.stringify(idMau)}) await m.store.xoaGhiChu(id);
+        return m.store.state.notes.length;
+      `,
+      );
+      ghi(
+        'dọn sạch đúng những mẩu giấy bộ đo vừa tạo — kho trở lại y như trước',
+        conLai === khoTruoc,
+        `kho ${khoTruoc} → ${conLai} (đã tạo ${idMau.length})`,
       );
     }
   }

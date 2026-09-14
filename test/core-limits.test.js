@@ -16,6 +16,9 @@ const MONG_DOI = {
   QUOTA_WARN_FREE_BYTES: 52428800,
   LOCAL_STAMP_CHARS: 19,
   LOCAL_DATE_CHARS: 10,
+  // Cặp chỉ số cắt `HH:mm` (Story 2.5) — `T` ở vị trí 10, nên giờ bắt đầu ở 11 và dài 5.
+  LOCAL_TIME_START: 11,
+  LOCAL_TIME_CHARS: 5,
   UTC_NOON_HOUR: 12,
   MS_PER_DAY: 86400000,
   MINUTES_PER_HOUR: 60,

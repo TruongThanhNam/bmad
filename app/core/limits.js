@@ -43,6 +43,15 @@ export const QUOTA_WARN_FREE_BYTES = 50 * 1024 * 1024;
  *  (AD-4). Dưới `app/`, `core/time.js` là nơi duy nhất tiêu thụ (test thì đọc thoải mái). */
 export const LOCAL_STAMP_CHARS = 19;
 
+/** Vị trí bắt đầu của phần `HH:mm` trong chuỗi ISO `yyyy-MM-ddTHH:mm:ss…` — ngay sau `T`,
+ *  tức đúng sau khóa ngày cộng một ký tự phân cách. `core/time.js` là nơi duy nhất tiêu thụ;
+ *  view KHÔNG được tự cắt chuỗi (AD-4). */
+export const LOCAL_TIME_START = 11;
+
+/** Độ dài phần giờ hiển thị `HH:mm` — năm ký tự, không giây. Ở khung nhìn mặc định mẩu giấy
+ *  chỉ hiện giờ, vì ngày là thông tin thừa khi mọi mẩu đều của hôm nay. */
+export const LOCAL_TIME_CHARS = 5;
+
 /** Độ dài khóa lọc ngày `localDate` — `yyyy-MM-dd` (AD-4, AD-13).
  *  Dưới `app/`, `core/time.js` là nơi duy nhất tiêu thụ (test thì đọc thoải mái). */
 export const LOCAL_DATE_CHARS = 10;

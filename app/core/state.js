@@ -144,7 +144,7 @@ function banGhiSua(cu, text) {
  * Ba tầng phạm vi của AD-3, tất cả cùng sống trong RAM ở đây:
  * - tầng A (bền, dùng chung): `notes`.
  * - tầng B (bền, riêng tab): `draft`.
- * - tầng C (phù du): `dieuKien`, `expandedId`, `editing`, `banner`, `readOnly`.
+ * - tầng C (phù du): `dieuKien`, `expandedIds`, `editing`, `banner`, `readOnly`.
  *
  * `seq` là số đếm chống hẹn tự lưu sống lâu hơn thứ nó định ghi (AD-8): hẹn nào nổ ra mà
  * `seq` của nó không còn là `seq` hiện tại thì bị bỏ. Một số đếm cho bản nháp, một cho mẩu
@@ -158,8 +158,12 @@ function stateRong() {
     draft: { text: '', seq: 0 },
     // Tầng C — điều kiện đang bật. `{null, null}` là VẮNG MẶT điều kiện (AD-15).
     dieuKien: { keyword: null, date: null },
-    // Tầng C — mẩu đang mở rộng, và mẩu đang sửa cùng nội dung đang gõ của nó.
-    expandedId: null,
+    // Tầng C — TẬP mẩu đang mở rộng, và mẩu đang sửa cùng nội dung đang gõ của nó.
+    //
+    // Một MẢNG chứ không phải một `id` đơn: AC của Story 2.5 đòi "click hai mẩu bị cắt thì cả
+    // hai cùng mở", nên một ô nhớ đơn sẽ thu mẩu trước lại mỗi lần mở mẩu sau. Và nó nằm ở
+    // tầng C chứ không ở kho bền, nên tải lại trang là MỌI mẩu về thu gọn — theo thiết kế.
+    expandedIds: [],
     editing: { id: null, text: '', seq: 0 },
     // Tầng C — dải băng: một giá trị, một chủ (AD-17).
     banner: null,
@@ -334,6 +338,35 @@ export function taoStore(ports) {
   /** Đưa khối điều kiện về `{ keyword: null, date: null }` — khung nhìn mặc định (AD-15). */
   function xoaHetDieuKien() {
     datLai({ dieuKien: { keyword: null, date: null } });
+  }
+
+  /**
+   * Bật/tắt trạng thái MỞ RỘNG của một mẩu (Story 2.5).
+   *
+   * Đây là một action của lõi chứ không phải một biến trong closure của view, và lý do không
+   * phải thẩm mỹ: luật "view không giữ state riêng" được ghim bằng test, và một ô nhớ thứ hai
+   * ở tầng view là đúng đường đổi state mà AD-1 cấm.
+   *
+   * KHÔNG chạm cổng nào: trạng thái mở rộng là tầng C, chỉ RAM. Nó không đi xuống IndexedDB
+   * lẫn localStorage, nên "tải lại trang thì mọi mẩu về thu gọn" đúng theo thiết kế chứ không
+   * tình cờ — và vì thế nó không đi qua `ghiTruocDatSau`, y như hai action điều kiện ở trên.
+   *
+   * `id` lạ (mẩu đã bị xóa, hay một chuỗi bịa) KHÔNG ném: tập này là một cái nhớ phù du, và
+   * một `id` không còn mẩu nào mang chỉ đơn giản không ảnh hưởng lượt vẽ nào.
+   *
+   * @param {string} id `id` của mẩu cần bật/tắt.
+   * @returns {void}
+   */
+  function batTatMoRong(id) {
+    if (typeof id !== 'string' || id === '') {
+      throw new TypeError(`batTatMoRong nhận id là chuỗi khác rỗng, nhận được ${moTa(id)}`);
+    }
+    const dangMo = noiBo.expandedIds.includes(id);
+    datLai({
+      expandedIds: dangMo
+        ? noiBo.expandedIds.filter((khac) => khac !== id)
+        : [...noiBo.expandedIds, id],
+    });
   }
 
   /**
@@ -531,7 +564,13 @@ export function taoStore(ports) {
     if (!noiBo.notes.some((mau) => mau.id === id)) return Promise.resolve();
     return ghiTruocDatSau(
       () => ports.noteStore.remove(id),
-      () => ({ notes: noiBo.notes.filter((mau) => mau.id !== id) }),
+      // Mẩu đi thì cái nhớ phù du về nó cũng đi: một `id` không còn bản ghi nào mang sẽ ở lại
+      // trong `expandedIds` tới hết phiên, và tập đó phình dần theo số lần xóa trong một tab
+      // mở lâu. Lọc ngay trong closure của `datLai` sẵn có, nên nó vẫn là MỘT phép đổi state.
+      () => ({
+        notes: noiBo.notes.filter((mau) => mau.id !== id),
+        expandedIds: noiBo.expandedIds.filter((khac) => khac !== id),
+      }),
     );
   }
 
@@ -709,6 +748,7 @@ export function taoStore(ports) {
     },
     datDieuKien,
     xoaHetDieuKien,
+    batTatMoRong,
     khoiDong,
     chotGhiChu,
     xoaGhiChu,
