@@ -21,7 +21,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { MA_LOI } from '../app/core/errors.js';
+import { MA_LOI, loiUngDung } from '../app/core/errors.js';
 import { AUTOSAVE_MS, MAX_NOTE_CHARS } from '../app/core/limits.js';
 import { taoStore } from '../app/core/state.js';
 import { PORT_METHODS } from '../app/ports/index.js';
@@ -95,6 +95,30 @@ function oGia() {
     coBoNgheInput() {
       return boNghe.has('input');
     },
+    /**
+     * Bấm một phím: dựng một sự kiện tối giản, phát nó, và trả về chính sự kiện đó — nên ca
+     * test đọc được `preventDefault` có bị gọi hay không. `Enter` trần xuống dòng là hành vi
+     * MẶC ĐỊNH của trình duyệt, và cách duy nhất thấy view giữ nguyên nó là thấy view KHÔNG
+     * chặn mặc định.
+     */
+    bam(phim, tuyChon = {}) {
+      const suKien = {
+        key: phim,
+        ctrlKey: tuyChon.ctrlKey ?? false,
+        shiftKey: tuyChon.shiftKey ?? false,
+        altKey: tuyChon.altKey ?? false,
+        isComposing: tuyChon.isComposing ?? false,
+        soLanChan: 0,
+        preventDefault() {
+          suKien.soLanChan += 1;
+        },
+      };
+      boNghe.get('keydown')(suKien);
+      return suKien;
+    },
+    coBoNgheKeydown() {
+      return boNghe.has('keydown');
+    },
     coBoNgheResize() {
       return boNgheCuaSo.has('resize');
     },
@@ -148,7 +172,7 @@ function portsDay() {
  * không do bộ lập lịch của Node.
  */
 function storeGia(tuyChon = {}) {
-  const { chuTrongKho = '', giuClaim = false } = tuyChon;
+  const { chuTrongKho = '', giuClaim = false, chotHong = false } = tuyChon;
   const nhatKy = [];
   let chotClaim = null;
   const ports = portsDay();
@@ -171,12 +195,25 @@ function storeGia(tuyChon = {}) {
       nhatKy.push(`putDraft:${JSON.stringify(draft.text)}`);
       return Promise.resolve();
     },
+    commitDraft({ note }) {
+      nhatKy.push(`commitDraft:${JSON.stringify(note.text)}`);
+      if (chotHong) return Promise.reject(loiUngDung(MA_LOI.QUOTA));
+      return Promise.resolve();
+    },
   };
   return {
     store: taoStore(ports),
     nhatKy,
     traClaim: () => chotClaim(),
   };
+}
+
+/**
+ * Nhường một nhịp cho hàng đợi vi tác vụ: `chotGhiChu()` trả về một lời hứa mà view giữ riêng,
+ * nên ca test không `await` thẳng nó được — nó đợi bằng một nhịp của bộ lập lịch.
+ */
+function nhipVi() {
+  return new Promise((xong) => setTimeout(xong, 0));
 }
 
 /** Nhật ký chỉ gồm các phép GHI bản nháp — `claimDraft` không phải một phép ghi. */
@@ -277,6 +314,124 @@ describe('noiOSoan — mỗi phím gõ đi qua đúng một action', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe('Ctrl+Enter chốt, Enter trần xuống dòng (Story 2.3)', () => {
+  it('Ctrl+Enter gọi chotGhiChu, và ô TRỐNG lại sau khi lời hứa chốt xong', async () => {
+    const o = oGia();
+    const { store, nhatKy } = storeGia();
+    noiOSoan(store, gocGia(o));
+    await store.khoiDongBanNhap();
+    expect(o.coBoNgheKeydown()).toBe(true);
+
+    o.go('phở bò');
+    const suKien = o.bam('Enter', { ctrlKey: true });
+    expect(suKien.soLanChan).toBe(1);
+    // Lời hứa chốt chưa chốt xong ở đây — ô chỉ được dọn SAU khi kho nhận chữ.
+    await nhipVi();
+
+    expect(nhatKy.filter((d) => d.startsWith('commitDraft:'))).toEqual(['commitDraft:"phở bò"']);
+    expect(store.state.draft.text).toBe('');
+    expect(o.value).toBe('');
+    expect(store.state.notes).toHaveLength(1);
+  });
+
+  it('ô co về chiều cao SÀN sau khi chốt — "con trỏ vẫn ở trong ô" gồm cả ô đúng cỡ', async () => {
+    const o = oGia();
+    const { store } = storeGia();
+    noiOSoan(store, gocGia(o));
+    await store.khoiDongBanNhap();
+
+    o.go('một\nhai\nba');
+    expect(o.style.blockSize).toBe(`${3 * CAO_DONG + VIEN}px`);
+    o.bam('Enter', { ctrlKey: true });
+    await nhipVi();
+    expect(o.style.blockSize).toBe(`${CAO_DONG + VIEN}px`);
+  });
+
+  it('Enter trần KHÔNG chốt và KHÔNG bị chặn mặc định — xuống dòng là việc của trình duyệt', async () => {
+    const o = oGia();
+    const { store, nhatKy } = storeGia();
+    noiOSoan(store, gocGia(o));
+    await store.khoiDongBanNhap();
+
+    o.go('phở');
+    for (const phim of [
+      { phim: 'Enter', tuyChon: {} },
+      { phim: 'Enter', tuyChon: { shiftKey: true } },
+      { phim: 'a', tuyChon: { ctrlKey: true } },
+    ]) {
+      const suKien = o.bam(phim.phim, phim.tuyChon);
+      expect(suKien.soLanChan).toBe(0);
+    }
+    await nhipVi();
+    expect(nhatKy.filter((d) => d.startsWith('commitDraft:'))).toEqual([]);
+    expect(store.state.draft.text).toBe('phở');
+    expect(o.value).toBe('phở');
+  });
+
+  it('bộ gõ còn đang dựng âm tiết (isComposing): KHÔNG chốt, không chặn mặc định', async () => {
+    // `Ctrl+Enter` rơi vào giữa một âm tiết đang dựng là phím của BỘ GÕ, không phải của ứng
+    // dụng — chốt lúc này là chốt `phơ` thay cho `phở`.
+    const o = oGia();
+    const { store, nhatKy } = storeGia();
+    noiOSoan(store, gocGia(o));
+    await store.khoiDongBanNhap();
+
+    o.go('phơ');
+    const suKien = o.bam('Enter', { ctrlKey: true, isComposing: true });
+    await nhipVi();
+    expect(suKien.soLanChan).toBe(0);
+    expect(nhatKy.filter((d) => d.startsWith('commitDraft:'))).toEqual([]);
+    expect(store.state.draft.text).toBe('phơ');
+  });
+
+  it('AltGr (Ctrl+Alt) KHÔNG chốt — nó gõ ra ký tự, không ra lệnh', async () => {
+    const o = oGia();
+    const { store, nhatKy } = storeGia();
+    noiOSoan(store, gocGia(o));
+    await store.khoiDongBanNhap();
+
+    o.go('phở');
+    const suKien = o.bam('Enter', { ctrlKey: true, altKey: true });
+    await nhipVi();
+    expect(suKien.soLanChan).toBe(0);
+    expect(nhatKy.filter((d) => d.startsWith('commitDraft:'))).toEqual([]);
+    expect(store.state.draft.text).toBe('phở');
+  });
+
+  it('chốt HỎNG thì ô giữ nguyên chữ — không bao giờ giả vờ đã lưu (FR-19)', async () => {
+    const o = oGia();
+    const { store } = storeGia({ chotHong: true });
+    noiOSoan(store, gocGia(o));
+    await store.khoiDongBanNhap();
+
+    o.go('phở bò');
+    const caoTruoc = o.style.blockSize;
+    o.bam('Enter', { ctrlKey: true });
+    await nhipVi();
+
+    expect(o.value).toBe('phở bò');
+    expect(store.state.draft.text).toBe('phở bò');
+    expect(store.state.notes).toEqual([]);
+    expect(store.state.banner).toBe(MA_LOI.QUOTA);
+    expect(o.style.blockSize).toBe(caoTruoc);
+  });
+
+  it('Ctrl+Enter trên ô TRỐNG: không cổng nào bị gọi, không một byte nào đổi', async () => {
+    const o = oGia();
+    const { store, nhatKy } = storeGia();
+    noiOSoan(store, gocGia(o));
+    await store.khoiDongBanNhap();
+    nhatKy.length = 0;
+
+    o.bam('Enter', { ctrlKey: true });
+    await nhipVi();
+    expect(nhatKy).toEqual([]);
+    expect(o.value).toBe('');
+    expect(store.state.notes).toEqual([]);
+    expect(store.state.banner).toBeNull();
   });
 });
 
@@ -475,7 +630,7 @@ describe('app/view/o-soan.js — luật của tầng view, cưỡng chế đư�
 
   it('đổi state đi qua đúng MỘT action, và không có cơ chế subscribe nào', () => {
     const goiStore = [...nguon.matchAll(/store\s*\.\s*([\w$]+)/g)].map((k) => k[1]);
-    expect([...new Set(goiStore)].sort()).toEqual(['datBanNhap', 'state']);
+    expect([...new Set(goiStore)].sort()).toEqual(['chotGhiChu', 'datBanNhap', 'state']);
     expect(nguon).not.toMatch(/subscribe|onChange|theoDoi/i);
   });
 });

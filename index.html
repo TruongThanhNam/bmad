@@ -70,7 +70,8 @@
                   aria-describedby="o-soan-nhac" autofocus></textarea>
         <!-- Microcopy GHIM của EXPERIENCE.md ("Gợi ý dưới ô soạn thảo"), nguyên văn. Nó nói
              được bấm gì, KHÔNG nói chữ đã lưu hay chưa — không chỉ báo trạng thái nào ở đây
-             (AD-16). Bản thân `Ctrl+Enter` là Story 2.3.
+             (AD-16). Bản thân `Ctrl+Enter` nối ở `app/view/o-soan.js`: nó gọi `chotGhiChu()`,
+             ô trống lại và con trỏ ở lại — thành công thì giao diện im lặng tuyệt đối.
 
              `aria-describedby` nối nó vào ô: placeholder để trống là một quyết định có chủ ý,
              nên đây là CHỈ DẪN DUY NHẤT của sản phẩm — không nối thì trình đọc màn hình đọc ô

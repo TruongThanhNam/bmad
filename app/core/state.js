@@ -254,7 +254,7 @@ function ngayHopLe(giaTri, giaTriCu) {
  *
  * @param {object} ports Năm cổng của `app/ports/`, do `app/main.js` nối vào.
  * @returns {{ state: object, datDieuKien: Function, xoaHetDieuKien: Function, khoiDong:
- *   Function, themGhiChu: Function, xoaGhiChu: Function, tuLuuNoiDung: Function,
+ *   Function, chotGhiChu: Function, xoaGhiChu: Function, tuLuuNoiDung: Function,
  *   khoiDongBanNhap: Function, datBanNhap: Function, nhipTimBanNhap: Function }}
  *   Store với `state` chỉ đọc và các action. Story sau thêm action vào ĐÂY, không nơi khác.
  */
@@ -272,6 +272,15 @@ export function taoStore(ports) {
    * bản nháp không có chủ sẽ nằm lại trong kho mà không tab nào nhận lại được.
    */
   let tabCuaMinh = null;
+
+  /**
+   * Có một lần chốt đang bay hay không — sống trong CLOSURE, không phải một trường state.
+   *
+   * AD-16 cấm mọi trường mang nghĩa "đang lưu": view không có gì để vẽ ra thì không có chỉ báo
+   * nào lọt vào. Nhưng phép gác thì vẫn cần, vì phím tự lặp gửi `Ctrl+Enter` nhiều lần trước
+   * khi giao dịch đầu chốt xong — và lúc đó `draft.text` vẫn còn nguyên chữ để chốt lần nữa.
+   */
+  let dangChot = false;
 
   /**
    * Đường DUY NHẤT một action đổi state: thay các nhánh được nêu bằng object mới, rồi dựng
@@ -409,32 +418,100 @@ export function taoStore(ports) {
   }
 
   /**
-   * Thêm một ghi chú mới: ghi xuống kho trước, rồi đưa nó lên đầu `notes`.
+   * HÀM NỘI BỘ — dựng bản ghi mới rồi ghi nó xuống kho CÙNG bản nháp đã làm rỗng, và chỉ đổi
+   * state sau khi giao dịch chốt (AD-8).
    *
-   * Chuỗi rỗng hay chỉ khoảng trắng là "không có gì để thêm", không phải lỗi: không chạm cổng,
-   * không đổi state, không dải băng. Quá trần thì dải băng `TOO_LONG` và cổng KHÔNG bị gọi —
-   * trần là ràng buộc của lõi, chặn ở cửa vào (AD-14).
+   * Không còn là action công khai, và đó là một quyết định: hai đường tạo ghi chú với hai luật
+   * ghi khác nhau (một đường không nguyên tử với `drafts`) đúng là loại lệch mà AD-8 sinh ra để
+   * chặn. `chotGhiChu` là cửa duy nhất, và nó gọi hàm này cho phần dựng-và-ghi.
    *
-   * @param {string} text Nội dung người dùng gõ, nguyên trạng.
+   * `seqLucChot` là số đếm của bản nháp tại lúc chốt. Đọc `noiBo.draft.seq` LÚC GHI XONG chứ
+   * không dùng một ảnh chụp cũ: Nam có thể đã gõ tiếp trong lúc đĩa còn quay, và lúc đó chữ mới
+   * phải thắng — nên ô KHÔNG được làm trống, cùng chiều với phép so sánh của `khoiDongBanNhap`.
+   *
+   * @param {string} text Chữ được chốt, nguyên trạng.
+   * @param {number} seqLucChot Số đếm bản nháp tại lúc chốt.
+   * @returns {Promise<boolean>} `true` nếu giao dịch chốt được, `false` nếu cổng từ chối.
+   */
+  function themGhiChu(text, seqLucChot) {
+    const banGhi = banGhiMoi(text);
+    // Chưa giành được bản nháp thì không có bản ghi `drafts` nào của tab này để làm rỗng — và
+    // dựng một bản dưới một danh tính chưa giành được là để lại rác không tab nào nhận lại.
+    const banNhapRong =
+      tabCuaMinh === null ? null : { tabId: tabCuaMinh, text: '', heartbeat: nowIso() };
+    let daChot = true;
+    return ghiTruocDatSau(
+      () =>
+        ports.noteStore.commitDraft({ note: banGhi, draft: banNhapRong }).catch((loi) => {
+          daChot = false;
+          throw loi;
+        }),
+      // Một `datLai` cho CẢ HAI nhánh: `ghiTruocDatSau` trộn `banner: null` vào đúng một lần,
+      // nên tách làm hai là hai lần dựng lại ảnh và một khoảnh khắc state nửa vời ở giữa.
+      //
+      // Sắp lại chứ không chỉ chèn lên đầu: mẩu mới thường là mẩu mới nhất, nhưng "thường"
+      // không phải bất biến — đồng hồ máy lùi lại, hay một bản ghi nạp từ file sao lưu (Epic
+      // 4) mang mốc tương lai, đều để lại một mảng lệch thứ tự mà không ai thấy.
+      () => ({
+        notes: sapGiamDan([banGhi, ...noiBo.notes]),
+        draft:
+          noiBo.draft.seq === seqLucChot ? { text: '', seq: noiBo.draft.seq } : noiBo.draft,
+      }),
+    ).then(() => daChot);
+  }
+
+  /**
+   * Chốt bản nháp hiện tại thành một ghi chú — nhịp cuối của UJ-1.
+   *
+   * KHÔNG nhận tham số: nguồn chữ duy nhất là `state.draft.text`. Bản nháp là thứ được chốt, và
+   * một tham số `text` sẽ mở đúng cái cửa thứ hai mà AD-8 vừa đóng lại.
+   *
+   * Năm bước, theo đúng thứ tự này:
+   *
+   * 1. Tăng `draft.seq` — hủy mọi hẹn tự lưu đang treo. Đi TRƯỚC mọi thứ khác: một `Ctrl+Enter`
+   *    xảy ra giữa hai phím gõ, và một hẹn cũ nổ ra SAU lúc chốt sẽ ghi lại xuống `drafts` đúng
+   *    chữ vừa biến thành ghi chú — một bản nháp ma, và cú chốt sau sinh ra một mẩu trùng.
+   *    Hủy bằng `seq` chứ không bằng `clearTimeout` là cơ chế chính thức của AD-8.
+   * 2. Gác rỗng — không có gì để chốt thì thoát ngay, TRƯỚC `xoaHetDieuKien()`. AC của epic gọi
+   *    `xoaHetDieuKien()` là "bước đầu tiên", nhưng đó là bước đầu tiên của một lần chốt THẬT:
+   *    một cú bấm nhầm trên ô trống không được âm thầm xóa bộ lọc đang bật (Epic 6).
+   * 3. Gác trần — cổng KHÔNG bị gọi, chữ nằm nguyên trong ô, dải băng `TOO_LONG` (AD-14).
+   * 4. `xoaHetDieuKien()` — mẩu vừa chốt phải nhìn thấy được ngay, kể cả khi bộ lọc đang bật.
+   * 5. Dựng bản ghi và ghi xuống kho, rồi mới đổi state.
+   *
+   * Hỏng thì chữ KHÔNG mất: `notes` không đổi, `draft.text` còn nguyên, dải băng mang mã lỗi, và
+   * một hẹn tự lưu được đặt lại để chữ chưa an toàn còn một đường xuống kho.
+   *
+   * Một lần chốt ĐANG BAY thì cú bấm thứ hai không làm gì cả: phím tự lặp của bàn phím gửi
+   * `Ctrl+Enter` nhiều lần trong vài chục mili giây, và giao dịch chưa chốt xong thì `draft.text`
+   * vẫn còn nguyên chữ — hai lời gọi cổng, hai ghi chú trùng nội dung với hai `id` khác nhau.
+   *
    * @returns {Promise<void>} Hoàn tất khi state đã phản ánh kết quả — không bao giờ bị từ chối.
    */
-  function themGhiChu(text) {
-    if (typeof text !== 'string') {
-      throw new TypeError(`themGhiChu nhận text là chuỗi, nhận được ${moTa(text)}`);
+  function chotGhiChu() {
+    if (dangChot) return Promise.resolve();
+    const seqMoi = noiBo.draft.seq + 1;
+    const text = noiBo.draft.text;
+    datLai({ draft: { text, seq: seqMoi } });
+    if (text.trim() === '') {
+      // Bước (1) vừa hủy hẹn tự lưu đang treo, và bản nháp rỗng này cũng cần xuống kho: xóa
+      // hết chữ rồi bấm nhầm `Ctrl+Enter` mà không đặt lại hẹn thì chữ đã xóa quay về ở lần
+      // tải lại sau. Cùng một phép đặt lại với nhánh ghi hỏng.
+      henGhiBanNhapDiSau(seqMoi);
+      return Promise.resolve();
     }
-    if (text.trim() === '') return Promise.resolve();
     if (text.length > MAX_NOTE_CHARS) {
       datLai({ banner: MA_LOI.TOO_LONG });
       return Promise.resolve();
     }
-    const banGhi = banGhiMoi(text);
-    return ghiTruocDatSau(
-      () => ports.noteStore.put(banGhi),
-      // Sắp lại chứ không chỉ chèn lên đầu: mẩu mới thường là mẩu mới nhất, nhưng "thường"
-      // không phải bất biến — đồng hồ máy lùi lại, hay một bản ghi nạp từ file sao lưu (Epic
-      // 4) mang mốc tương lai, đều để lại một mảng lệch thứ tự mà không ai thấy.
-      () => ({ notes: sapGiamDan([banGhi, ...noiBo.notes]) }),
-    );
+    xoaHetDieuKien();
+    dangChot = true;
+    return themGhiChu(text, seqMoi).then((daChot) => {
+      dangChot = false;
+      // Ghi hỏng: chữ còn trên màn hình và chưa an toàn ở đâu cả. Đặt lại hẹn tự lưu cho nó —
+      // nhưng chỉ khi Nam chưa gõ tiếp, vì một phím gõ sau đó đã tự đặt hẹn của nó rồi.
+      if (!daChot && noiBo.draft.seq === seqMoi) henGhiBanNhapDiSau(seqMoi);
+    });
   }
 
   /**
@@ -633,7 +710,7 @@ export function taoStore(ports) {
     datDieuKien,
     xoaHetDieuKien,
     khoiDong,
-    themGhiChu,
+    chotGhiChu,
     xoaGhiChu,
     tuLuuNoiDung,
     khoiDongBanNhap,

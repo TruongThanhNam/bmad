@@ -224,6 +224,23 @@ export const DOC_DRAFTS = `
   return ra;
 `;
 
+/** Đọc toàn bộ store `notes` bằng một giao dịch RIÊNG, độc lập với mã của app. */
+export const DOC_NOTES = `
+  const kho = await new Promise((ok, no) => {
+    const y = indexedDB.open('ghichu');
+    y.onsuccess = () => ok(y.result);
+    y.onerror = () => no(y.error);
+  });
+  const ra = await new Promise((ok, no) => {
+    const t = kho.transaction(['notes'], 'readonly');
+    const y = t.objectStore('notes').getAll();
+    y.onsuccess = () => ok(y.result);
+    t.onerror = () => no(t.error);
+  });
+  kho.close();
+  return ra;
+`;
+
 /** Hình dạng schema thật của kho, đọc từ chính trình duyệt. */
 export const DOC_SCHEMA = `
   const kho = await new Promise((ok, no) => {

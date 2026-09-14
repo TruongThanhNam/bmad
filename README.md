@@ -92,7 +92,7 @@ file/thư mục bắt đầu bằng `_`. File rỗng `.nojekyll` ở gốc tắt
 `app/adapters/` không có test tự động — chúng mỏng theo thiết kế và bằng chứng duy nhất là
 danh sách thử tay dưới đây. Các story sau bổ sung thêm mục vào danh sách này.
 
-**Mục 10-13 (bản nháp) chạy được bằng máy:**
+**Mục 10-13 (bản nháp) và mục 22-23 (chốt, sửa, xóa) chạy được bằng máy:**
 
 ```bash
 npm run thu-tay
@@ -189,6 +189,20 @@ gọi nó. Đợi hơn `AUTOSAVE_MS` (400 ms) sau phím cuối thì bản nháp 
     `DRAFT_BEAT_MS` (10 giây), `heartbeat` của bản ghi đó phải nhích lên (làm mới bảng
     `drafts` trong DevTools để thấy). Đặt tay một bản ghi có `text` rỗng vào `drafts`, tải lại
     trang: bản rỗng đó biến mất.
+22. **Chốt bản nháp: hai kho đổi trong MỘT giao dịch, và bản nháp không hồi sinh.** Gõ vài
+    chữ rồi bấm `Ctrl+Enter` **ngay** (trong vòng `AUTOSAVE_MS`, tức trước khi hẹn tự lưu của
+    phím cuối nổ), rồi đợi vài giây và tải lại trang. DevTools → Application → IndexedDB →
+    `ghichu`: `notes` có đúng **một** bản ghi mang chữ đó (đúng năm trường của AD-13), và
+    **không** bản ghi `drafts` nào còn mang chữ đó — ô soạn thảo trống sau khi tải lại.
+
+    Đây là nửa cứng của AD-8: nếu ghi chú xuống được kho mà bản nháp không bị làm rỗng trong
+    **cùng** giao dịch, lần khởi động sau nhận lại đúng chữ vừa thành ghi chú — một bản nháp
+    **ma**, và cú `Ctrl+Enter` kế tiếp sinh ra một mẩu trùng nội dung.
+
+    Nhịp **gõ-chốt-gõ-chốt không rời bàn phím** cũng phải làm bằng tay: gõ `một`, `Ctrl+Enter`,
+    gõ `hai` ngay lập tức, `Ctrl+Enter` lần nữa. Ô phải trống lại sau mỗi lần chốt, **con trỏ
+    không rời ô** (gõ tiếp được ngay, không click), không một chỉ báo nào hiện ra, và trong
+    `notes` có đúng **hai** bản ghi với `id` khác nhau — không mẩu nào trùng nội dung.
 
 ### `index.html` — theme không nháy lúc tải
 
@@ -281,9 +295,10 @@ con trỏ nháy, và nó không đóng được một tab thật.
     không có thanh cuộn trong ô, và trang **vẫn không** có thanh cuộn dọc ngoài. Gõ tiếp cho
     tới khi ô chạm trần `--composer-max-h` (320px): ô **dừng cao** và **chính nó** bắt đầu
     cuộn, lưới vẫn còn chỗ và chân trang vẫn trong khung nhìn. Dưới ô đúng **một** dòng nhỏ
-    `Ctrl+Enter để chốt`. Bấm `Ctrl+Enter` lúc này chỉ **xuống dòng** như mọi `<textarea>` —
-    nó **chưa chốt** gì cả, và ghi chú chưa xuất hiện ở đâu; chốt là Story 2.3. Không nút
-    "Lưu", không chữ "đã lưu", không số đếm ký tự ở đâu cả.
+    `Ctrl+Enter để chốt`. `Enter` **trần** chỉ xuống dòng như mọi `<textarea>`; `Ctrl+Enter`
+    thì **chốt** (mục 22) — ô trống lại, con trỏ ở lại, và giao diện im lặng tuyệt đối: mẩu
+    giấy chưa hiện ra ở đâu vì lưới thuộc Story 2.4/2.5. Không nút "Lưu", không chữ "đã lưu",
+    không số đếm ký tự ở đâu cả.
 
     **Suy giảm có ý thức, phải biết trước khi thấy:** dán một bản nháp dài hơn
     `MAX_NOTE_CHARS` (20.000 ký tự) thì chữ **vẫn nằm nguyên** trong ô và trong state — không

@@ -135,7 +135,7 @@ function danhTinhDaChot(tabId) {
  * Dựng một hiện thực của cổng `noteStore`.
  *
  * @returns {{ readAll: Function, put: Function, remove: Function, replaceAll: Function,
- *   claimDraft: Function, putDraft: Function }}
+ *   claimDraft: Function, putDraft: Function, commitDraft: Function }}
  *   Cổng kho ghi chú bền; mọi phương thức bất đồng bộ và TỪ CHỐI lời hứa khi hỏng.
  */
 export function taoNoteStore() {
@@ -202,19 +202,34 @@ export function taoNoteStore() {
   }
 
   /**
-   * Chạy `thanTac(store)` trong một giao dịch, và chỉ báo THÀNH CÔNG khi giao dịch đã chốt.
+   * Chạy `thanTac(giaoDich)` trong MỘT giao dịch mở trên `tenStores`, và chỉ báo THÀNH CÔNG khi
+   * giao dịch đã chốt.
    *
    * Chốt ở `oncomplete` chứ không ở `onsuccess` của từng yêu cầu là điều làm FR-19 đúng: một
    * yêu cầu thành công trong một giao dịch sau đó bị cuộn ngược thì chữ KHÔNG nằm trên đĩa,
    * và báo thành công lúc đó chính là "giả vờ đã lưu".
+   *
+   * Nhận một DANH SÁCH kho và trao chính `giaoDich` cho thân tác, chứ không trao sẵn một store:
+   * `commitDraft` phải đụng `notes` và `drafts` trong CÙNG một giao dịch (AD-8), và một helper
+   * chỉ mở được một kho sẽ buộc nó tự mở giao dịch riêng — tức đúng cái không nguyên tử mà nó
+   * sinh ra để chặn.
+   *
+   * @param {string[]} tenStores Các kho mà giao dịch được phép đụng.
+   * @param {'readonly' | 'readwrite'} cheDo Chế độ của giao dịch.
+   * @param {(giaoDich: IDBTransaction) => IDBRequest | null} thanTac Phát mọi yêu cầu của phép
+   *   ghi/đọc, ĐỒNG BỘ, từ chính `giaoDich` — một `await` chen vào giữa sẽ giết giao dịch. Trả
+   *   về một yêu cầu thì `result` của nó thành giá trị của lời hứa; trả `null` khi kết quả của
+   *   phép này là "đã chốt", không phải một giá trị.
+   * @returns {Promise<*>} Chốt khi giao dịch `oncomplete` — mang `result` của yêu cầu được trả
+   *   về, hoặc `undefined`. Từ chối với lỗi mang mã AD-18 nếu giao dịch hỏng hay bị hủy.
    */
-  function trongGiaoDich(tenStore, cheDo, thanTac) {
+  function trongGiaoDich(tenStores, cheDo, thanTac) {
     return moKho().then(
       (kho) =>
         new Promise((xong, hong) => {
           let giaoDich;
           try {
-            giaoDich = kho.transaction([tenStore], cheDo);
+            giaoDich = kho.transaction(tenStores, cheDo);
           } catch (loi) {
             hong(loiUngDung(maCuaLoi(loi)));
             return;
@@ -231,7 +246,7 @@ export function taoNoteStore() {
           giaoDich.onerror = (suKien) => hong(loiUngDung(maCuaLoi(loiCuaSuKien(suKien))));
           giaoDich.onabort = (suKien) => hong(loiUngDung(maCuaLoi(loiCuaSuKien(suKien))));
           try {
-            const yeuCau = thanTac(giaoDich.objectStore(tenStore));
+            const yeuCau = thanTac(giaoDich);
             if (yeuCau != null) {
               yeuCau.onsuccess = () => {
                 ketQuaGiaoDich = yeuCau.result;
@@ -257,21 +272,43 @@ export function taoNoteStore() {
 
   return {
     readAll() {
-      return trongGiaoDich(STORE_NOTES, 'readonly', (store) => store.getAll()).then(
-        (danhSach) => danhSach ?? [],
-      );
+      return trongGiaoDich([STORE_NOTES], 'readonly', (giaoDich) =>
+        giaoDich.objectStore(STORE_NOTES).getAll(),
+      ).then((danhSach) => danhSach ?? []);
     },
 
     put(note) {
-      return trongGiaoDich(STORE_NOTES, 'readwrite', (store) =>
-        store.put(banGhiChuan(note)),
+      return trongGiaoDich([STORE_NOTES], 'readwrite', (giaoDich) =>
+        giaoDich.objectStore(STORE_NOTES).put(banGhiChuan(note)),
       ).then(() => undefined);
     },
 
     remove(id) {
-      return trongGiaoDich(STORE_NOTES, 'readwrite', (store) => store.delete(id)).then(
-        () => undefined,
-      );
+      return trongGiaoDich([STORE_NOTES], 'readwrite', (giaoDich) =>
+        giaoDich.objectStore(STORE_NOTES).delete(id),
+      ).then(() => undefined);
+    },
+
+    /**
+     * Chốt bản nháp thành ghi chú: `notes.put` và `drafts.put` trong CÙNG một giao dịch.
+     *
+     * Hai phép ghi phát ra đồng bộ, liền nhau, trong đúng một `readwrite` mở trên cả hai kho —
+     * nên hoặc cả hai cùng nằm bền, hoặc IndexedDB cuộn ngược và không cái nào. Đó là thứ duy
+     * nhất chặn một bản nháp MA sống sót qua lần chốt và hồi sinh thành ghi chú trùng (AD-8).
+     *
+     * `draft === null` (tab chưa giành được bản nháp nào) thì chỉ ghi `notes`: không có bản ghi
+     * `drafts` nào của tab này để làm rỗng, và dựng một bản dưới một danh tính chưa giành được
+     * là để lại rác không tab nào nhận lại.
+     */
+    commitDraft({ note, draft }) {
+      const tenStores = draft === null ? [STORE_NOTES] : [STORE_NOTES, STORE_DRAFTS];
+      return trongGiaoDich(tenStores, 'readwrite', (giaoDich) => {
+        giaoDich.objectStore(STORE_NOTES).put(banGhiChuan(note));
+        if (draft !== null) giaoDich.objectStore(STORE_DRAFTS).put(banNhapChuan(draft));
+        // Không trả yêu cầu nào ra ngoài: kết quả của phương thức này là "đã chốt", không phải
+        // một giá trị.
+        return null;
+      }).then(() => undefined);
     },
 
     /**
@@ -291,7 +328,8 @@ export function taoNoteStore() {
     claimDraft({ tabId, now, staleMs }) {
       return danhTinhDaChot(tabId).then((danhTinh) => {
         let ketQua = { tabId: danhTinh, text: '' };
-        return trongGiaoDich(STORE_DRAFTS, 'readwrite', (store) => {
+        return trongGiaoDich([STORE_DRAFTS], 'readwrite', (giaoDich) => {
+          const store = giaoDich.objectStore(STORE_DRAFTS);
           const yeuCau = store.getAll();
           yeuCau.onsuccess = () => {
             ketQua = {
@@ -310,8 +348,8 @@ export function taoNoteStore() {
     },
 
     putDraft(draft) {
-      return trongGiaoDich(STORE_DRAFTS, 'readwrite', (store) =>
-        store.put(banNhapChuan(draft)),
+      return trongGiaoDich([STORE_DRAFTS], 'readwrite', (giaoDich) =>
+        giaoDich.objectStore(STORE_DRAFTS).put(banNhapChuan(draft)),
       ).then(() => undefined);
     },
 
@@ -319,7 +357,8 @@ export function taoNoteStore() {
       // Xóa sạch rồi ghi lại trong MỘT giao dịch: hỏng giữa chừng thì IndexedDB cuộn ngược và
       // kho giữ nguyên trạng thái cũ (AD-11). Không trả yêu cầu nào ra ngoài — kết quả của
       // phương thức này là "đã chốt", không phải một giá trị.
-      return trongGiaoDich(STORE_NOTES, 'readwrite', (store) => {
+      return trongGiaoDich([STORE_NOTES], 'readwrite', (giaoDich) => {
+        const store = giaoDich.objectStore(STORE_NOTES);
         store.clear();
         for (const note of notes) {
           store.put(banGhiChuan(note));

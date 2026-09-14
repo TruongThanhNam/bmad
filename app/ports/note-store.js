@@ -100,6 +100,24 @@
  */
 
 /**
+ * Chốt một bản nháp thành ghi chú: ghi bản ghi mới **và** làm rỗng bản nháp của tab này trong
+ * **một** giao dịch duy nhất trên cả hai kho — hoặc cả hai cùng nằm bền, hoặc không cái nào.
+ *
+ * Một giao dịch, không phải hai lời gọi nối nhau: nếu ghi chú xuống được kho mà bản nháp không
+ * bị làm rỗng, thì lần khởi động sau nhận lại đúng chữ vừa thành ghi chú — một bản nháp MA, và
+ * cú `Ctrl+Enter` tiếp theo sinh ra một ghi chú trùng nội dung. Nửa ngược lại còn tệ hơn: chữ
+ * biến mất khỏi cả hai chỗ.
+ *
+ * `draft` là `null` khi tab chưa giành được bản nháp nào — lúc đó không có bản ghi `drafts` nào
+ * mang danh tính của tab này để làm rỗng, và giao dịch chỉ ghi `notes`.
+ *
+ * @callback NoteStoreCommitDraft
+ * @param {{ note: NoteRecord, draft: DraftRecord | null }} viec Ghi chú cần ghi, và bản nháp đã
+ *   làm rỗng cần ghi đè lên bản cũ (hoặc `null` nếu tab chưa có bản nháp nào).
+ * @returns {Promise<void>} Hoàn tất khi giao dịch đã chốt; ném thì **cả hai** kho giữ nguyên.
+ */
+
+/**
  * @typedef {object} NoteStorePort
  * @property {NoteStoreReadAll} readAll
  * @property {NoteStorePut} put
@@ -107,6 +125,7 @@
  * @property {NoteStoreReplaceAll} replaceAll
  * @property {NoteStoreClaimDraft} claimDraft
  * @property {NoteStorePutDraft} putDraft
+ * @property {NoteStoreCommitDraft} commitDraft
  */
 
 /** Tên các phương thức mà một hiện thực của cổng này bắt buộc phải có. */
@@ -117,4 +136,5 @@ export const NOTE_STORE_METHODS = Object.freeze([
   'replaceAll',
   'claimDraft',
   'putDraft',
+  'commitDraft',
 ]);

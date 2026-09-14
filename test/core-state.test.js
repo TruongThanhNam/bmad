@@ -373,6 +373,19 @@ function khoGia(tuyChon = {}) {
       }
       return ra('putDraft');
     },
+
+    // Một lời gọi, hai kho — cùng hình dạng với giao dịch thật của adapter. Nhật ký ghi lại CẢ
+    // HAI nửa: "một transaction" ở tầng lõi quan sát được đúng bằng "đúng một lời gọi cổng
+    // mang cả hai bản ghi", nên một hiện thực gọi `put` rồi `putDraft` sẽ lộ ra ở đây.
+    commitDraft({ note, draft }) {
+      nhatKy.push(`commitDraft:${note.id}+${draft === null ? 'null' : draft.tabId}`);
+      quanSat('commitDraft', { note, draft });
+      if (!Object.prototype.hasOwnProperty.call(tuChoi, 'commitDraft')) {
+        banGhi.set(note.id, note);
+        if (draft !== null) banNhap.set(draft.tabId, draft);
+      }
+      return ra('commitDraft');
+    },
   };
 
   return { nhatKy, banGhi, banNhap, cong };
@@ -466,30 +479,44 @@ describe('khoiDong — nạp toàn bộ ghi chú vào RAM, đã sắp xếp (AD-
   });
 });
 
-describe('themGhiChu — ghi trước, đổi state sau (AD-8, nửa cứng của FR-19)', () => {
-  it('put được gọi TRƯỚC khi state.notes đổi', async () => {
+describe('chotGhiChu — ghi trước, đổi state sau, và hai kho trong MỘT giao dịch (AD-8)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  /** Store đã giành được bản nháp, với chữ đã nằm sẵn trong `draft`. */
+  async function storeDaGo(chu, tuyChon = {}) {
+    const bo = storeVoiKho(tuyChon);
+    await bo.store.khoiDongBanNhap();
+    bo.kho.nhatKy.length = 0;
+    if (chu !== null) bo.store.datBanNhap(chu);
+    return bo;
+  }
+
+  it('commitDraft được gọi TRƯỚC khi state.notes đổi', async () => {
     // Đây là test mà spec đòi riêng: ở ca thành công, hai thứ tự cho cùng kết quả cuối, nên
-    // phải chụp state ĐÚNG LÚC `put` chạy.
+    // phải chụp state ĐÚNG LÚC phép ghi chạy.
     let store;
-    const anhLucPut = [];
+    const anhLucGhi = [];
     const kho = khoGia({
       quanSat: (ten) => {
-        if (ten === 'put') anhLucPut.push(store.state.notes.length);
+        if (ten === 'commitDraft') anhLucGhi.push(store.state.notes.length);
       },
     });
     const ports = portsDay();
     ports.noteStore = kho.cong;
     store = taoStore(ports);
 
-    await store.themGhiChu('phở');
-    expect(anhLucPut).toEqual([0]);
+    store.datBanNhap('phở');
+    await store.chotGhiChu();
+    expect(anhLucGhi).toEqual([0]);
     expect(store.state.notes).toHaveLength(1);
   });
 
-  it('ghi chú mới nằm ở ĐẦU notes và có đúng năm trường của AD-13', async () => {
-    const { store, kho } = storeVoiKho({ banDau: banGhiMau() });
+  it('chốt bình thường: mẩu mới ở ĐẦU notes, đúng năm trường AD-13, ô trống lại', async () => {
+    const { store, kho } = await storeDaGo('Phân quyền', { banDau: banGhiMau() });
     await store.khoiDong();
-    await store.themGhiChu('Phân quyền');
+    await store.chotGhiChu();
     expect(store.state.notes).toHaveLength(4);
     const moi = store.state.notes[0];
     expect(Object.keys(moi).sort()).toEqual(
@@ -501,6 +528,45 @@ describe('themGhiChu — ghi trước, đổi state sau (AD-8, nửa cứng củ
     expect(typeof moi.id).toBe('string');
     // Cùng bản ghi đó đã xuống kho, không phải một bản khác.
     expect(kho.banGhi.get(moi.id)).toEqual(moi);
+    // Bản nháp đã trống — ở CẢ state lẫn kho.
+    expect(store.state.draft.text).toBe('');
+    expect(kho.banNhap.get('tab-cu').text).toBe('');
+    expect(store.state.banner).toBeNull();
+  });
+
+  it('ĐÚNG MỘT lời gọi cổng, và nó mang CẢ HAI bản ghi — tính nguyên tử của AD-8', async () => {
+    // "Một transaction" ở tầng lõi quan sát được đúng bằng "đúng một lời gọi cổng": một hiện
+    // thực gọi `put` rồi `putDraft` nối nhau cho cùng kết quả cuối, và cùng một bản nháp ma.
+    let viec = null;
+    const { store, kho } = await storeDaGo('phở', {
+      quanSat: (ten, giaTri) => {
+        if (ten === 'commitDraft') viec = giaTri;
+      },
+    });
+    await store.chotGhiChu();
+    expect(kho.nhatKy).toHaveLength(1);
+    expect(kho.nhatKy[0]).toMatch(/^commitDraft:/);
+    expect(viec.note.text).toBe('phở');
+    expect(viec.draft).toEqual({
+      tabId: 'tab-cu',
+      text: '',
+      heartbeat: expect.any(String),
+    });
+  });
+
+  it('chưa giành được bản nháp (tabCuaMinh null): vẫn chốt, và draft của lời gọi là null', async () => {
+    let viec = null;
+    const { store, kho } = storeVoiKho({
+      quanSat: (ten, giaTri) => {
+        if (ten === 'commitDraft') viec = giaTri;
+      },
+    });
+    // Không gọi `khoiDongBanNhap`: không có bản ghi `drafts` nào của tab này để làm rỗng.
+    store.datBanNhap('phở');
+    await store.chotGhiChu();
+    expect(viec.draft).toBeNull();
+    expect(store.state.notes).toHaveLength(1);
+    expect(kho.banNhap.size).toBe(0);
   });
 
   it('mẩu mới KHÔNG chỉ được chèn lên đầu — mảng giữ đúng thứ tự giảm dần (AD-6)', async () => {
@@ -513,9 +579,9 @@ describe('themGhiChu — ghi trước, đổi state sau (AD-8, nửa cứng củ
       text: 'sau',
       textFolded: 'sau',
     };
-    const { store } = storeVoiKho({ banDau: [tuongLai] });
+    const { store } = await storeDaGo('bây giờ', { banDau: [tuongLai] });
     await store.khoiDong();
-    await store.themGhiChu('bây giờ');
+    await store.chotGhiChu();
     // Mẩu vừa thêm phải nằm SAU mẩu mang mốc muộn hơn, chứ không phải ở đầu mảng.
     expect(store.state.notes.map((mau) => mau.id)).toEqual(['tuong-lai', store.state.notes[1].id]);
     expect(store.state.notes[1].text).toBe('bây giờ');
@@ -523,69 +589,222 @@ describe('themGhiChu — ghi trước, đổi state sau (AD-8, nửa cứng củ
     expect([...khoa].sort().reverse()).toEqual(khoa);
   });
 
+  it('gõ đêm, chốt sáng: createdAt là mốc CHỐT, không phải lúc gõ', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 8, 14, 23, 0, 0));
+    const { store } = await storeDaGo('phở đêm');
+    vi.setSystemTime(new Date(2026, 8, 15, 9, 0, 0));
+    await store.chotGhiChu();
+    const moi = store.state.notes[0];
+    expect(moi.localDate).toBe('2026-09-15');
+    expect(moi.createdAt.slice(0, 16)).toBe('2026-09-15T09:00');
+  });
+
   it('một phép ghi THÀNH CÔNG tắt dải băng của lần hỏng trước (AD-8)', async () => {
     // Dải băng ở lại "cho tới khi một phép ghi sau đó thành công" — nếu không thì một lần hết
     // dung lượng đeo bám mọi thao tác về sau và câu chữ nói dối về trạng thái hiện tại.
+    vi.useFakeTimers();
     const kho = khoGia({});
     let tuChoiLanNay = true;
     const congCoTheHong = {
       ...kho.cong,
-      put(note) {
+      commitDraft(viec) {
         if (tuChoiLanNay) return Promise.reject(loiUngDung(MA_LOI.QUOTA));
-        return kho.cong.put(note);
+        return kho.cong.commitDraft(viec);
       },
     };
     const ports = portsDay();
     ports.noteStore = congCoTheHong;
     const store = taoStore(ports);
 
-    await store.themGhiChu('hỏng');
+    store.datBanNhap('hỏng');
+    await store.chotGhiChu();
     expect(store.state.banner).toBe(MA_LOI.QUOTA);
     tuChoiLanNay = false;
-    await store.themGhiChu('xong');
+    store.datBanNhap('xong');
+    await store.chotGhiChu();
     expect(store.state.banner).toBeNull();
     expect(store.state.notes).toHaveLength(1);
   });
 
-  it('put từ chối code=QUOTA → notes KHÔNG đổi, banner QUOTA, action không ném', async () => {
-    const { store } = storeVoiKho({ banDau: banGhiMau(), tuChoi: { put: MA_LOI.QUOTA } });
+  it('cổng từ chối: notes KHÔNG đổi, chữ CÒN NGUYÊN trong draft, banner mang mã lỗi', async () => {
+    vi.useFakeTimers();
+    const { store } = await storeDaGo('phở', {
+      banDau: banGhiMau(),
+      tuChoi: { commitDraft: MA_LOI.QUOTA },
+    });
     await store.khoiDong();
     const truoc = store.state.notes;
-    await expect(store.themGhiChu('phở')).resolves.toBeUndefined();
+    await expect(store.chotGhiChu()).resolves.toBeUndefined();
     expect(store.state.notes).toBe(truoc);
+    expect(store.state.draft.text).toBe('phở');
     expect(store.state.banner).toBe(MA_LOI.QUOTA);
   });
 
-  it('text quá trần → put KHÔNG được gọi, notes không đổi, banner TOO_LONG', async () => {
-    const { store, kho } = storeVoiKho();
-    await store.themGhiChu('x'.repeat(MAX_NOTE_CHARS + 1));
+  it('cổng từ chối: một hẹn tự lưu được đặt LẠI, để chữ chưa an toàn còn đường xuống kho', async () => {
+    vi.useFakeTimers();
+    const { store, kho } = await storeDaGo('phở', { tuChoi: { commitDraft: MA_LOI.DB } });
+    await store.chotGhiChu();
+    kho.nhatKy.length = 0;
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
+    expect(kho.nhatKy).toEqual(['putDraft:tab-cu']);
+    expect(kho.banNhap.get('tab-cu').text).toBe('phở');
+  });
+
+  it('draft quá trần → cổng KHÔNG bị gọi, chữ nằm nguyên trong ô, banner TOO_LONG', async () => {
+    vi.useFakeTimers();
+    const { store, kho } = await storeDaGo('x'.repeat(MAX_NOTE_CHARS + 1));
+    await store.chotGhiChu();
     expect(kho.nhatKy).toEqual([]);
     expect(store.state.notes).toEqual([]);
+    expect(store.state.draft.text).toHaveLength(MAX_NOTE_CHARS + 1);
     expect(store.state.banner).toBe(MA_LOI.TOO_LONG);
     // Đúng trần thì vẫn nhận.
-    await store.themGhiChu('x'.repeat(MAX_NOTE_CHARS));
+    store.datBanNhap('x'.repeat(MAX_NOTE_CHARS));
+    await store.chotGhiChu();
     expect(store.state.notes).toHaveLength(1);
   });
 
-  it('text rỗng hay chỉ khoảng trắng → không gọi cổng, không đổi state, không banner', async () => {
-    const { store, kho } = storeVoiKho();
-    const truoc = store.state;
+  it('bản nháp rỗng hay chỉ khoảng trắng → không cổng, không notes, không banner, ô không đổi', async () => {
+    vi.useFakeTimers();
+    const { store, kho } = await storeDaGo(null);
+    store.datDieuKien({ keyword: 'phở' });
     for (const trong of ['', '   ', '\n\t ']) {
-      await store.themGhiChu(trong);
+      store.datBanNhap(trong);
+      await store.chotGhiChu();
+      expect(store.state.draft.text).toBe(trong);
     }
     expect(kho.nhatKy).toEqual([]);
-    expect(store.state).toBe(truoc);
+    expect(store.state.notes).toEqual([]);
     expect(store.state.banner).toBeNull();
+    // Và điều kiện KHÔNG bị xóa: một cú bấm nhầm trên ô trống không được âm thầm tắt bộ lọc.
+    expect(store.state.dieuKien).toEqual({ keyword: 'phở', date: null });
   });
 
-  it('sai kiểu đối số thì ném TypeError nêu tên tham số — lỗi lập trình, không phải dải băng', () => {
-    const { store, kho } = storeVoiKho();
-    for (const xau of [7, null, undefined, {}, []]) {
-      expect(() => store.themGhiChu(xau)).toThrow(TypeError);
-    }
-    expect(() => store.themGhiChu(7)).toThrow(/text/);
+  it('một lần chốt THẬT thì xoaHetDieuKien chạy — mẩu vừa chốt phải nhìn thấy được', async () => {
+    vi.useFakeTimers();
+    const { store } = await storeDaGo('phở');
+    store.datDieuKien({ keyword: 'bún', date: '2026-09-01' });
+    await store.chotGhiChu();
+    expect(store.state.dieuKien).toEqual({ keyword: null, date: null });
+  });
+
+  it('hẹn tự lưu đang treo bị BỎ sau khi chốt — bản nháp đã chốt không hồi sinh', async () => {
+    vi.useFakeTimers();
+    const { store, kho } = await storeDaGo('phở');
+    // Chốt TRONG vòng AUTOSAVE_MS: hẹn của phím cuối vẫn đang treo.
+    await store.chotGhiChu();
+    kho.nhatKy.length = 0;
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS * 3);
+    // Hẹn cũ nổ ra nhưng `draft.seq` đã tăng, nên nó không chạm cổng: không một `putDraft` nào
+    // đưa chữ vừa thành ghi chú quay lại kho bản nháp.
     expect(kho.nhatKy).toEqual([]);
-    expect(store.state.banner).toBeNull();
+    expect(kho.banNhap.get('tab-cu').text).toBe('');
+  });
+
+  it('chốt liên tiếp: hai ghi chú, hai id khác nhau, không mẩu nào trùng nội dung', async () => {
+    vi.useFakeTimers();
+    const { store } = await storeDaGo('một');
+    await store.chotGhiChu();
+    store.datBanNhap('hai');
+    await store.chotGhiChu();
+    expect(store.state.notes).toHaveLength(2);
+    const [a, b] = store.state.notes;
+    expect(a.id).not.toBe(b.id);
+    expect([a.text, b.text].sort()).toEqual(['hai', 'một']);
+    expect(store.state.draft.text).toBe('');
+  });
+
+  it('gõ tiếp TRONG LÚC đĩa còn quay: chữ mới thắng, ô KHÔNG bị làm trống', async () => {
+    vi.useFakeTimers();
+    let choGhi;
+    const kho = khoGia({});
+    const ports = portsDay();
+    ports.noteStore = {
+      ...kho.cong,
+      commitDraft(viec) {
+        return new Promise((chot) => {
+          choGhi = () => chot(kho.cong.commitDraft(viec));
+        });
+      },
+    };
+    const store = taoStore(ports);
+    store.datBanNhap('phở');
+    const loiHua = store.chotGhiChu();
+    // Nam gõ tiếp trước khi kho trả lời — `draft.seq` nhảy.
+    store.datBanNhap('bún');
+    choGhi();
+    await loiHua;
+
+    expect(store.state.notes).toHaveLength(1);
+    expect(store.state.notes[0].text).toBe('phở');
+    expect(store.state.draft.text).toBe('bún');
+  });
+
+  it('chotGhiChu KHÔNG nhận tham số — nguồn chữ duy nhất là state.draft.text', async () => {
+    vi.useFakeTimers();
+    const { store } = await storeDaGo('trong bản nháp');
+    expect(store.chotGhiChu).toHaveLength(0);
+    // Một đối số lạc vào không ném và cũng KHÔNG được dùng: đường vào thứ hai không tồn tại.
+    await store.chotGhiChu('chữ lạ');
+    expect(store.state.notes).toHaveLength(1);
+    expect(store.state.notes[0].text).toBe('trong bản nháp');
+  });
+
+  it('bấm hai lần khi giao dịch CHƯA chốt: đúng một lời gọi cổng, đúng một ghi chú', async () => {
+    // Phím tự lặp gửi `Ctrl+Enter` nhiều lần trong vài chục mili giây, và trong lúc giao dịch
+    // đầu còn bay thì `draft.text` vẫn nguyên chữ — không có phép gác thì đó là hai ghi chú
+    // trùng nội dung với hai `id` khác nhau, và Nam không bấm gì sai cả.
+    vi.useFakeTimers();
+    let choGhi;
+    const kho = khoGia({});
+    const ports = portsDay();
+    ports.noteStore = {
+      ...kho.cong,
+      commitDraft(viec) {
+        return new Promise((chot) => {
+          choGhi = () => chot(kho.cong.commitDraft(viec));
+        });
+      },
+    };
+    const store = taoStore(ports);
+    store.datBanNhap('phở');
+
+    const lan1 = store.chotGhiChu();
+    const lan2 = store.chotGhiChu();
+    choGhi();
+    await Promise.all([lan1, lan2]);
+
+    expect(kho.nhatKy.filter((d) => d.startsWith('commitDraft:'))).toHaveLength(1);
+    expect(store.state.notes).toHaveLength(1);
+    expect(kho.banGhi.size).toBe(1);
+    // Và phép gác NHẢ ra sau khi giao dịch chốt: lần chốt kế tiếp vẫn phải chạy.
+    store.datBanNhap('bún');
+    const lan3 = store.chotGhiChu();
+    choGhi();
+    await lan3;
+    expect(store.state.notes).toHaveLength(2);
+  });
+
+  it('chốt trên ô đã xóa hết chữ: bản nháp RỖNG vẫn xuống kho, chữ đã xóa không quay về', async () => {
+    // Bước hủy hẹn đi trước cả phép gác rỗng, nên nhánh rỗng cũng phải đặt LẠI hẹn — nếu không
+    // thì kho còn giữ chữ cũ, và nó hiện lại nguyên vẹn ở lần tải trang sau.
+    vi.useFakeTimers();
+    const { store, kho } = await storeDaGo('phở bò');
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
+    expect(kho.banNhap.get('tab-cu').text).toBe('phở bò');
+
+    store.datBanNhap('');
+    await store.chotGhiChu();
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
+
+    expect(kho.banNhap.get('tab-cu').text).toBe('');
+    expect(store.state.notes).toEqual([]);
+  });
+
+  it('themGhiChu KHÔNG còn trên store — một đường tạo ghi chú công khai, đúng một luật ghi', () => {
+    const store = taoStore(portsDay());
+    expect(store.themGhiChu).toBeUndefined();
   });
 });
 
@@ -767,7 +986,7 @@ describe('action của luồng ghi chuẩn đều nằm trên store, và tập k
     const store = taoStore(portsDay());
     for (const ten of [
       'khoiDong',
-      'themGhiChu',
+      'chotGhiChu',
       'xoaGhiChu',
       'tuLuuNoiDung',
       'khoiDongBanNhap',
@@ -782,7 +1001,8 @@ describe('action của luồng ghi chuẩn đều nằm trên store, và tập k
     vi.useFakeTimers();
     const { store } = storeVoiKho({ banDau: banGhiMau() });
     await store.khoiDong();
-    await store.themGhiChu('phở');
+    store.datBanNhap('phở');
+    await store.chotGhiChu();
     await store.xoaGhiChu('b');
     store.tuLuuNoiDung('a', 'x');
     expect(Object.keys(store.state).sort()).toEqual(KHOA_STATE);
@@ -1105,7 +1325,8 @@ describe('app/main.js — điểm nối duy nhất, chạy được thật', () 
     //
     // Ca này đứng CUỐI mục và chạm `banner` — một trường mà các ca hàng xóm không đọc, nên
     // chúng không bị nó làm nhiễu.
-    await expect(storeCuaApp.themGhiChu('x')).resolves.toBeUndefined();
+    storeCuaApp.datBanNhap('x');
+    await expect(storeCuaApp.chotGhiChu()).resolves.toBeUndefined();
     expect(storeCuaApp.state.banner).toBe(MA_LOI.DB);
     expect(storeCuaApp.state.notes).toEqual([]);
   });

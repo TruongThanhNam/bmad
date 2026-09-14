@@ -15,12 +15,25 @@
 // Không cài gì thêm. Cần Edge hoặc Chrome; đặt GHICHU_BROWSER nếu nó nằm chỗ khác.
 
 import { fileURLToPath } from 'node:url';
-import { Cdp, phucVuTinh, moTrinhDuyet, nghi, DOC_DRAFTS, DOC_SCHEMA, DON_SACH } from './cdp.mjs';
+import {
+  Cdp,
+  phucVuTinh,
+  moTrinhDuyet,
+  nghi,
+  DOC_DRAFTS,
+  DOC_NOTES,
+  DOC_SCHEMA,
+  DON_SACH,
+} from './cdp.mjs';
 import { AUTOSAVE_MS, DRAFT_BEAT_MS, DRAFT_STALE_MS } from '../app/core/limits.js';
 
 // Ngưỡng lấy thẳng từ `app/core/limits.js` (AD-14) — chép lại con số ở đây thì một lần chỉnh
 // ngưỡng sẽ làm phép đo nói dối mà không ai thấy.
 const CHU_THU = 'phở bò tái nạm';
+/** Chữ của riêng phép đo chốt — khác `CHU_THU` để hai phép đo không đọc nhầm bản ghi của nhau. */
+const CHU_CHOT = 'bún chả chốt ngay';
+/** Chữ của phép sửa — đi qua `put`, đường duy nhất còn lại của giao dịch đã nới. */
+const CHU_SUA = 'bún chả đã sửa';
 
 const ketQua = [];
 function ghi(ten, dat, chiTiet) {
@@ -231,6 +244,113 @@ try {
 
     await cdp.dongTab(t1.targetId);
     await cdp.dongTab(t2.targetId);
+  }
+
+  // ── Mục 22: chốt bản nháp thành ghi chú, hai kho trong MỘT giao dịch (Story 2.3) ──
+  //
+  // Đây là phép đo mà Vitest không với tới: cổng giả ở tầng lõi chỉ nghiệm thu được rằng
+  // `commitDraft` nhận CẢ HAI bản ghi trong ĐÚNG MỘT lời gọi; còn "một lời gọi đó là một giao
+  // dịch thật, và bản nháp không hồi sinh sau khi tải lại" thì chỉ kho thật trả lời.
+  {
+    const tD = await cdp.tabMoi(server.diaChi);
+    await cdp.doiSan(tD.sessionId);
+    // Đợi bốn bước khởi động bản nháp chốt xong: chốt trước khi `claimDraft` trả lời thì
+    // `tabCuaMinh` còn `null` và giao dịch chỉ đụng MỘT kho — tức phép đo dưới đây sẽ xanh mà
+    // không hề chạm vào thứ nó sinh ra để đo.
+    await nghi(900);
+
+    // Gõ rồi chốt NGAY, trong vòng AUTOSAVE_MS: hẹn tự lưu của phím cuối vẫn đang treo lúc
+    // chốt. Thiếu bước hủy hẹn (tăng `draft.seq`) thì hẹn đó nổ ra ngay sau giao dịch và ghi
+    // lại đúng chữ vừa thành ghi chú — một bản nháp ma, thấy được sau lần tải lại.
+    await cdp.chay(
+      tD.sessionId,
+      `const m = await import('/app/main.js');
+       m.store.datBanNhap(${JSON.stringify(CHU_CHOT)});
+       await m.store.chotGhiChu();
+       return true;`,
+    );
+    // Để hẹn tự lưu đang treo lúc chốt có đủ thời gian NỔ RA: nếu bước hủy hẹn vắng mặt thì
+    // đây đúng là lúc bản nháp ma được ghi trở lại, và 22b nhìn thấy nó.
+    await nghi(AUTOSAVE_MS + 600);
+    await cdp.taiLai(tD.sessionId);
+    // Đợi trang tải lại chạy xong `khoiDong()` + `khoiDongBanNhap()`, nếu không thì ô còn trống
+    // chỉ vì chưa ai kịp điền nó — một lý do sai cho một phép đo xanh.
+    await nghi(900);
+
+    const notes = await cdp.chay(tD.sessionId, DOC_NOTES);
+    const cuaChot = notes.filter((n) => n.text === CHU_CHOT);
+    ghi(
+      '22a: đúng MỘT bản ghi notes mang chữ vừa chốt, đúng năm trường của AD-13',
+      cuaChot.length === 1 &&
+        JSON.stringify(Object.keys(cuaChot[0]).sort()) ===
+          '["createdAt","id","localDate","text","textFolded"]',
+      JSON.stringify(notes.map((n) => n.text)),
+    );
+
+    const bn = await cdp.chay(tD.sessionId, DOC_DRAFTS);
+    ghi(
+      '22b: KHÔNG bản nháp nào còn mang chữ đó — hai kho đổi trong cùng một giao dịch',
+      !bn.some((d) => d.text === CHU_CHOT),
+      JSON.stringify(bn.map((d) => ({ tabId: d.tabId.slice(0, 8), text: d.text }))),
+    );
+
+    const sau = await cdp.chay(
+      tD.sessionId,
+      `const m = await import('/app/main.js');
+       const o = document.querySelector('.o-soan');
+       return { text: m.store.state.draft.text, trongO: o === null ? null : o.value };`,
+    );
+    ghi(
+      '22c: tải lại thì ô TRỐNG — bản nháp đã chốt không hồi sinh',
+      sau.text === '' && sau.trongO === '',
+      JSON.stringify(sau),
+    );
+
+    // ── Mục 23: `put` và `remove` đi qua giao dịch đã nới, trên kho THẬT ────────────
+    //
+    // `trongGiaoDich` đổi hình dạng ở story này và cả sáu chỗ gọi bị viết lại theo. Không test
+    // nào của `npm test` import adapter (luật "adapter không có test tự động"), nên một tên kho
+    // gõ sai trong `put` hay `remove` sẽ xanh ở khắp nơi và chỉ hỏng lúc dùng thật. Hai action
+    // dưới đây là hai đường DUY NHẤT gọi tới chúng. (`replaceAll` chưa có ai gọi — Epic 4.)
+    const idChot = cuaChot.length === 1 ? cuaChot[0].id : null;
+    await cdp.chay(
+      tD.sessionId,
+      `const m = await import('/app/main.js');
+       m.store.tuLuuNoiDung(${JSON.stringify(idChot)}, ${JSON.stringify(CHU_SUA)});
+       return true;`,
+    );
+    // `tuLuuNoiDung` ghi SAU một nhịp `AUTOSAVE_MS`, và nó trả về đồng bộ — không có lời hứa
+    // nào để đợi, nên phép đợi là của bộ đo.
+    await nghi(AUTOSAVE_MS + 600);
+    {
+      const notesSua = await cdp.chay(tD.sessionId, DOC_NOTES);
+      const daSua = notesSua.find((n) => n.id === idChot);
+      ghi(
+        '23a: put — chữ sửa xuống tới kho thật, id và createdAt bất biến',
+        daSua !== undefined &&
+          daSua.text === CHU_SUA &&
+          daSua.textFolded === 'bun cha da sua' &&
+          notesSua.length === notes.length,
+        JSON.stringify(notesSua.map((n) => n.text)),
+      );
+    }
+
+    await cdp.chay(
+      tD.sessionId,
+      `const m = await import('/app/main.js');
+       await m.store.xoaGhiChu(${JSON.stringify(idChot)});
+       return true;`,
+    );
+    {
+      const notesXoa = await cdp.chay(tD.sessionId, DOC_NOTES);
+      ghi(
+        '23b: remove — bản ghi biến mất khỏi kho thật, không chỉ khỏi RAM',
+        !notesXoa.some((n) => n.id === idChot),
+        JSON.stringify(notesXoa.map((n) => n.id?.slice(0, 8))),
+      );
+    }
+
+    await cdp.dongTab(tD.targetId);
   }
 } finally {
   await donDep();

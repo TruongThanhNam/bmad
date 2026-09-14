@@ -16,6 +16,9 @@
 /** Ô soạn thảo trong DOM. View định vị bằng `id`, không bằng thứ tự phần tử. */
 const CHON_O_SOAN = '#o-soan';
 
+/** Phím chốt, đi cùng `Ctrl` — nguyên văn microcopy "Ctrl+Enter để chốt" của EXPERIENCE.md. */
+const PHIM_CHOT = 'Enter';
+
 /**
  * Nối ô soạn thảo vào store: mỗi phím gõ đi thẳng vào action tự lưu.
  *
@@ -52,6 +55,31 @@ export function noiOSoan(store, goc = document) {
   o.addEventListener('input', () => {
     store.datBanNhap(o.value);
     caoTheoNoiDung();
+  });
+
+  // `Ctrl+Enter` chốt bản nháp thành ghi chú, và KHÔNG phím nào khác bị chạm tới: `Enter` trần
+  // xuống dòng là hành vi mặc định của `<textarea>`, không phải thứ view phải dựng lại — nên
+  // `preventDefault()` chỉ chạy trên đúng tổ hợp chốt.
+  //
+  // Không đọc chữ trong ô để truyền vào action: `chotGhiChu()` không nhận tham số, và nguồn chữ
+  // duy nhất là `store.state.draft.text`. Mỗi phím gõ đã đi qua `datBanNhap`, nên state luôn là
+  // bản mới nhất — truyền `o.value` vào đây là dựng một đường thứ hai cho cùng một dữ liệu.
+  //
+  // Đồng bộ ô SAU khi lời hứa chốt xong, không trước: chốt hỏng thì `draft.text` còn nguyên và
+  // `dongBoTuState` (nó chỉ gán khi lệch) sẽ không chạm ô — chữ ở lại đúng chỗ Nam để nó.
+  o.addEventListener('keydown', (suKien) => {
+    // Bộ gõ tiếng Việt còn đang dựng một âm tiết: phím lúc này thuộc về bộ gõ, không thuộc về
+    // ứng dụng. Chốt giữa chừng là chốt một chữ dở — `phơ` thay cho `phở`.
+    if (suKien.isComposing) return;
+    // `AltGr` là `Ctrl+Alt` trên bàn phím Windows, và nó gõ ra ký tự chứ không ra lệnh. Không
+    // loại `altKey` thì một tổ hợp AltGr rơi trúng `Enter` sẽ chốt sau lưng người gõ.
+    if (suKien.altKey) return;
+    if (!suKien.ctrlKey || suKien.key !== PHIM_CHOT) return;
+    suKien.preventDefault();
+    store.chotGhiChu().then(() => {
+      dongBoTuState();
+      caoTheoNoiDung();
+    });
   });
 
   // Đổi bề rộng cửa sổ là NGẮT DÒNG LẠI: cùng một chữ chiếm nhiều dòng hơn ở ô hẹp, nên chiều
