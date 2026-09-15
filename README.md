@@ -399,3 +399,37 @@ cả hai bảng màu, và "đẩy xuống chứ không phủ lên".
 25. **Hai theme đều đọc được.** Với dải băng đang hiện, đổi `ghichu.theme` giữa `light` và
     `dark` (mục 14) rồi tải lại: chữ trên `--chip-bg` đọc được ở **cả hai** bảng màu, và dấu
     `✕` (màu `--ink-2`) vẫn thấy rõ. Tab vào nút `✕`: **focus ring còn nguyên** ở cả hai theme.
+
+### Focus ring và thứ tự tab — một mục phải làm bằng mắt (Story 3.2)
+
+`npm test` đã ghim phần quét nguồn (không `tabindex` dương, không listener bàn phím cấp
+`document`/`window`, mọi điều khiển đều có một luật `:focus-visible` phủ nó), và
+`npm run thu-bo-cuc` đã đo **thật** trong trình duyệt: dãy điểm dừng của `Tab` và `Shift+Tab` ở
+cả hai trạng thái dải băng, vòng sáng ở cả hai theme, **tỉ lệ tương phản ≥ 3:1** giữa vòng sáng
+và nền thật sau từng điểm dừng, và "click chuột thì không có vòng".
+
+Còn lại là những thứ một tỉ lệ không nói hết: vòng sáng có bị một đường viền hay một cái bóng
+sẵn có **nuốt mất** không, có dính vào nét chữ không, và ở mức phóng to thì nó còn là một vòng
+hay đã thành một sợi chỉ. Máy chốt được con số; mắt chốt phần còn lại.
+
+26. **`Tab` một vòng qua toàn trang, ở cả hai theme.** Mở trang qua HTTP localhost (mục 1) với
+    ít nhất một ghi chú **dài hơn 3 dòng** của hôm nay trên lưới. Con trỏ đã nằm sẵn trong ô
+    soạn thảo; bấm `Tab` liên tiếp và đi hết một vòng:
+
+    `ô tìm` → `ô ngày` → từng **mẩu bị cắt** (trái sang phải, đúng thứ tự mắt đọc) →
+    `xuất sao lưu` → `nạp lại` → nút theme.
+
+    Ở **mỗi** điểm dừng phải thấy rõ một vòng sáng màu `--focus`, và **không** điểm dừng nào là
+    một phần tử vô hình hay không tương tác — mẩu giấy **ngắn** không phải một điểm dừng (nó
+    không có hành vi nào), nút `xóa` cũng chưa phải (nó chỉ có hình dạng cho tới Epic 5).
+    `Shift+Tab` phải quay lại **đúng đường** vừa đi.
+
+    Rồi ép dải băng sang một hàng **đóng được** (mục 24): `✕` trở thành điểm dừng **đầu tiên**,
+    trước cả ô soạn thảo. Ép sang một hàng **không đóng được**: không có điểm dừng nào thêm.
+
+    Đổi `ghichu.theme` giữa `light` và `dark` (mục 14) rồi lặp lại cả vòng: vòng sáng vẫn **đọc
+    được trên mọi nền** — kể cả trên mặt giấy `--paper` của mẩu và trên nền bàn `--bg`.
+
+    Cuối cùng, hai phép thử **âm tính**: **click chuột** vào `nạp lại` — **không** vòng sáng nào
+    hiện ra (vòng là bản đồ bàn phím, không phải phản hồi chuột); và gõ `/` rồi `Ctrl+K` khi
+    tiêu điểm đang ở chân trang — **không có gì xảy ra**, sản phẩm có đúng bốn phím.

@@ -1098,6 +1098,451 @@ try {
     }
   }
 
+  // ── Thứ tự Tab và focus ring (Story 3.2) ────────────────────────────────────────────
+  //
+  // Vì sao KHÔNG phải một ca Vitest: `test/focus-va-tab.test.js` quét được NGUỒN — không
+  // `tabindex` dương, không listener bàn phím cấp `document`/`window`, mọi điều khiển đều có
+  // một luật `:focus-visible` phủ nó — và nó dừng đúng ở đó. Ba câu hỏi còn lại chỉ một trình
+  // duyệt thật trả lời được, và `phanTuGia()` của các test view thì không có `focus()`,
+  // `tabIndex`, `matches()` lẫn layout:
+  //   - "`Tab` THẬT SỰ đi đâu" — thứ tự tiêu điểm là kết quả của cây DOM ĐÃ DỰNG cộng luật
+  //     của chính trình duyệt, không phải của một thuộc tính nào đọc được bằng mắt;
+  //   - "vòng sáng có HIỆN ra không, và có lấy màu từ `--focus` không" — `:focus-visible` chỉ
+  //     khớp khi tiêu điểm tới bằng BÀN PHÍM, nên nó phải được gõ bằng phím thật;
+  //   - "click chuột thì KHÔNG có vòng" — nửa mà một `:focus` trần làm sai trong im lặng.
+  //
+  // Phím gửi qua `Input.dispatchKeyEvent`, không qua một `KeyboardEvent` tổng hợp: một sự kiện
+  // do JS phát KHÔNG di chuyển tiêu điểm và KHÔNG bật trạng thái "lần tương tác cuối là bàn
+  // phím" — tức nó đo đúng không gì cả.
+  {
+    await datKhungNhin(1280, 700);
+    await cdp.taiLai(tab.sessionId);
+    // Tab headless không "được kích hoạt" theo nghĩa của hệ điều hành, và khi đó cả phép gửi
+    // phím lẫn `:focus-visible` đều im lặng không có tác dụng. Bật giả lập tiêu điểm là điều
+    // kiện của cả khối, không phải một tinh chỉnh.
+    await cdp.goi('Emulation.setFocusEmulationEnabled', { enabled: true }, tab.sessionId);
+
+    /** Gõ `Tab` (hoặc `Shift+Tab`) THẬT. `modifiers: 8` là Shift trong giao thức CDP. */
+    const nhanTab = async (nguoc = false) => {
+      for (const type of ['rawKeyDown', 'keyUp']) {
+        await cdp.goi(
+          'Input.dispatchKeyEvent',
+          {
+            type,
+            key: 'Tab',
+            code: 'Tab',
+            windowsVirtualKeyCode: 9,
+            nativeVirtualKeyCode: 9,
+            modifiers: nguoc ? 8 : 0,
+          },
+          tab.sessionId,
+        );
+      }
+      await nghi(30);
+    };
+
+    /** Click THẬT bằng chuột — cùng lý do với phím: một `MouseEvent` tổng hợp không đổi được
+     *  "lần tương tác cuối là chuột", tức không đo được dòng "focus bằng chuột → không ring". */
+    const nhanChuot = async (x, y) => {
+      for (const type of ['mousePressed', 'mouseReleased']) {
+        await cdp.goi(
+          'Input.dispatchMouseEvent',
+          { type, x, y, button: 'left', clickCount: 1, buttons: type === 'mousePressed' ? 1 : 0 },
+          tab.sessionId,
+        );
+      }
+      await nghi(50);
+    };
+
+    /** Tên một phần tử theo thẻ và class — đủ để đọc ra một dãy điểm dừng và so được với bảng. */
+    const HAM_TEN = `
+      const ten = (el) => {
+        if (el === null || el === document.body || el === document.documentElement) return null;
+        const lop = String(el.className || '').trim().split(/\\s+/).filter(Boolean);
+        return el.tagName.toLowerCase() + lop.map((l) => '.' + l).join('');
+      };
+      const vong = (el) => {
+        const s = getComputedStyle(el);
+        return [s.outlineStyle, s.outlineWidth, s.outlineColor, s.boxShadow, s.borderTopColor].join(' | ');
+      };
+      // Khóa DUY NHẤT của một điều khiển: tên cộng vị trí của nó trong danh sách điều khiển theo
+      // thứ tự DOM. Tên một mình không phân biệt được hai button.chan-link hay ba div.o-luoi.
+      const CHON_DIEU_KHIEN =
+        '.dai-bang-dong, .o-soan, .o-nhap, .o-luoi[tabindex], .chan-link, .nut-theme';
+      const khoa = (el) => {
+        const ds = [...document.querySelectorAll(CHON_DIEU_KHIEN)];
+        const i = ds.indexOf(el);
+        return i === -1 ? null : ten(el) + '#' + i;
+      };
+      // Vòng sáng ĐỌC RIÊNG từng phần: vong() nối năm thuộc tính nên một phép so includes
+      // trên nó sẽ xanh cả khi màu --focus nằm ở border-top-color và outline đã bị gỡ sạch.
+      const chiTietVong = (el) => {
+        const s = getComputedStyle(el);
+        return { kieu: s.outlineStyle, rong: s.outlineWidth, mau: s.outlineColor, bong: s.boxShadow };
+      };
+      // Tỉ lệ tương phản WCAG giữa hai màu rgb(...) — con số mà AC đòi ≥ 3:1 và cho tới giờ
+      // chỉ có mắt người trả lời. Máy tính được nó, nên máy phải là thứ trả lời.
+      const soRgb = (c) => (c.match(/[\\d.]+/g) || []).slice(0, 3).map(Number);
+      const sang = (c) => {
+        const [r, g, b] = soRgb(c).map((v) => {
+          const x = v / 255;
+          return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+        });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      };
+      const tuongPhan = (a, b) => {
+        const [x, y] = [sang(a), sang(b)].sort((m, n) => n - m);
+        return (x + 0.05) / (y + 0.05);
+      };
+      // Nền THẬT phía sau một phần tử: leo lên tổ tiên cho tới màu đầu tiên không trong suốt.
+      const nenSau = (el) => {
+        for (let n = el.parentElement; n !== null; n = n.parentElement) {
+          const c = getComputedStyle(n).backgroundColor;
+          if (c !== 'transparent' && !/rgba\\(\\s*0\\s*,\\s*0\\s*,\\s*0\\s*,\\s*0\\s*\\)/.test(c)) return c;
+        }
+        return getComputedStyle(document.body).backgroundColor;
+      };
+    `;
+
+    /** Phần tử đang nhận bàn phím: tên, có khớp `:focus-visible` không, vòng sáng, và tọa độ. */
+    const DO_DIEM_DUNG = `
+      ${HAM_TEN}
+      const el = document.activeElement;
+      if (el === null) return null;
+      const r = el.getBoundingClientRect();
+      const ct = chiTietVong(el);
+      const nen = nenSau(el);
+      return {
+        ten: ten(el),
+        khoa: khoa(el),
+        khop: el.matches(':focus-visible'),
+        vong: vong(el),
+        ct,
+        nen,
+        tyLe: Math.round(tuongPhan(ct.mau, nen) * 100) / 100,
+        trai: Math.round(r.left),
+        dinh: Math.round(r.top),
+      };
+    `;
+
+    /** Vòng sáng của MỌI điều khiển lúc KHÔNG có tiêu điểm — mẫu nền để so trước/sau. */
+    const DO_NEN = `
+      ${HAM_TEN}
+      if (document.activeElement !== null) document.activeElement.blur();
+      // Khóa theo THỨ TỰ DOM, không theo tên: trang có hai button.chan-link và ba div.o-luoi,
+      // nên một map khóa bằng tên gộp chúng lại và phép so trước/sau đối chiếu nhầm phần tử.
+      const ra = {};
+      for (const el of document.querySelectorAll(CHON_DIEU_KHIEN)) ra[khoa(el)] = vong(el);
+      return ra;
+    `;
+
+    /** Màu THẬT của `--focus` ở theme đang bật, đọc qua một phần tử tạm — `getPropertyValue`
+     *  trả về đúng chuỗi hex đã khai, còn `getComputedStyle` của vòng sáng trả về `rgb(…)`. */
+    const DO_MAU_FOCUS = `
+      const t = document.createElement('span');
+      t.style.color = 'var(--focus)';
+      document.body.append(t);
+      const c = getComputedStyle(t).color;
+      t.remove();
+      return c;
+    `;
+
+    // Ba mẩu BỊ CẮT, dựng qua đúng view thật với một store GIẢ — không một phép ghi nào xuống
+    // IndexedDB, nên khối này không cần (và không có) một bước dọn kho như các khối trên. Cùng
+    // khuôn với ca "hôm nay rỗng" ở Story 2.6.
+    const BOM_MAU_CAT = `
+      const l = await import('/app/view/luoi.js');
+      const dai = (t) => Array.from({ length: 9 }, (_, i) => t + ' dòng ' + i).join('\\n');
+      const notes = ['A', 'B', 'C'].map((t, i) => ({
+        id: 'thu-focus-' + i,
+        createdAt: '2026-01-01T0' + (9 - i) + ':00:00+00:00',
+        localDate: '2026-01-01',
+        text: dai(t),
+        textFolded: '',
+      }));
+      const gia = {
+        state: { notes, dieuKien: { keyword: null, date: null }, expandedIds: [] },
+        batTatMoRong() {},
+      };
+      l.noiLuoi(gia, document, () => '2026-01-01T12:00:00+00:00').ve();
+      return [...document.querySelectorAll('.luoi > *')].map((x) => x.getAttribute('tabindex'));
+    `;
+
+    // Đợi lượt vẽ ĐẦU TIÊN của chính app xong hẳn rồi mới bơm. `cdp.doiSan` chỉ đợi `main.js`
+    // nạp xong; `khoiDong().then(veTatCa)` là một lời hứa đọc IndexedDB và nó kết thúc SAU đó.
+    // Bơm trước lúc ấy là thua một cuộc đua: `veTatCa` chạy sau sẽ `replaceChildren` lưới bằng
+    // state thật (rỗng) và xóa sạch ba mẩu vừa bơm — đúng kiểu đỏ-không-đều không do sản phẩm.
+    await nghi(400);
+    const tabMau = await cdp.chay(tab.sessionId, BOM_MAU_CAT);
+    ghi(
+      'ba mẩu BỊ CẮT trên lưới, và cả ba vào thứ tự Tab bằng tabindex="0"',
+      tabMau.length === 3 && tabMau.every((t) => t === '0'),
+      JSON.stringify(tabMau),
+    );
+
+    /** Dãy điểm dừng mà `Tab` (hoặc `Shift+Tab`) đi qua, `soBuoc` bước. */
+    const diTab = async (soBuoc, nguoc = false) => {
+      const day = [];
+      for (let i = 0; i < soBuoc; i += 1) {
+        await nhanTab(nguoc);
+        day.push(await cdp.chay(tab.sessionId, DO_DIEM_DUNG));
+      }
+      return day;
+    };
+
+    const DAT_TIEU_DIEM_O_SOAN = `document.querySelector('.o-soan').focus(); return true;`;
+
+    // Dãy nghiệm thu, và nó CHỈ gồm những phần tử đã tồn tại hôm nay. `về hôm nay` (Epic 6),
+    // nút xóa có hành vi (Epic 5) và hai link sao lưu có hành vi (Epic 4) chưa tính.
+    const THU_TU = [
+      'input.o-nhap.o-tim',
+      'input.o-nhap.o-ngay',
+      'div.o-luoi',
+      'div.o-luoi',
+      'div.o-luoi',
+      'button.chan-link',
+      'button.chan-link',
+      'button.nut-theme',
+    ];
+
+    {
+      const dau = await cdp.chay(tab.sessionId, DO_DIEM_DUNG);
+      const day = await diTab(THU_TU.length);
+      ghi(
+        'Tab liên tiếp từ đầu trang: đúng dãy của I/O Matrix, và không một điểm dừng lạ nào',
+        dau.ten === 'textarea.o-soan' &&
+          JSON.stringify(day.map((d) => d.ten)) === JSON.stringify(THU_TU),
+        `bắt đầu ${dau.ten} → ${JSON.stringify(day.map((d) => d.ten))}`,
+      );
+
+      // Thứ tự Tab qua lưới TRÙNG thứ tự trái-sang-phải trên màn hình. Đây là vế mà một
+      // `order` hay một `*-reverse` thêm vào CSS phá trong im lặng: mắt đi một đường, bàn phím
+      // đi một đường khác.
+      const mau = day.filter((d) => d.ten === 'div.o-luoi');
+      const traiTang = mau.every((m, i) => i === 0 || m.trai > mau[i - 1].trai);
+      const cungHang = mau.every((m) => m.dinh === mau[0].dinh);
+      ghi(
+        'thứ tự Tab qua lưới trùng thứ tự trái-sang-phải đo bằng getBoundingClientRect',
+        mau.length === 3 && traiTang && cungHang,
+        `trái=${JSON.stringify(mau.map((m) => m.trai))} đỉnh=${JSON.stringify(mau.map((m) => m.dinh))}`,
+      );
+
+      // Shift+Tab đi đúng đường về. Đứng ở điểm dừng cuối, nên bước đầu tiên ngược lại rơi vào
+      // áp chót — dãy mong đợi là dãy đảo, bỏ phần tử cuối, rồi cộng `o-soan` ở đáy.
+      const nguoc = await diTab(THU_TU.length, true);
+      const mongNguoc = [...THU_TU].reverse().slice(1).concat('textarea.o-soan');
+      ghi(
+        'Shift+Tab cho ra đúng dãy NGƯỢC — bàn phím quay lại đúng đường nó đã đi',
+        JSON.stringify(nguoc.map((d) => d.ten)) === JSON.stringify(mongNguoc),
+        `${JSON.stringify(nguoc.map((d) => d.ten))}`,
+      );
+    }
+
+    // ── Vòng sáng: hiện ra, khác lúc nghỉ, và lấy màu từ `--focus` — ở CẢ HAI theme ──────
+    {
+      const doMotTheme = async (theme) => {
+        await cdp.chay(
+          tab.sessionId,
+          `document.documentElement.dataset.theme = ${JSON.stringify(theme)}; return true;`,
+        );
+        await nghi(100);
+        const nen = await cdp.chay(tab.sessionId, DO_NEN);
+        const mauFocus = await cdp.chay(tab.sessionId, DO_MAU_FOCUS);
+        await cdp.chay(tab.sessionId, DAT_TIEU_DIEM_O_SOAN);
+        const day = await diTab(THU_TU.length);
+        const xau = day.filter((d) => {
+          const daDoi = d.vong !== nen[d.khoa];
+          // Khẳng định trên ĐÚNG thuộc tính outline, không trên chuỗi nối năm thứ: một màu
+          // `--focus` sót ở `border-top-color` không được phép cứu một outline đã bị gỡ.
+          const coOutline = d.ct.kieu !== 'none' && d.ct.mau === mauFocus;
+          return !(d.khop && daDoi && coOutline);
+        });
+        return { mauFocus, xau, day };
+      };
+
+      for (const theme of ['light', 'dark']) {
+        const { mauFocus, xau, day } = await doMotTheme(theme);
+        ghi(
+          `theme ${theme}: mỗi điểm dừng khớp :focus-visible, vòng sáng ĐỔI so với lúc nghỉ, và outline màu ${mauFocus}`,
+          day.length === THU_TU.length && xau.length === 0,
+          xau.length === 0
+            ? `${day.length} điểm đo, tất cả có outline lấy từ --focus`
+            : `hỏng: ${JSON.stringify(xau.map((d) => [d.ten, d.khop, d.ct]))}`,
+        );
+
+        // ── Tương phản ≥ 3:1, đo THẬT ────────────────────────────────────────────────────
+        //
+        // Đây là con số AC đòi và chú thích `app/style.css` khẳng định, và cho tới giờ nó là thứ
+        // duy nhất máy tính được mà lại bị đẩy cho mắt người ở README. `.o-soan` đi kèm vì vòng
+        // của nó là `color-mix(… 28%, transparent)` — chỗ khả nghi nhất của cả trang.
+        const loang = day
+          .map((d) => [d.ten, d.tyLe])
+          .filter(([, t]) => !(t >= 3));
+        ghi(
+          `theme ${theme}: vòng sáng tương phản ≥ 3:1 với nền thật ở MỌI điểm dừng`,
+          day.length > 0 && loang.length === 0,
+          loang.length === 0
+            ? `thấp nhất ${Math.min(...day.map((d) => d.tyLe))}:1 trên ${day.length} điểm đo`
+            : `dưới ngưỡng: ${JSON.stringify(loang)}`,
+        );
+
+        const oSoan = await cdp.chay(
+          tab.sessionId,
+          `
+          ${HAM_TEN}
+          const el = document.querySelector('.o-soan');
+          el.focus();
+          const s = getComputedStyle(el);
+          const nen = nenSau(el);
+          return {
+            khop: el.matches(':focus-visible'),
+            vien: s.borderTopColor,
+            nen,
+            tyLe: Math.round(tuongPhan(s.borderTopColor, nen) * 100) / 100,
+          };
+        `,
+        );
+        ghi(
+          `theme ${theme}: vòng sáng RIÊNG của ô soạn thảo cũng ≥ 3:1 — chất liệu khác, ngưỡng không khác`,
+          oSoan.khop && oSoan.tyLe >= 3,
+          `viền ${oSoan.vien} trên ${oSoan.nen} = ${oSoan.tyLe}:1`,
+        );
+      }
+      await cdp.chay(tab.sessionId, `document.documentElement.dataset.theme = 'light'; return true;`);
+    }
+
+    // ── Dải băng: `✕` là điểm dừng ĐẦU TIÊN, và chỉ khi hàng đóng được ───────────────────
+    //
+    // Nội dung bơm từ NGOÀI mã sản phẩm, đúng khuôn `BOM_DAI_BANG`: câu hỏi ở đây là về thứ tự
+    // tiêu điểm, không về đường phát thông báo.
+    {
+      const BOM = (coNutDong) => `
+        const b = document.querySelector('.dai-bang');
+        const s = document.createElement('span');
+        s.className = 'dai-bang-chu';
+        s.textContent = 'bộ đo thứ tự Tab';
+        const con = [s];
+        if (${coNutDong ? 'true' : 'false'}) {
+          const n = document.createElement('button');
+          n.className = 'dai-bang-dong';
+          n.type = 'button';
+          n.textContent = '✕';
+          n.setAttribute('aria-label', 'đóng thông báo');
+          con.push(n);
+        }
+        b.replaceChildren(...con);
+        return b.children.length;
+      `;
+      const TRONG_BANG = `
+        const el = document.activeElement;
+        return el !== null && document.querySelector('.dai-bang').contains(el);
+      `;
+
+      await cdp.chay(tab.sessionId, BOM(true));
+      await cdp.chay(tab.sessionId, DAT_TIEU_DIEM_O_SOAN);
+      await nhanTab(true);
+      const dungO = await cdp.chay(tab.sessionId, DO_DIEM_DUNG);
+      const trongBang = await cdp.chay(tab.sessionId, TRONG_BANG);
+      ghi(
+        'dải băng ĐÓNG ĐƯỢC: `✕` là điểm dừng đầu tiên của trang, ngay trước ô soạn thảo',
+        trongBang && dungO.ten === 'button.dai-bang-dong' && dungO.khop,
+        `${JSON.stringify({ ten: dungO.ten, khop: dungO.khop, tyLe: dungO.tyLe })}`,
+      );
+
+      // Dãy TIẾN đầy đủ khi dải băng đang hiện. Một bước `Shift+Tab` chỉ chứng minh `✕` đứng
+      // trước ô soạn thảo; nó KHÔNG chứng minh "thứ tự còn lại y nguyên", mà đó mới là vế AC đòi
+      // ở trạng thái thứ hai này.
+      {
+        await cdp.chay(
+          tab.sessionId,
+          `document.querySelector('.dai-bang-dong').focus(); return true;`,
+        );
+        const day = await diTab(THU_TU.length + 1);
+        const mong = ['textarea.o-soan', ...THU_TU];
+        ghi(
+          'dải băng ĐÓNG ĐƯỢC: dãy Tab TIẾN đầy đủ — `✕` rồi y nguyên thứ tự của trạng thái kia',
+          JSON.stringify(day.map((d) => d.ten)) === JSON.stringify(mong),
+          `từ ✕ → ${JSON.stringify(day.map((d) => d.ten))}`,
+        );
+      }
+
+      await cdp.chay(tab.sessionId, BOM(false));
+      await cdp.chay(tab.sessionId, DAT_TIEU_DIEM_O_SOAN);
+      await nhanTab(true);
+      const trongBangSau = await cdp.chay(tab.sessionId, TRONG_BANG);
+      ghi(
+        'dải băng KHÔNG đóng được: không thêm một điểm dừng nào ở đỉnh trang',
+        trongBangSau === false,
+        `Shift+Tab từ ô soạn thảo dừng trong dải băng = ${trongBangSau}`,
+      );
+      await cdp.chay(
+        tab.sessionId,
+        `document.querySelector('.dai-bang').replaceChildren(); return true;`,
+      );
+    }
+
+    // ── Focus bằng CHUỘT: không vòng sáng ────────────────────────────────────────────────
+    //
+    // Vòng sáng là bản đồ BÀN PHÍM. Một vòng nhảy ra sau mỗi cú chuột là nhiễu thị giác, và nó
+    // là đúng cái mà `:focus` trần làm còn `:focus-visible` thì không.
+    {
+      const nen = await cdp.chay(tab.sessionId, DO_NEN);
+      // Hàng I/O Matrix nói `.chan-link` **và** mẩu giấy. Mẩu giấy là một `<div tabindex="0">` —
+      // đúng loại phần tử dễ bật vòng sáng khi click nhất, nên bỏ nó ra là bỏ đúng nửa khó.
+      // `songSot` = phần tử còn nguyên sau cú click. Mẩu giấy thì KHÔNG: click nó bật mở rộng,
+      // `luoi.js` vẽ lại toàn phần và phần tử vừa bấm bị thay bằng một phần tử khác — nên hỏi
+      // "nó có đang nhận tiêu điểm không" là hỏi sai. Câu đúng cho nó là câu rộng hơn, và cũng
+      // là câu AC thật sự quan tâm: sau một cú chuột, CẢ TRANG không một vòng sáng nào.
+      for (const { chon, songSot } of [
+        { chon: '.chan-link', songSot: true },
+        { chon: '.o-luoi[tabindex]', songSot: false },
+      ]) {
+        const diem = await cdp.chay(
+          tab.sessionId,
+          `
+          const r = document.querySelector(${JSON.stringify(chon)}).getBoundingClientRect();
+          return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+        `,
+        );
+        await nhanChuot(diem.x, diem.y);
+        const d = await cdp.chay(
+          tab.sessionId,
+          `
+          ${HAM_TEN}
+          const el = document.querySelector(${JSON.stringify(chon)});
+          const r = el.getBoundingClientRect();
+          return {
+            laDangNhan: document.activeElement === el,
+            // Cú click có TRÚNG không — thay cho laDangNhan ở phần tử bị vẽ lại. Thiếu một
+            // phép kiểm kiểu này thì một cú click trượt toạ độ cũng cho ca xanh.
+            trung:
+              ${diem.x} >= Math.floor(r.left) && ${diem.x} <= Math.ceil(r.right) &&
+              ${diem.y} >= Math.floor(r.top) && ${diem.y} <= Math.ceil(r.bottom),
+            khop: el.matches(':focus-visible'),
+            sangCaTrang: document.querySelectorAll(':focus-visible').length,
+            vong: vong(el),
+            khoa: khoa(el),
+          };
+        `,
+        );
+        ghi(
+          `click chuột vào \`${chon}\`: KHÔNG vòng sáng — ring không phải phản hồi chuột`,
+          (songSot ? d.laDangNhan : d.trung) &&
+            !d.khop &&
+            d.sangCaTrang === 0 &&
+            d.vong === nen[d.khoa],
+          JSON.stringify(d),
+        );
+      }
+    }
+
+    // Tắt lại giả lập tiêu điểm: nó là điều kiện của RIÊNG khối này, và để nó bật sang các khối
+    // sau là đổi âm thầm môi trường đo của chúng.
+    await cdp.goi('Emulation.setFocusEmulationEnabled', { enabled: false }, tab.sessionId);
+    // Trả trang về trạng thái sạch: khối dưới đo màu trên một trang không có mẩu bơm tay nào.
+    await cdp.taiLai(tab.sessionId);
+  }
+
   // ── Hai theme: mọi màu thật sự ĐỔI khi theme đổi ─────────────────────────────────────
   //
   // So sánh light với dark chứ không kiểm dạng chuỗi: một màu viết thẳng, hay một token

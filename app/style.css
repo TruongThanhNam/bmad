@@ -147,6 +147,51 @@ body {
   box-sizing: border-box;
 }
 
+/* ── Focus ring: bản đồ di chuyển DUY NHẤT của bàn phím (Story 3.2) ─────────────────────
+ *
+ * Sản phẩm cố ý chỉ có bốn phím (`Ctrl+Enter`, `Enter`, `Esc`, `Tab`/`Shift+Tab`), nên vòng
+ * sáng quanh phần tử đang nhận bàn phím KHÔNG phải trang trí: nó là thứ duy nhất nói cho
+ * người không dùng chuột biết mình đang đứng ở đâu. Vì thế nó được VẼ LẠI ở đây, một khối
+ * cho mọi điều khiển, thay vì phó mặc vòng mặc định của trình duyệt — vòng đó là cặp
+ * trắng/đen do trình duyệt tự chọn theo nền, không phải `--focus`, và không ai đo được tương
+ * phản của nó trên hai bảng màu của `DESIGN.md`.
+ *
+ * AD-20 mục 1 cấm TẮT vòng sáng, không cấm KHAI một vòng của mình — và khai một vòng là cách
+ * duy nhất vừa giữ lệnh cấm vừa đạt "ring `--focus` ≥ 3:1". `token-style.test.js` quét bản
+ * thô của mọi `.css` dưới `app/` và đỏ ngay khi có ai đó viết ra cặp thuộc tính/giá trị bị
+ * cấm, nên chính chú thích này cũng không viết nó ra.
+ *
+ * `:focus-visible` chứ không `:focus`: vòng sáng là bản đồ BÀN PHÍM. `:focus` bật cả khi
+ * click, và một vòng nhảy ra sau mỗi cú chuột là nhiễu thị giác chứ không phải chỉ dẫn.
+ *
+ * Chất liệu là `outline` + `outline-offset`, KHÔNG phải `box-shadow`, và đó là điều kiện chứ
+ * không phải sở thích: `body` là `overflow: hidden` và `.tang-luoi` là `overflow-y: auto`,
+ * nên một vòng vẽ bằng bóng bị chính hai tổ tiên đó xén mất ở mép vùng cuộn. `outline` không
+ * bị xén. `outline-offset` tách vòng khỏi chữ — `.chan-link` có vùng bấm bằng ĐÚNG con chữ,
+ * nên thiếu độ hở thì vòng dính vào nét chữ và không còn đọc được là một vòng.
+ *
+ * `.o-soan` KHÔNG có mặt trong danh sách này và nó giữ vòng riêng bằng `box-shadow` ở dưới:
+ * ô soạn thảo nằm trong một hộp có bóng lõm, nên vòng của nó phải cùng chất liệu với cái bóng
+ * đó thì hai lớp mới chồng lên nhau được. Hai chất liệu khác nhau là một đánh đổi đã nhận,
+ * không phải một chỗ lọt.
+ *
+ * Danh sách là TOÀN BỘ điều khiển đang tồn tại, kể cả những thứ chỉ có hình dạng
+ * (`.chan-link`, `.nut-theme`, `.mau-xoa` của Epic 4/5 và Story 3.3). `test/focus-va-tab.test.js`
+ * quét `index.html` cộng `app/view/` — SUY RA tên class từ chính mã nguồn, không từ một bảng
+ * viết tay — và đỏ khi một điều khiển mới không được khối này phủ. Nên thêm một điều khiển mà
+ * quên nó ở đây là một ca đỏ, không phải một thứ ai đó phải nhớ.
+ */
+
+.dai-bang-dong:focus-visible,
+.o-nhap:focus-visible,
+.o-luoi:focus-visible,
+.mau-xoa:focus-visible,
+.chan-link:focus-visible,
+.nut-theme:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
 /* ── Dải băng thông báo (Story 3.1) ──────────────────────────────────────────────────────
  *
  * Nó là con ĐẦU của `body` và `flex: none`, nên nó ĐẨY ba tầng dưới xuống chứ không phủ lên
@@ -196,7 +241,9 @@ body {
 
 /* Nút `✕` LUÔN hiện khi hàng đóng được, không hover-only: một điều khiển chỉ xuất hiện khi
  * chuột đi ngang qua là một điều khiển không tồn tại với bàn phím. Cởi bỏ trang phục mặc định
- * của `<button>` nhưng KHÔNG đụng tới `outline` — focus ring giữ nguyên của trình duyệt. */
+ * của `<button>`; vòng sáng bàn phím thì KHÔNG cởi và cũng không để mặc trình duyệt — khối
+ * `:focus-visible` chung ở đầu tệp vẽ lại nó bằng `--focus`, và nút này nằm trong danh sách đó
+ * (Story 3.2). Nó là điểm dừng Tab ĐẦU TIÊN của trang, nhờ thứ tự DOM chứ không nhờ `tabindex`. */
 
 .dai-bang-dong {
   flex: none;
@@ -499,8 +546,10 @@ body {
 }
 
 /* Dáng link, ngữ nghĩa nút: hai điều khiển này là hành động chứ không phải điều hướng, nên
- * chúng là `<button>` và phải cởi bỏ toàn bộ trang phục mặc định của nút. Không đụng tới
- * `outline` — focus ring giữ nguyên của trình duyệt. */
+ * chúng là `<button>` và phải cởi bỏ toàn bộ trang phục mặc định của nút. Vòng sáng bàn phím
+ * là ngoại lệ: nó KHÔNG bị cởi, và cũng không còn để mặc trình duyệt — khối `:focus-visible`
+ * chung ở đầu tệp vẽ lại nó bằng `--focus` (Story 3.2). Vùng bấm ở đây bằng ĐÚNG con chữ, nên
+ * `outline-offset` của khối đó là thứ giữ vòng không dính vào nét chữ. */
 
 .chan-link {
   padding: 0;
