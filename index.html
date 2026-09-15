@@ -147,6 +147,17 @@
       <button class="chan-link" type="button">xuất sao lưu</button>
       <span class="chan-cham" aria-hidden="true">·</span>
       <button class="chan-link" type="button">nạp lại</button>
+      <!-- Chỗ đứng của dòng nhắc sao lưu (Story 4.4), rỗng nguyên ở đây và CÙNG DÒNG với hai
+           link — UX-DR-19. Đặt sẵn chỗ ngay từ 4.1 để 4.4 chỉ đổ chữ vào, không phải sắp lại
+           chân trang; và để ba cam kết của 4.1 kiểm được ngay bây giờ: hai link đứng độc lập
+           với dòng nhắc, nên trên máy mới — lúc dòng nhắc chưa có gì để nói — chúng vẫn ở đó.
+
+           Không `aria-live`: dòng nhắc là THỤ ĐỘNG, nó không được cướp lời trình đọc màn hình
+           giữa lúc Nam đang gõ. Không `tabindex`: nó là chữ, không phải điều khiển, và thêm
+           một điểm dừng bàn phím giữa `nạp lại` và nút theme là phá đúng thứ tự tab đã chốt.
+           Rỗng thì `.chan-nhac:empty` trong `app/style.css` gỡ nó khỏi luồng flex để nó không
+           sinh thêm một khoảng `gap` ma nào. -->
+      <span class="chan-nhac"></span>
       <!-- Nhãn TĨNH, và nó cố ý có thể lệch một khung hình với nhãn thật: khi lựa chọn đã lưu
            là `dark`, script trong `<head>` đặt `data-theme="dark"` trước lần vẽ đầu, nhưng dòng
            chữ ở đây vẫn đọc `nền tối` cho tới khi `app/view/nut-theme.js` vẽ lượt đầu tiên.

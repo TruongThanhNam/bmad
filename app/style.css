@@ -599,6 +599,30 @@ body {
   color: var(--ink-2);
 }
 
+/* Chỗ đứng của dòng nhắc sao lưu (Story 4.4). Nó cùng dòng, cùng chữ, cùng màu với hai link —
+ * dòng nhắc là một câu nói khẽ ở chân trang, không phải một hộp cảnh báo: không nền, không
+ * viền, không nút tắt.
+ *
+ * `:empty` là cả phần việc của Story 4.1: một `<span>` rỗng vẫn là một flex item, nên nó vẫn
+ * ăn một khoảng `gap` của `.chan` và đẩy nút theme lệch đi một chút ở đúng trạng thái thường
+ * gặp nhất — chưa tới ngưỡng nhắc. `display: none` khi rỗng gỡ nó khỏi luồng, nên chân trang
+ * trước và sau khi 4.4 có gì để nói là hai cảnh khác nhau một cách có chủ ý, chứ không phải
+ * một khoảng trắng lạ không ai giải thích được.
+ *
+ * Hợp đồng cho Story 4.4: `:empty` thôi khớp ngay khi bên trong có một nút văn bản, kể cả nút
+ * chỉ chứa khoảng trắng. Nên khi không có gì để nói, 4.4 phải dọn bằng `textContent = ''` —
+ * một `innerHTML = '\n  '` hay một template thụt lề làm sống lại đúng cái khoảng `gap` ma mà
+ * luật này sinh ra để chặn, và nó sẽ không làm ca test nào đỏ. */
+
+.chan-nhac {
+  color: var(--ink-2);
+  font: var(--font-foot);
+}
+
+.chan-nhac:empty {
+  display: none;
+}
+
 /* Nút theme bị đẩy sang phải bằng `margin-inline-start: auto` chứ không bằng một phần tử
  * đệm rỗng: đẩy bằng lề không thêm một điểm dừng nào cho bàn phím hay trình đọc màn hình. */
 

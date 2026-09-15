@@ -129,6 +129,7 @@ const NEN_CUA = Object.freeze({
   '.mau-gap': '--paper',
   '.chan-link': '--bg',
   '.chan-cham': '--bg',
+  '.chan-nhac': '--bg',
   '.nut-theme': '--bg',
 });
 
