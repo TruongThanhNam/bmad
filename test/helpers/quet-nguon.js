@@ -124,14 +124,24 @@ export function boChuThichJs(ma) {
   return ketQua;
 }
 
-/** CSS chỉ có chú thích khối; `//` trong CSS là ký tự thật (vd `url(//host)`). */
+/**
+ * CSS chỉ có chú thích khối; `//` trong CSS là ký tự thật (vd `url(//host)`).
+ *
+ * Thay mỗi chú thích bằng ĐÚNG số xuống dòng nó chiếm, cùng lý do với `boChuThichJs`: một bộ
+ * quét báo `style.css:408` cho một vi phạm nằm ở dòng 604 là một bộ quét chỉ sai chỗ cho người
+ * đi sửa, và tệp này dày chú thích khối nhiều dòng nên độ lệch không nhỏ.
+ */
 export function boChuThichCss(ma) {
-  return ma.replace(/\/\*[\s\S]*?\*\//g, '');
+  return ma.replace(/\/\*[\s\S]*?\*\//g, (khoi) => '\n'.repeat(khoi.split('\n').length - 1));
 }
 
-/** HTML chỉ có `<!-- … -->`. */
+/**
+ * HTML chỉ có `<!-- … -->`. Giữ nguyên số xuống dòng, cùng lý do với `boChuThichJs` và
+ * `boChuThichCss`: mỗi chú thích bị xóa trắng là một dòng bị trôi, và độ lệch cộng dồn đúng
+ * bằng số chú thích của tệp — một vi phạm ở dòng 42 báo thành dòng 32.
+ */
 export function boChuThichHtml(ma) {
-  return ma.replace(/<!--[\s\S]*?-->/g, '');
+  return ma.replace(/<!--[\s\S]*?-->/g, (khoi) => '\n'.repeat(khoi.split('\n').length - 1));
 }
 
 /** Chọn bộ bỏ chú thích theo phần mở rộng của file. */

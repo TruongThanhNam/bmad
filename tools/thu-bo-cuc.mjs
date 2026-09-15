@@ -1867,6 +1867,180 @@ try {
     );
     ghi('ô ngày rộng đúng 118px (kích thước NGOÀI, đã gồm viền)', rong === 118, `${rong}px`);
   }
+
+  // ── Phóng 200% (tương đương reflow) — Story 3.4 ──────────────────────────────────────
+  //
+  // QĐ-2: nghiệm thu bằng phép đo TƯƠNG ĐƯƠNG reflow, không bằng zoom thật. CDP không đặt
+  // được mức phóng thật (xem chú thích khối 500px ở trên), nhưng phóng 200% chia đôi khung
+  // nhìn CSS trong khi CỠ CHỮ giữ nguyên — và đó chính là thứ `datKhungNhin` dựng lại được.
+  // Mục thử tay số 18 ở lại README làm vế mắt nhìn.
+  //
+  // Vì sao 550 chứ không phải 640: ranh giới 2↔1 cột là HỆ QUẢ SỐ HỌC của token, đúng 560px
+  // (2×260 + 8 + 2×16), nên 200% trên một cửa sổ 1280 rộng cho 640px và ở đó lưới vẫn còn
+  // ĐÚNG 2 cột — đó là hành vi đã ghim, không phải một khiếm khuyết. 550×400 là 200% của một
+  // cửa sổ 1100×800, tức "cửa sổ cỡ thường" của mục thử tay 18, và là khung nhìn mà câu "lưới
+  // về 1 cột" thật sự đúng. Đổi `--note-min-col`, `--grid-gap` hay `--page-gutter` là thấy ca
+  // này lệch ngay, đúng như ranh giới 828px ở khối trên.
+  //
+  // Vì sao ca 500px phía trên KHÔNG thay được khối này: nó bơm `.thu-o-tam` — những khối
+  // `120px` KHÔNG CÓ CHỮ — nên nó trả lời được "bố cục có tràn không" mà không trả lời được
+  // "chữ có bị cắt không", tức đúng nửa mà AC 200% đòi. Ghi chú THẬT, chữ THẬT, bơm qua đúng
+  // đường của người dùng, là điều kiện để phép đo có nghĩa.
+  {
+    await datKhungNhin(550, 400);
+
+    const CHOT_PHONG = (chu) => `
+      const o = document.querySelector('.o-soan');
+      o.value = ${JSON.stringify(chu)};
+      o.dispatchEvent(new Event('input', { bubbles: true }));
+      o.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true }));
+      return true;
+    `;
+    const doiSoPhong = async (mong) => {
+      for (let i = 0; i < 50; i += 1) {
+        const so = await cdp.chay(
+          tab.sessionId,
+          `return document.querySelectorAll('.luoi > *').length;`,
+        );
+        if (so === mong) return;
+        await nghi(100);
+      }
+      throw new Error(`lưới không đạt ${mong} mẩu sau 5s — phép ghi hỏng hoặc lưới không vẽ lại`);
+    };
+
+    // Chữ ngắn lẫn chữ dài: một mẩu một từ không bao giờ tràn, nên một mình nó chứng minh
+    // được rất ít. Mẩu dài là thứ phải XUỐNG DÒNG thay vì bị cắt ngang.
+    const CHU_PHONG = [
+      'mẩu ngắn',
+      'một câu dài vừa phải để thử xem chữ có xuống dòng hay bị cắt ngang ở khung nhìn hẹp',
+      'ghi chú thứ ba, dài hơn một chút nữa, đủ để lưới phải xuống hàng ở một cột',
+    ];
+
+    const khoTruoc = await cdp.chay(
+      tab.sessionId,
+      `const m = await import('/app/main.js'); return m.store.state.notes.length;`,
+    );
+    const oTruoc = await cdp.chay(
+      tab.sessionId,
+      `
+      const m = await import('/app/main.js');
+      const q = await import('/app/core/query.js');
+      const t = await import('/app/core/time.js');
+      return q.locGhiChu(m.store.state.notes, m.store.state.dieuKien, t.nowIso()).length;
+    `,
+    );
+
+    const idPhong = [];
+    try {
+      for (const chu of CHU_PHONG) {
+        await cdp.chay(tab.sessionId, CHOT_PHONG(chu));
+        await doiSoPhong(oTruoc + idPhong.length + 1);
+        const moi = await cdp.chay(
+          tab.sessionId,
+          `
+          const m = await import('/app/main.js');
+          const n = m.store.state.notes.find((x) => x.text === ${JSON.stringify(chu)});
+          return n === undefined ? null : n.id;
+        `,
+        );
+        // Cùng lý do với khối mẩu giấy: tra không ra `id` là một lỗi, không phải một ca để bỏ
+        // qua — bỏ qua im lặng là để mẩu rác ở lại trong kho thật của máy người chạy.
+        if (moi === null) {
+          throw new Error('chốt xong nhưng không tra ra id của mẩu — kho có thể còn mẩu rác');
+        }
+        idPhong.push(moi);
+      }
+
+      // Chờ tới khi ỔN ĐỊNH, không chờ một con số (khuôn Story 3.3): phông của `--font-note`
+      // xong muộn một khung hình là đủ để một phép đo chiều rộng lệch rồi tự đúng.
+      const DO_PHONG = `
+        const goc = document.documentElement;
+        const bo = new Set(['.o-soan', '.tang-luoi']);
+        const coChuRieng = (e) => [...e.childNodes]
+          .some((n) => n.nodeType === 3 && n.textContent.trim() !== '');
+        const catChu = [...document.querySelectorAll('body *')]
+          .filter((e) => !['SCRIPT', 'STYLE'].includes(e.tagName))
+          // Hai vùng này CUỘN theo thiết kế đã ghim (ô soạn thảo có trần chiều cao, tầng lưới
+          // là vùng cuộn của trang), nên scrollWidth của chúng không nói lên chữ bị cắt.
+          .filter((e) => ![...bo].some((s) => e.matches(s)))
+          .filter(coChuRieng)
+          // Ngưỡng là "> clientWidth + 1", không phải "> clientWidth": một điểm ảnh lẻ là phần
+          // dư của phép làm tròn bố cục, không phải một chữ bị cắt. Con số +1 này cũng được
+          // nói ra trong README, để không ai "sửa" mã cho khớp một câu văn thiếu nó.
+          .filter((e) => e.scrollWidth > e.clientWidth + 1)
+          .map((e) => ({
+            the: e.tagName + '.' + e.className,
+            scroll: e.scrollWidth,
+            client: e.clientWidth,
+          }));
+        // Đếm luôn số phần tử đo được: Math.max() của một dãy RỖNG là -Infinity, và
+        // -Infinity <= 550 là true — tức một lớp .tang bị đổi tên biến cửa "không tràn
+        // ngang" thành một PASS im lặng, đúng hình dạng mà đầu tệp này chép lại từ Story 3.3.
+        const canhPhai = [...document.querySelectorAll('.tang *')]
+          .map((e) => Math.round(e.getBoundingClientRect().right));
+        return {
+          cuonNgang: goc.scrollWidth - goc.clientWidth > 1,
+          soPhanTuDo: canhPhai.length,
+          phaiNhatCuaNoiDung: canhPhai.length === 0 ? null : Math.max(...canhPhai),
+          catChu,
+        };
+      `;
+      let d = await cdp.chay(tab.sessionId, DO_PHONG);
+      let daYen = false;
+      for (let lan = 0; lan < 10; lan += 1) {
+        await nghi(100);
+        const lai = await cdp.chay(tab.sessionId, DO_PHONG);
+        daYen = JSON.stringify(lai) === JSON.stringify(d);
+        d = lai;
+        if (daYen) break;
+      }
+      // Không ổn định sau 1s là HỎNG TO TIẾNG, không phải một mẫu giữa chừng đem đi so: cả ba
+      // ca dưới đây đọc từ `d`, nên một `d` chưa yên làm chúng trả lời về một bố cục không
+      // tồn tại — xanh hay đỏ đều vô nghĩa như nhau.
+      ghi('phóng 200%: bố cục ổn định trước khi đo (hai lượt đọc liên tiếp trùng nhau)', daYen, daYen ? 'đã yên' : 'còn đổi sau 10 lượt đọc');
+      const cot = await cdp.chay(tab.sessionId, DEM_COT);
+      const cuon = await cdp.chay(tab.sessionId, DO_CUON);
+
+      ghi('phóng 200% (550×400) với ghi chú THẬT: lưới về 1 cột', cot === 1, `cột=${cot}`);
+      ghi(
+        'phóng 200%: không cuộn ngang trang, không phần tử nào của bốn tầng vượt 550px',
+        d.soPhanTuDo > 0 && !d.cuonNgang && d.phaiNhatCuaNoiDung <= 550,
+        `đo ${d.soPhanTuDo} phần tử · cuộn ngang=${d.cuonNgang} · phải nhất=${d.phaiNhatCuaNoiDung}/550`,
+      );
+      // Nửa còn lại của mục thử tay 18: "trang vẫn KHÔNG có thanh cuộn dọc ngoài — chỉ tầng
+      // lưới cuộn". `DO_PHONG` chỉ trả lời chiều ngang, nên không có dòng này thì README đang
+      // hứa nhiều hơn phần đã đo.
+      ghi(
+        'phóng 200%: trang không cuộn dọc — chỉ tầng lưới cuộn, ba tầng kia đứng yên',
+        !cuon.trang && cuon.luoi && !cuon.soan && !cuon.khay && !cuon.chan,
+        JSON.stringify(cuon),
+      );
+      ghi(
+        'phóng 200%: không một phần tử mang chữ nào bị cắt ngang',
+        d.catChu.length === 0,
+        d.catChu.length === 0
+          ? 'không phần tử nào có scrollWidth > clientWidth + 1'
+          : JSON.stringify(d.catChu),
+      );
+    } finally {
+      const conLai = await cdp.chay(
+        tab.sessionId,
+        `
+        const m = await import('/app/main.js');
+        for (const id of ${JSON.stringify(idPhong)}) await m.store.xoaGhiChu(id);
+        return m.store.state.notes.length;
+      `,
+      );
+      ghi(
+        'phóng 200%: dọn sạch đúng những mẩu vừa tạo — kho trở lại y như trước',
+        conLai === khoTruoc,
+        `kho ${khoTruoc} → ${conLai} (đã tạo ${idPhong.length})`,
+      );
+      // Trả khung nhìn về chỗ cũ: khối này là khối CUỐI hôm nay, nhưng một khối thêm vào sau
+      // nó mà thừa hưởng 550×400 là một phép đo sai trong im lặng.
+      await datKhungNhin(1280, 700);
+    }
+  }
 } finally {
   if (tab !== null) await cdp.dongTab(tab.targetId).catch(() => {});
   await cdp.dong();

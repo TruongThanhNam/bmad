@@ -294,7 +294,23 @@ bằng đồng hồ **trong tab**, tính từ lúc điều hướng tới lúc *
 
 Nó **không** đo được phóng trình duyệt: CDP không đặt được mức zoom thật (`width` của
 `Emulation.setDeviceMetricsOverride` đã tính bằng điểm ảnh CSS, `deviceScaleFactor` chỉ đổi mật
-độ điểm ảnh vật lý). Phóng 200% vì thế vẫn là mục thử tay số 18 bên dưới.
+độ điểm ảnh vật lý). Từ Story 3.4 nó đo phần **tương đương reflow** của mục 18: phóng 200% chia
+đôi khung nhìn CSS mà **không** đổi cỡ chữ, nên `550×400` (200% của một cửa sổ 1100×800) dựng lại
+đúng hình đó. Ba ghi chú **thật** được chốt qua đúng đường của người dùng — không phải ô giả không
+chữ như mẫu 500px — rồi đo: lưới về **1 cột**, không cuộn ngang và không phần tử nào của bốn tầng
+vượt 550px, trang **không** cuộn dọc mà **chỉ tầng lưới** cuộn, và **không phần tử mang chữ nào**
+có `scrollWidth > clientWidth + 1` (trừ `.o-soan` và `.tang-luoi`, hai vùng cuộn đã ghim). Con số
+`+ 1` là chủ ý: một điểm ảnh lẻ là phần dư của phép làm tròn bố cục, không phải một chữ bị cắt —
+đừng "sửa" mã cho khớp một câu văn thiếu nó. Lưu ý số học: ranh giới 2↔1 cột là đúng **560px**, nên 200%
+trên một cửa sổ 1280 rộng cho 640px và ở đó lưới vẫn còn 2 cột — đó là hành vi đã ghim.
+
+**Tĩnh tuyệt đối** (Story 3.4, QĐ-1): app không có một `transition`, `animation`, `@keyframes`
+hay `:hover` nào, và cũng không có khối `prefers-reduced-motion` rỗng nào "để sẵn" — khi không
+có chuyển động nào thì lệnh cấm là vế **mạnh hơn** của AC, không phải vế thay thế.
+`test/chuyen-dong-va-tin-hieu.test.js` canh điều đó, cùng với luật "màu không bao giờ là tín hiệu
+duy nhất" (`var(--danger)` phải khai vào `DUNG_DANGER` **kèm** chỗ đứng của chữ đi cùng) và lệnh
+cấm kéo-thả / menu chuột phải / long-press. Cần chuyển động thì nâng bộ quét một tầng của
+`test/token-style.test.js` **trước**.
 
 Lưu ý con số: `~900px` trong spec là cách nói ước lượng cho "cửa sổ vừa". Số học của token đặt
 ranh giới 3↔2 cột ở đúng **828px** (`3×260 + 2×8 + 2×16`), nên 900px thật sự vẫn là 3 cột. Bộ
@@ -306,6 +322,9 @@ Hai mục còn lại phải làm bằng mắt:
 18. **Phóng 200% vẫn dùng được.** Ở cửa sổ cỡ thường, `Ctrl` + `+` tới 200%: lưới về **1 cột**,
     không chữ nào bị cắt ngang, không thanh cuộn ngang, và trang **vẫn không** có thanh cuộn
     dọc ngoài — chỉ tầng lưới cuộn. Ba tầng kia đứng yên khi lăn chuột trong lưới.
+    Từ Story 3.4 phép đo **tương đương** đã tự động ở `npm run thu-bo-cuc` (xem trên); mục này
+    còn lại là vế **mắt nhìn**: chữ có bị cắt ngang ở chỗ nào bộ đo không gọi tên không, và vòng
+    sáng bàn phím ở mức phóng còn là một vòng chứ không phải một vệt nhòe.
 19. **Hai theme không lệch khỏi token.** Đổi `ghichu.theme` giữa `light` và `dark` (mục 14),
     nhìn kỹ khay tìm kiếm, ô ngày, icon lịch, hai nút dáng link ở chân trang và nút theme: mọi màu đổi
     theo theme, không một mảng nào giữ nguyên màu của bản kia. Icon lịch ăn theo `currentColor`

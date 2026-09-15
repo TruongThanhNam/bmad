@@ -278,10 +278,22 @@ body {
  * co xuống dưới kích thước nội dung — bỏ nó đi thì lưới đẩy `body` dài ra và thanh cuộn
  * nhảy ra ngoài trang, đúng thứ AC "chỉ một vùng cuộn" cấm.
  *
- * Không một `@media` nào trong story này, và đó là điều kiện chứ không phải sự thiếu sót:
- * trần 3 cột là HỆ QUẢ SỐ HỌC của token, không phải một mốc khai báo. 1040px trừ hai lề
+ * Không một at-rule nào trong tệp này, và đó là điều kiện chứ không phải sự thiếu sót — nay
+ * vì CẢ HAI lẽ:
+ *
+ * (1) Trần 3 cột là HỆ QUẢ SỐ HỌC của token, không phải một mốc khai báo. 1040px trừ hai lề
  * 16px còn 1008px — vừa 3 cột (3×260 + 2×8 = 796) và thiếu so với 4 cột (4×260 + 3×8 = 1064).
  * Thêm một breakpoint để "giúp" nó là phá đúng bất biến đang được ghim.
+ *
+ * (2) Tĩnh là TRẠNG THÁI CUỐI, không phải bước đệm (Story 3.4, AD-20 mục 5). Chuyển động là
+ * thứ được THÊM VÀO chứ không phải thứ bị gỡ ra, nên tệp này không có `transition` nào,
+ * không `animation` nào, và cũng KHÔNG có một khối `prefers-reduced-motion` rỗng "để sẵn" —
+ * khi không có chuyển động nào thì "không cái nào ở đâu cả" đã bao trùm "mọi cái đều nằm
+ * trong khối ấy". `test/chuyen-dong-va-tin-hieu.test.js` cưỡng chế vế mạnh hơn đó.
+ *
+ * Ai thật sự cần một khối `prefers-reduced-motion` thì phải NÂNG bộ quét CSS một tầng của
+ * `test/token-style.test.js` TRƯỚC — chính lệnh cấm at-rule ở đó là thứ duy nhất ngăn bộ quét
+ * màu/px mù trong im lặng khi có khối lồng. Hóa đơn đó trả cùng lúc, đúng chỗ.
  *
  * Đúng HAI cái bóng được phép dưới đây, và cả hai là token: `var(--shadow-inset)` trên `.o-soan`
  * (Story 2.2) và `var(--shadow-paper)` trên `.o-luoi` (Story 2.5). Một cái bóng viết thẳng ở đây
