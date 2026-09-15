@@ -463,7 +463,7 @@ describe('app/view/banner.js — luật của tầng view, cưỡng chế đư�
     // Cả hai nửa vỡ trong im lặng: không đưa `ve` vào lượt vẽ chung thì mọi lỗi kho chết im
     // lặng y như trước story này; không treo móc vào nút `✕` thì state đổi mà chữ vẫn nằm đó.
     const main = boChuThichJs(readFileSync(join(repoRoot, 'app', 'main.js'), 'utf8'));
-    const treo = /khoiDong\s*\(\s*\)\s*\.\s*then\s*\(\s*([\w$]+)\s*\)/.exec(main);
+    const treo = /khoiDong\s*\(\s*[^)]*\)\s*\.\s*then\s*\(\s*([\w$]+)\s*\)/.exec(main);
     expect(treo).not.toBeNull();
     const than = new RegExp(`\\b${treo[1]}\\s*=\\s*\\(\\s*\\)\\s*=>\\s*\\{([^}]*)\\}`).exec(main);
     expect(than).not.toBeNull();
@@ -535,7 +535,10 @@ describe('app/view/banner.js — luật của tầng view, cưỡng chế đư�
     expect(rong[1]).not.toMatch(/display\s*:\s*none|visibility\s*:\s*hidden/);
 
     const nut = /\.dai-bang-dong\s*\{([^}]*)\}/.exec(css)[1];
-    expect(nut).toMatch(/color\s*:\s*var\(--ink-2\)/);
+    // `--ink`, đổi từ `--ink-2` ở Story 3.3, và đó là một phép ĐO: dải băng có nền `--chip-bg`,
+    // còn `--ink-2` trên `--chip-bg` ở bản light chỉ ra 4.24:1 — dưới ngưỡng 4.5:1 của AD-20
+    // mục 4. `test/theme.test.js` là ca tính con số đó từ chính hai khối token.
+    expect(nut).toMatch(/color\s*:\s*var\(--ink\)/);
     // Vùng bấm thật, bằng token — và con trỏ nói rằng nó bấm được.
     expect(nut).toMatch(/cursor\s*:\s*pointer/);
     expect(nut).toMatch(/padding\s*:\s*var\(--space-\d\) var\(--space-\d\)/);

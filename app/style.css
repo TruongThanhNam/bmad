@@ -18,8 +18,18 @@
  *
  * Ba hex dưới đây CỐ Ý lệch khỏi file HTML hướng vì bản gốc không đạt ngưỡng:
  * `--ink-2` light, `--focus` light, `--danger` dark. Đừng "sửa lại cho giống mockup".
- * Cặp `--danger` trên `--chip-bg` ở bản dark chỉ 4.55:1 — đổi `--chip-bg` dark thì phải tính
- * lại cặp đó trước khi commit.
+ *
+ * CẢNH BÁO — khoản nợ đã ghi sổ: cặp `--danger` trên `--chip-bg` ở bản dark ra ĐÚNG 4.55:1.
+ * Nó đạt ngưỡng 4.5:1, nên không sửa; nhưng biên chỉ còn 0.05, và mắt không thấy 0.05. AI ĐỔI
+ * `--chip-bg` BẢN DARK (hay `--danger` bản dark) THÌ PHẢI TÍNH LẠI CẶP ĐÓ **TRƯỚC KHI COMMIT**.
+ * `test/theme.test.js` ghim đúng con số 4.55 chính vì thế: nó là cái chuông kêu TRƯỚC khi cặp
+ * kia kịp tụt xuống dưới ngưỡng. Cùng câu này nằm trong `README.md`.
+ *
+ * Và ngưỡng ≥ 4.5:1 ở đây được ĐO chứ không được KHAI: `test/theme.test.js` tính tỉ lệ từ chính
+ * hai khối token dưới đây cho mọi cặp chữ/nền thật sự được dùng, ở CẢ HAI bảng màu, còn
+ * `npm run thu-bo-cuc` đo lại trên trình duyệt thật. `--ink-decor` vì thế KHÔNG BAO GIỜ được
+ * dùng làm `color` — nó là màu của nét trang trí (gạch chân chấm chấm), và trên mọi nền của
+ * sản phẩm nó chỉ đạt 1.8–3.4:1.
  *
  * Phông là system font stack: AD-12 cấm webfont, và trang phải render đúng cả khi không tải
  * được tài nguyên nào ngoài HTML. Không `@import`, không URL.
@@ -253,7 +263,10 @@ body {
   cursor: pointer;
   border: 0;
   background: none;
-  color: var(--ink-2);
+  /* `--ink` chứ không `--ink-2`, và đó là một phép ĐO chứ không phải một ý thích (Story 3.3):
+   * dải băng có nền `--chip-bg`, và `--ink-2` trên `--chip-bg` ở bản light chỉ ra 4.24:1 — dưới
+   * ngưỡng 4.5:1 của AD-20 mục 4. Cùng lý do với `.khay-nhan`, nền kia cũng là `--chip-bg`. */
+  color: var(--ink);
   font: var(--font-ui);
 }
 
@@ -382,9 +395,13 @@ body {
   background: var(--chip-bg);
 }
 
+/* `--ink` trên nền `--chip-bg` của khay: `--ink-2` ở đó chỉ ra 4.24:1 ở bản light, dưới ngưỡng
+ * 4.5:1 (Story 3.3). Nền sẫm hơn nền bàn là thứ mua lấy sự tách bạch của khay, và nó phải được
+ * trả bằng một màu chữ đậm hơn — không phải bằng một ngoại lệ trong bảng tương phản. */
+
 .khay-nhan {
   flex: none;
-  color: var(--ink-2);
+  color: var(--ink);
   font: var(--font-ui);
 }
 
@@ -561,8 +578,13 @@ body {
   text-underline-offset: 2px;
 }
 
+/* Dấu `·` là CHỮ, kể cả khi nó là `aria-hidden`: nó được vẽ bằng một glyph trên nền bàn, nên
+ * ngưỡng 4.5:1 áp cho nó y như cho hai nhãn bên cạnh. `--ink-decor` chỉ ra 2.31:1 trên `--bg`,
+ * nên nó ở lại đúng vai của mình — nét trang trí (`border` chấm chấm của `.mau-xoa`) — và không
+ * bao giờ là `color` (Story 3.3, AD-20 mục 4). */
+
 .chan-cham {
-  color: var(--ink-decor);
+  color: var(--ink-2);
 }
 
 /* Nút theme bị đẩy sang phải bằng `margin-inline-start: auto` chứ không bằng một phần tử

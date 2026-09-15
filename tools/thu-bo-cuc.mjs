@@ -84,6 +84,56 @@ const DOC_MOC = `
   return { soan: dinh('.tang-soan'), khay: dinh('.tang-khay'), chan: dinh('.tang-chan') };
 `;
 
+/** Tên một phần tử theo thẻ và class — đủ để đọc ra một dãy điểm dừng và so được với bảng. */
+const HAM_TEN = `
+  const ten = (el) => {
+    if (el === null || el === document.body || el === document.documentElement) return null;
+    const lop = String(el.className || '').trim().split(/\\s+/).filter(Boolean);
+    return el.tagName.toLowerCase() + lop.map((l) => '.' + l).join('');
+  };
+  const vong = (el) => {
+    const s = getComputedStyle(el);
+    return [s.outlineStyle, s.outlineWidth, s.outlineColor, s.boxShadow, s.borderTopColor].join(' | ');
+  };
+  // Khóa DUY NHẤT của một điều khiển: tên cộng vị trí của nó trong danh sách điều khiển theo
+  // thứ tự DOM. Tên một mình không phân biệt được hai button.chan-link hay ba div.o-luoi.
+  const CHON_DIEU_KHIEN =
+    '.dai-bang-dong, .o-soan, .o-nhap, .o-luoi[tabindex], .chan-link, .nut-theme';
+  const khoa = (el) => {
+    const ds = [...document.querySelectorAll(CHON_DIEU_KHIEN)];
+    const i = ds.indexOf(el);
+    return i === -1 ? null : ten(el) + '#' + i;
+  };
+  // Vòng sáng ĐỌC RIÊNG từng phần: vong() nối năm thuộc tính nên một phép so includes
+  // trên nó sẽ xanh cả khi màu --focus nằm ở border-top-color và outline đã bị gỡ sạch.
+  const chiTietVong = (el) => {
+    const s = getComputedStyle(el);
+    return { kieu: s.outlineStyle, rong: s.outlineWidth, mau: s.outlineColor, bong: s.boxShadow };
+  };
+  // Tỉ lệ tương phản WCAG giữa hai màu rgb(...) — con số mà AC đòi ≥ 3:1 và cho tới giờ
+  // chỉ có mắt người trả lời. Máy tính được nó, nên máy phải là thứ trả lời.
+  const soRgb = (c) => (c.match(/[\\d.]+/g) || []).slice(0, 3).map(Number);
+  const sang = (c) => {
+    const [r, g, b] = soRgb(c).map((v) => {
+      const x = v / 255;
+      return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  };
+  const tuongPhan = (a, b) => {
+    const [x, y] = [sang(a), sang(b)].sort((m, n) => n - m);
+    return (x + 0.05) / (y + 0.05);
+  };
+  // Nền THẬT phía sau một phần tử: leo lên tổ tiên cho tới màu đầu tiên không trong suốt.
+  const nenSau = (el) => {
+    for (let n = el.parentElement; n !== null; n = n.parentElement) {
+      const c = getComputedStyle(n).backgroundColor;
+      if (c !== 'transparent' && !/rgba\\(\\s*0\\s*,\\s*0\\s*,\\s*0\\s*,\\s*0\\s*\\)/.test(c)) return c;
+    }
+    return getComputedStyle(document.body).backgroundColor;
+  };
+`;
+
 const goc = fileURLToPath(new URL('..', import.meta.url));
 const server = await phucVuTinh(goc.replace(/[\\/]$/, ''));
 const cdp = await moTrinhDuyet();
@@ -760,9 +810,27 @@ try {
       await doiSoMau(oTruoc + idMau.length);
       // Đếm đủ mẩu chưa có nghĩa là layout đã ổn định: lượt vẽ đầu sau một lần tải lại có thể
       // đo trúng khung hình trước khi phông của `--font-note` xong, và chiều cao đo được lệch
-      // một lần rồi tự đúng. Một nhịp nghỉ như mọi phép đo sau click ở trên.
-      await nghi(100);
-      const sauTaiLai = (await cdp.chay(tab.sessionId, DO_MAU)).slice(0, CHU_MAU.length);
+      // một lần rồi tự đúng.
+      //
+      // Một nhịp nghỉ CỐ ĐỊNH không đủ, và đó là một chuyện đo được chứ không phải một phỏng
+      // đoán: ở commit nền ca này xanh 7/7 lần chạy, còn sau Story 3.3 nó đỏ 2/4 — luôn luôn
+      // đỏ ở đúng một vế (chiều cao một mẩu 128 → 106), trong khi ba vế còn lại (mọi mẩu thu
+      // gọn, `expandedIds` rỗng, không khóa nào trong `localStorage`) vẫn đúng. Tức là phép đo
+      // trúng một khung hình chưa xong, không phải sản phẩm lùi. Story 3.3 thêm một view thứ tư
+      // vào lượt vẽ chung và một phép đặt theme đồng bộ lúc khởi động, nên khung hình đầu dịch
+      // đi vài mili giây — vừa đủ để một nhịp 100ms hết ăn chắc.
+      //
+      // Chờ tới khi ỔN ĐỊNH thay vì chờ một con số: đọc lại cho tới khi hai lần đọc liên tiếp
+      // cho cùng một dãy chiều cao. Nó KHÔNG làm phép so yếu đi — dãy vẫn phải khớp từng số với
+      // `thuGon` — nó chỉ bỏ đi cái giả định rằng 100ms luôn đủ.
+      let sauTaiLai = (await cdp.chay(tab.sessionId, DO_MAU)).slice(0, CHU_MAU.length);
+      for (let lan = 0; lan < 10; lan += 1) {
+        await nghi(100);
+        const lai = (await cdp.chay(tab.sessionId, DO_MAU)).slice(0, CHU_MAU.length);
+        const yenNgua = JSON.stringify(lai) === JSON.stringify(sauTaiLai);
+        sauTaiLai = lai;
+        if (yenNgua) break;
+      }
       const dauVet = await cdp.chay(
         tab.sessionId,
         `
@@ -1154,55 +1222,6 @@ try {
       await nghi(50);
     };
 
-    /** Tên một phần tử theo thẻ và class — đủ để đọc ra một dãy điểm dừng và so được với bảng. */
-    const HAM_TEN = `
-      const ten = (el) => {
-        if (el === null || el === document.body || el === document.documentElement) return null;
-        const lop = String(el.className || '').trim().split(/\\s+/).filter(Boolean);
-        return el.tagName.toLowerCase() + lop.map((l) => '.' + l).join('');
-      };
-      const vong = (el) => {
-        const s = getComputedStyle(el);
-        return [s.outlineStyle, s.outlineWidth, s.outlineColor, s.boxShadow, s.borderTopColor].join(' | ');
-      };
-      // Khóa DUY NHẤT của một điều khiển: tên cộng vị trí của nó trong danh sách điều khiển theo
-      // thứ tự DOM. Tên một mình không phân biệt được hai button.chan-link hay ba div.o-luoi.
-      const CHON_DIEU_KHIEN =
-        '.dai-bang-dong, .o-soan, .o-nhap, .o-luoi[tabindex], .chan-link, .nut-theme';
-      const khoa = (el) => {
-        const ds = [...document.querySelectorAll(CHON_DIEU_KHIEN)];
-        const i = ds.indexOf(el);
-        return i === -1 ? null : ten(el) + '#' + i;
-      };
-      // Vòng sáng ĐỌC RIÊNG từng phần: vong() nối năm thuộc tính nên một phép so includes
-      // trên nó sẽ xanh cả khi màu --focus nằm ở border-top-color và outline đã bị gỡ sạch.
-      const chiTietVong = (el) => {
-        const s = getComputedStyle(el);
-        return { kieu: s.outlineStyle, rong: s.outlineWidth, mau: s.outlineColor, bong: s.boxShadow };
-      };
-      // Tỉ lệ tương phản WCAG giữa hai màu rgb(...) — con số mà AC đòi ≥ 3:1 và cho tới giờ
-      // chỉ có mắt người trả lời. Máy tính được nó, nên máy phải là thứ trả lời.
-      const soRgb = (c) => (c.match(/[\\d.]+/g) || []).slice(0, 3).map(Number);
-      const sang = (c) => {
-        const [r, g, b] = soRgb(c).map((v) => {
-          const x = v / 255;
-          return x <= 0.03928 ? x / 12.92 : Math.pow((x + 0.055) / 1.055, 2.4);
-        });
-        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-      };
-      const tuongPhan = (a, b) => {
-        const [x, y] = [sang(a), sang(b)].sort((m, n) => n - m);
-        return (x + 0.05) / (y + 0.05);
-      };
-      // Nền THẬT phía sau một phần tử: leo lên tổ tiên cho tới màu đầu tiên không trong suốt.
-      const nenSau = (el) => {
-        for (let n = el.parentElement; n !== null; n = n.parentElement) {
-          const c = getComputedStyle(n).backgroundColor;
-          if (c !== 'transparent' && !/rgba\\(\\s*0\\s*,\\s*0\\s*,\\s*0\\s*,\\s*0\\s*\\)/.test(c)) return c;
-        }
-        return getComputedStyle(document.body).backgroundColor;
-      };
-    `;
 
     /** Phần tử đang nhận bàn phím: tên, có khớp `:focus-visible` không, vòng sáng, và tọa độ. */
     const DO_DIEM_DUNG = `
@@ -1617,6 +1636,227 @@ try {
       toi['nét icon lịch'] === boc,
       `icon=${toi['nét icon lịch']} bọc=${boc}`,
     );
+  }
+
+  // ── Nút theme: lật bằng chuột và bằng `Enter`, rồi đo tương phản THẬT (Story 3.3) ─────
+  //
+  // Vì sao KHÔNG phải một ca Vitest: `test/theme.test.js` tính tỉ lệ từ hai khối token, và nó
+  // dừng đúng ở đó. Hai câu hỏi còn lại chỉ trình duyệt thật trả lời được:
+  //   - "một cú bấm THẬT có lật bảng màu không" — `click` tổng hợp không đi qua cùng đường với
+  //     một cú chuột thật, và `Enter` trên một `<button>` là hành vi của chính trình duyệt;
+  //   - "cặp chữ/nền nào THẬT SỰ xuất hiện trên màn hình" — nền của một phần tử đến từ tổ tiên
+  //     gần nhất có nền đục, tức từ cây DOM đã dựng. Bảng `NEN_CUA` của Vitest là một lời khai;
+  //     đây là phép đối chiếu nó với sự thật.
+  //
+  // Dùng lại `tuongPhan` trong `HAM_TEN` — công thức WCAG đã có ở file này, và không có công
+  // thức thứ hai nào được viết ra.
+  {
+    await datKhungNhin(1280, 700);
+    // Khởi điểm XÁC ĐỊNH: ghi `light` xuống kho rồi tải lại, nên script nội tuyến trong `<head>`
+    // đặt `data-theme="light"` bất kể hệ điều hành của máy chạy thử đang ở bảng nào.
+    await cdp.chay(tab.sessionId, `localStorage.setItem('ghichu.theme', 'light'); return true;`);
+    await cdp.taiLai(tab.sessionId);
+    await cdp.goi('Emulation.setFocusEmulationEnabled', { enabled: true }, tab.sessionId);
+    // Đợi `main.js` nối xong view: bấm trước lúc ấy là bấm vào một nút chưa có bộ nghe nào.
+    await nghi(400);
+
+    /** Trạng thái theme đọc từ ba nguồn cùng lúc — chúng phải nói cùng một câu. */
+    const DOC_THEME = `
+      return {
+        thuocTinh: document.documentElement.getAttribute('data-theme'),
+        khoa: localStorage.getItem('ghichu.theme'),
+        nhan: document.querySelector('.nut-theme').textContent.trim(),
+      };
+    `;
+
+    const TAM_NUT = `
+      const r = document.querySelector('.nut-theme').getBoundingClientRect();
+      return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+    `;
+
+    /** Gõ `Enter` THẬT lên phần tử đang có tiêu điểm. */
+    const nhanEnter = async () => {
+      for (const type of ['keyDown', 'keyUp']) {
+        await cdp.goi(
+          'Input.dispatchKeyEvent',
+          {
+            type,
+            key: 'Enter',
+            code: 'Enter',
+            text: type === 'keyDown' ? '\r' : undefined,
+            windowsVirtualKeyCode: 13,
+            nativeVirtualKeyCode: 13,
+          },
+          tab.sessionId,
+        );
+      }
+      await nghi(120);
+    };
+
+    const nhanChuotTai = async (x, y) => {
+      for (const type of ['mousePressed', 'mouseReleased']) {
+        await cdp.goi(
+          'Input.dispatchMouseEvent',
+          { type, x, y, button: 'left', clickCount: 1, buttons: type === 'mousePressed' ? 1 : 0 },
+          tab.sessionId,
+        );
+      }
+      await nghi(120);
+    };
+
+    const truoc = await cdp.chay(tab.sessionId, DOC_THEME);
+    ghi(
+      'khởi điểm: lựa chọn đã lưu là `light`, và nhãn nút đọc `nền tối`',
+      truoc.thuocTinh === 'light' && truoc.nhan === 'nền tối',
+      JSON.stringify(truoc),
+    );
+
+    const tam = await cdp.chay(tab.sessionId, TAM_NUT);
+    await nhanChuotTai(tam.x, tam.y);
+    const sauChuot = await cdp.chay(tab.sessionId, DOC_THEME);
+    ghi(
+      'bấm CHUỘT thật: data-theme, khóa `ghichu.theme` và nhãn nút đổi cùng một lúc',
+      sauChuot.thuocTinh === 'dark' && sauChuot.khoa === 'dark' && sauChuot.nhan === 'nền sáng',
+      JSON.stringify(sauChuot),
+    );
+
+    // Nửa ÂM TÍNH của cùng hàng I/O Matrix, và nó phải hỏi ngay tại đây chứ không ở khối vòng
+    // sáng bên trên: một cú click vào nút này LẬT cả bảng màu, nên chen nó vào vòng lặp kia là
+    // đổi âm thầm môi trường đo của mọi ca sau. Cú chuột vừa rồi đã thật; câu còn lại chỉ là
+    // "nó có để lại vòng sáng nào không".
+    const vongSauChuot = await cdp.chay(
+      tab.sessionId,
+      `
+      const nut = document.querySelector('.nut-theme');
+      return {
+        nutSang: nut.matches(':focus-visible'),
+        sangCaTrang: document.querySelectorAll(':focus-visible').length,
+      };
+    `,
+    );
+    ghi(
+      'bấm CHUỘT vào nút theme: KHÔNG vòng sáng nào — vòng là bản đồ bàn phím',
+      vongSauChuot.nutSang === false && vongSauChuot.sangCaTrang === 0,
+      JSON.stringify(vongSauChuot),
+    );
+
+    await cdp.chay(tab.sessionId, `document.querySelector('.nut-theme').focus(); return true;`);
+    await nhanEnter();
+    const sauEnter = await cdp.chay(tab.sessionId, DOC_THEME);
+    ghi(
+      'gõ `Enter` trên nút cho ra ĐÚNG cùng kết quả với chuột — bàn phím không phải đường phụ',
+      sauEnter.thuocTinh === 'light' && sauEnter.khoa === 'light' && sauEnter.nhan === 'nền tối',
+      JSON.stringify(sauEnter),
+    );
+
+    // ── Tương phản ≥ 4.5:1 của MỌI phần tử mang chữ, ở cả hai theme ──────────────────────
+    //
+    // "Mang chữ" đo theo NÚT VĂN BẢN CON TRỰC TIẾP, không theo `textContent`: `textContent` của
+    // `<body>` gồm chữ của cả trang, nên mọi vật chứa sẽ bị đo với màu mà chính nó không vẽ ra.
+    // Ô nhập tính riêng — chữ của chúng nằm trong shadow tree, không phải một nút con.
+    const DO_CHU = `
+      ${HAM_TEN}
+      const nenThat = (el) => {
+        for (let n = el; n !== null; n = n.parentElement) {
+          const c = getComputedStyle(n).backgroundColor;
+          if (c !== 'transparent' && !/rgba\\(\\s*0\\s*,\\s*0\\s*,\\s*0\\s*,\\s*0\\s*\\)/.test(c)) return c;
+        }
+        return getComputedStyle(document.body).backgroundColor;
+      };
+      const coChuRieng = (el) =>
+        [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim() !== '');
+      const ra = [];
+      for (const el of document.querySelectorAll('body *')) {
+        if (!el.matches('textarea, input') && !coChuRieng(el)) continue;
+        const r = el.getBoundingClientRect();
+        if (r.width === 0 || r.height === 0) continue;
+        const s = getComputedStyle(el);
+        if (s.visibility === 'hidden') continue;
+        const nen = nenThat(el);
+        ra.push({
+          ten: ten(el),
+          mau: s.color,
+          nen,
+          tyLe: Math.round(tuongPhan(s.color, nen) * 100) / 100,
+        });
+      }
+      return ra;
+    `;
+
+
+    for (const theme of ['light', 'dark']) {
+      // Lật bằng CHÍNH cái nút, không bằng một phép gán `dataset` — phép đo phải chạy trên đúng
+      // trạng thái mà một cú bấm thật để lại.
+      const dang = await cdp.chay(tab.sessionId, DOC_THEME);
+      if (dang.thuocTinh !== theme) {
+        const t = await cdp.chay(tab.sessionId, TAM_NUT);
+        await nhanChuotTai(t.x, t.y);
+      }
+      await nghi(100);
+      // Khẳng định cú lật ĐÃ xảy ra, trước khi đo. Thiếu dòng này thì một cú bấm trượt làm cả
+      // hai vòng lặp đo CÙNG một bảng màu — và cả hai vẫn báo PASS, tức phép đo "ở cả hai
+      // theme" im lặng trở thành phép đo ở một theme.
+      const daLat = await cdp.chay(tab.sessionId, DOC_THEME);
+      ghi(
+        `theme ${theme}: cú bấm thật đưa trang về đúng bảng màu cần đo`,
+        daLat.thuocTinh === theme,
+        JSON.stringify(daLat),
+      );
+      // Bơm một mẩu giấy BỊ CẮT qua view thật: giờ tạo, dòng gấp và nút xóa là ba chỗ dùng
+      // `--ink-2` trên mặt giấy, và không có mẩu nào thì ba cặp đó không được đo lần nào.
+      await cdp.chay(
+        tab.sessionId,
+        `
+        const l = await import('/app/view/luoi.js');
+        const notes = [{
+          id: 'thu-theme-1',
+          createdAt: '2026-01-01T09:00:00+00:00',
+          localDate: '2026-01-01',
+          text: Array.from({ length: 9 }, (_, i) => 'dòng ' + i).join('\\n'),
+          textFolded: '',
+        }];
+        const gia = {
+          state: { notes, dieuKien: { keyword: null, date: null }, expandedIds: [] },
+          batTatMoRong() {},
+        };
+        l.noiLuoi(gia, document, () => '2026-01-01T12:00:00+00:00').ve();
+        return true;
+      `,
+      );
+      await nghi(50);
+      const day = await cdp.chay(tab.sessionId, DO_CHU);
+      const loang = day.filter((d) => !(d.tyLe >= 4.5));
+      ghi(
+        `theme ${theme}: MỌI phần tử mang chữ tương phản ≥ 4.5:1 với nền thật của nó`,
+        day.length > 0 && loang.length === 0,
+        loang.length === 0
+          ? `thấp nhất ${Math.min(...day.map((d) => d.tyLe))}:1 trên ${day.length} phần tử`
+          : `dưới ngưỡng: ${JSON.stringify(loang)}`,
+      );
+    }
+
+    // ── Đường LÚC TẢI: lựa chọn đã lưu sống sót qua một lần tải lại ──────────────────────
+    //
+    // Đây là ca duy nhất đi qua `app/main.js` đọc `data-theme` rồi đưa xuống `khoiDong`. Mọi
+    // ca khác hoặc truyền theme bằng tay (Vitest) hoặc ép `light` trước khi nhìn, nên bỏ hẳn
+    // đối số ở `main.js` vẫn để cả suite xanh — trong khi một lựa chọn `dark` đã lưu bật ngược
+    // về sáng ở MỌI lần tải. Nhãn nút là thứ lộ ra điều đó: thuộc tính `data-theme` do script
+    // nội tuyến đặt và nó đúng dù lõi có biết theme hay không, còn NHÃN thì vẽ từ state.
+    await cdp.chay(tab.sessionId, `localStorage.setItem('ghichu.theme', 'dark'); return true;`);
+    await cdp.taiLai(tab.sessionId);
+    await nghi(400);
+    const sauTaiLai = await cdp.chay(tab.sessionId, DOC_THEME);
+    ghi(
+      'tải lại với lựa chọn `dark` đã lưu: trang vẫn tối VÀ nhãn nút đọc `nền sáng`',
+      sauTaiLai.thuocTinh === 'dark' && sauTaiLai.nhan === 'nền sáng',
+      JSON.stringify(sauTaiLai),
+    );
+
+    // Trả trang về trạng thái sạch cho khối đo bề rộng bên dưới: một mẩu bơm tay và một lựa
+    // chọn theme để lại là đổi âm thầm môi trường đo của nó.
+    await cdp.chay(tab.sessionId, `localStorage.removeItem('ghichu.theme'); return true;`);
+    await cdp.goi('Emulation.setFocusEmulationEnabled', { enabled: false }, tab.sessionId);
+    await cdp.taiLai(tab.sessionId);
   }
 
   // ── Ô ngày rộng đúng 118px kể cả viền và padding ─────────────────────────────────────

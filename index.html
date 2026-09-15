@@ -47,9 +47,9 @@
     trong CSS đảo lại thứ tự này (không `order`, không `row-reverse`) — đảo là làm bàn phím
     đi một đường còn mắt đi một đường khác.
 
-    Đúng MỘT ô nhập đã có hành vi (Story 2.2): ô soạn thảo ở tầng 1, nối vào store qua
-    `app/view/o-soan.js`. Ô tìm, ô ngày, hai link chân trang và nút theme vẫn là hình dạng
-    thuần; hành vi của chúng thuộc Epic 6 (tra cứu), Story 4.1 (sao lưu) và Story 3.3 (theme).
+    Hai điều khiển đã có hành vi: ô soạn thảo ở tầng 1 (Story 2.2, `app/view/o-soan.js`) và nút
+    theme ở chân trang (Story 3.3, `app/view/nut-theme.js`). Ô tìm, ô ngày và hai link chân
+    trang vẫn là hình dạng thuần; hành vi của chúng thuộc Epic 6 (tra cứu) và Story 4.1/4.3.
   -->
   <!--
     Dải băng thông báo (Story 3.1), và nó ở NGOÀI `<main>` có lý do: nó không phải nội dung
@@ -147,6 +147,18 @@
       <button class="chan-link" type="button">xuất sao lưu</button>
       <span class="chan-cham" aria-hidden="true">·</span>
       <button class="chan-link" type="button">nạp lại</button>
+      <!-- Nhãn TĨNH, và nó cố ý có thể lệch một khung hình với nhãn thật: khi lựa chọn đã lưu
+           là `dark`, script trong `<head>` đặt `data-theme="dark"` trước lần vẽ đầu, nhưng dòng
+           chữ ở đây vẫn đọc `nền tối` cho tới khi `app/view/nut-theme.js` vẽ lượt đầu tiên.
+           Sai CHỮ một khung hình nhẹ hơn hẳn sai MÀU cả trang, và sửa nó đòi ghi vào DOM từ
+           `<head>` — nơi `<body>` còn chưa tồn tại.
+
+           Nhãn vẫn phải có mặt ở dạng tĩnh: bàn phím và trình đọc màn hình cần một nút CÓ TÊN
+           ngay cả khi không module nào chạy. Ai đổi chuỗi này thì đổi cùng lúc ba chỗ — ở đây,
+           `NHAN` trong `app/view/nut-theme.js`, và ca `chân trang có hai điều khiển dáng link
+           và nút theme nhãn chữ, đẩy sang phải bằng lề` trong `test/bo-cuc-bon-tang.test.js`
+           (nêu theo TÊN chứ không theo số dòng — một dòng chèn thêm ở trên làm số dòng sai mà
+           không ai thấy). -->
       <button class="nut-theme" type="button">nền tối</button>
     </div>
   </footer>

@@ -383,7 +383,7 @@ describe('app/view/luoi.js — luật của tầng view, cưỡng chế được
     // một trong hai chỗ. Nên ca này ghim đúng vế đã đổi — CÙNG một callback ở cả hai điểm
     // nối, và callback đó gọi cả hai `ve` — chứ không nới thành "có chứa chữ ve".
     const main = boChuThichJs(readFileSync(join(repoRoot, 'app', 'main.js'), 'utf8'));
-    const treo = /khoiDong\s*\(\s*\)\s*\.\s*then\s*\(\s*([\w$]+)\s*\)/.exec(main);
+    const treo = /khoiDong\s*\(\s*[^)]*\)\s*\.\s*then\s*\(\s*([\w$]+)\s*\)/.exec(main);
     const soan = /noiOSoan\s*\(\s*store\s*,\s*document\s*,\s*([\w$]+)\s*\)/.exec(main);
     expect(treo).not.toBeNull();
     expect(soan).not.toBeNull();
@@ -391,14 +391,16 @@ describe('app/view/luoi.js — luật của tầng view, cưỡng chế được
 
     const than = new RegExp(`\\b${treo[1]}\\s*=\\s*\\(\\s*\\)\\s*=>\\s*\\{([^}]*)\\}`).exec(main);
     expect(than).not.toBeNull();
-    // Đúng BA lượt vẽ trong callback chung, và một trong ba là của lưới. Tập này nới từ
-    // `['luoi', 'tieuDe']` ở Story 3.1 — dải băng là view thứ ba, và nó phải vẽ lại ở đúng hai
-    // điểm nối này, nếu không mọi lỗi kho tiếp tục chết im lặng. Vẫn ghim ĐÚNG tập, không nới
-    // thành "có chứa": một view thứ tư thêm vào ngày mai vẫn phải đọc lại chú thích này.
+    // Đúng BỐN lượt vẽ trong callback chung, và một trong bốn là của lưới. Tập này nới hai
+    // lần, mỗi lần một view và mỗi lần có lý do: `['luoi', 'tieuDe']` ở Story 2.6, cộng dải
+    // băng ở Story 3.1 (không vẽ lại thì mọi lỗi kho chết im lặng), cộng nút theme ở Story 3.3
+    // (không vẽ lại thì nhãn nút đứng yên ở chiều cũ sau một cú lật). Vẫn ghim ĐÚNG tập, không
+    // nới thành "có chứa": một view thứ năm thêm vào ngày mai vẫn phải đọc lại chú thích này.
     expect([...than[1].matchAll(/([\w$]+)\s*\.\s*ve\s*\(\s*\)/g)].map((k) => k[1])).toEqual([
       'luoi',
       'tieuDe',
       'banner',
+      'nutTheme',
     ]);
     // Lưới nối TRƯỚC khi kho được hỏi — `luoi.ve` phải tồn tại trước khi có chỗ treo nó vào.
     expect(main.search(/noiLuoi\s*\(/)).toBeLessThan(main.search(/store\s*\.\s*khoiDong\s*\(/));

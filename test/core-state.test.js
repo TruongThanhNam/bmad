@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { taoStore } from '../app/core/state.js';
 import { MA_LOI, loiUngDung } from '../app/core/errors.js';
-import { AUTOSAVE_MS, DRAFT_STALE_MS, MAX_NOTE_CHARS } from '../app/core/limits.js';
+import { APP_VERSION, AUTOSAVE_MS, DRAFT_STALE_MS, MAX_NOTE_CHARS } from '../app/core/limits.js';
 import { localStamp } from '../app/core/time.js';
 import { PORT_METHODS, kiemTraPorts } from '../app/ports/index.js';
 import { congTam, store as storeCuaApp } from '../app/main.js';
@@ -37,9 +37,15 @@ function portsThieu(tenCong, tenPhuongThuc) {
   return ports;
 }
 
+// Tập khóa nới 7 → 8 ở Story 3.3, có chủ ý và đúng một lần: `theme` là tầng B′ của AD-3 (bền,
+// dùng chung, sống ở kho cấu hình). Nó là một TRƯỜNG STATE chứ không phải một biến closure của
+// `app/view/nut-theme.js` vì nhãn nút là một hàm của theme (AD-19) — và một ô nhớ ở tầng view
+// là đúng đường đổi state thứ hai mà AD-1 cấm. Đổi lấy: phép ghi kho bền vẫn nằm trọn trong
+// `state.js`, và lỗi ghi tự đi ra dải băng qua khuôn `ghiTruocDatSau` đã có.
 const KHOA_STATE = [
   'notes',
   'draft',
+  'theme',
   'dieuKien',
   'expandedIds',
   'editing',
@@ -53,6 +59,9 @@ describe('taoStore — khởi tạo', () => {
     expect(store.state).toEqual({
       notes: [],
       draft: { text: '', seq: 0 },
+      // Tầng B′: `'light'` là giá trị KHỞI TẠO, không phải một lựa chọn đã ghi — nó khớp đúng
+      // bảng mà `:root` của `app/style.css` vẽ ra khi không ai đặt `data-theme`.
+      theme: 'light',
       dieuKien: { keyword: null, date: null },
       expandedIds: [],
       editing: { id: null, text: '', seq: 0 },
@@ -476,6 +485,126 @@ describe('khoiDong — nạp toàn bộ ghi chú vào RAM, đã sắp xếp (AD-
     expect(() => {
       store.state.notes[0].text = 'luồn qua';
     }).toThrow(TypeError);
+  });
+});
+
+// ── datTheme (Story 3.3) ────────────────────────────────────────────────────────────────
+//
+// Theme là tầng B′ của AD-3, nên nó đi đúng luồng "đổi sự tồn tại": ghi cổng TRƯỚC, đặt state
+// SAU. Ba ca dưới đây là ba nửa của AC mà chỉ một action CHẠY THẬT phân biệt được — giá trị lạ
+// bị từ chối, kho từ chối thì state không đổi, và chuông liên tab chỉ gõ khi phép ghi đã chốt.
+//
+// Hành vi của NÚT (nhãn chữ, chiều lật, vòng sáng) thì không ở đây: nó là `test/theme.test.js`.
+
+/** Store với `sessionStore.write` và `channel.publish` ghi nhật ký được. */
+function storeVoiTheme(tuyChon = {}) {
+  const { nemKhiGhi = null, danhTinh = 'tab-cu' } = tuyChon;
+  const daGhiKho = [];
+  const daPhat = [];
+  const ports = portsDay();
+  ports.sessionStore = {
+    read() {
+      throw new Error('không ca test nào được gọi sessionStore.read');
+    },
+    write(key, value) {
+      if (nemKhiGhi !== null) throw loiUngDung(nemKhiGhi);
+      daGhiKho.push([key, value]);
+    },
+    remove() {
+      throw new Error('không ca test nào được gọi sessionStore.remove');
+    },
+    tabIdentity() {
+      return danhTinh;
+    },
+    writeTabIdentity() {},
+  };
+  ports.channel = {
+    publish(message) {
+      daPhat.push(message);
+    },
+    subscribe() {},
+  };
+  return { store: taoStore(ports), daGhiKho, daPhat };
+}
+
+describe('datTheme — ghi kho cấu hình trước, đổi state sau, rồi gõ chuông (Story 3.3)', () => {
+  it('lật hai chiều: state đổi, và khóa `theme` xuống kho đúng giá trị', async () => {
+    const { store, daGhiKho } = storeVoiTheme();
+    expect(store.state.theme).toBe('light');
+    await store.datTheme('dark');
+    expect(store.state.theme).toBe('dark');
+    await store.datTheme('light');
+    expect(store.state.theme).toBe('light');
+    // Tên THẬT (`ghichu.theme`) là chuyện của adapter — lõi chỉ biết khóa trừu tượng (AD-2).
+    expect(daGhiKho).toEqual([
+      ['theme', 'dark'],
+      ['theme', 'light'],
+    ]);
+  });
+
+  it('phát ĐÚNG MỘT bản tin session-changed, đúng hình dạng bốn trường (AD-7, AD-21)', async () => {
+    const { store, daPhat } = storeVoiTheme();
+    await store.datTheme('dark');
+    expect(daPhat).toHaveLength(1);
+    expect(daPhat[0]).toEqual({
+      v: 1,
+      type: 'session-changed',
+      from: 'tab-cu',
+      appVersion: APP_VERSION,
+    });
+    // Bản tin KHÔNG mang giá trị theme: cổng chỉ mang TIN, tab nhận đọc lại từ kho bền.
+    expect(Object.keys(daPhat[0]).sort()).toEqual(['appVersion', 'from', 'type', 'v']);
+  });
+
+  it('kho từ chối → theme KHÔNG đổi, dải băng mang đúng mã, và không chuông nào gõ', async () => {
+    for (const ma of [MA_LOI.QUOTA, MA_LOI.DB]) {
+      const { store, daPhat } = storeVoiTheme({ nemKhiGhi: ma });
+      await expect(store.datTheme('dark')).resolves.toBeUndefined();
+      expect(store.state.theme).toBe('light');
+      expect(store.state.banner).toBe(ma);
+      expect(daPhat).toEqual([]);
+    }
+  });
+
+  it('một phép ghi sau đó thành công thì tắt dải băng (AD-8)', async () => {
+    const { store } = storeVoiTheme({ nemKhiGhi: MA_LOI.QUOTA });
+    await store.datTheme('dark');
+    expect(store.state.banner).toBe(MA_LOI.QUOTA);
+    const lanhLan = storeVoiTheme();
+    await lanhLan.store.datTheme('dark');
+    expect(lanhLan.store.state.banner).toBeNull();
+  });
+
+  it('giá trị lạ bị từ chối bằng TypeError, và cổng KHÔNG bị chạm', () => {
+    const { store, daGhiKho, daPhat } = storeVoiTheme();
+    for (const xau of ['system', 'Dark', '', null, undefined, 7, ['dark']]) {
+      expect(() => store.datTheme(xau)).toThrow(TypeError);
+    }
+    expect(store.state.theme).toBe('light');
+    expect(daGhiKho).toEqual([]);
+    expect(daPhat).toEqual([]);
+  });
+
+  it('khoiDong nhận theme ban đầu qua THAM SỐ, và bỏ qua giá trị lạ trong im lặng', async () => {
+    const { store } = storeVoiKho();
+    await store.khoiDong('dark');
+    expect(store.state.theme).toBe('dark');
+
+    const khac = storeVoiKho();
+    await khac.store.khoiDong('nửa tối');
+    expect(khac.store.state.theme).toBe('light');
+
+    const trong = storeVoiKho();
+    await trong.store.khoiDong();
+    expect(trong.store.state.theme).toBe('light');
+  });
+
+  it('theme không đụng tới trường nào khác, và tập khóa không nới ra', async () => {
+    const { store } = storeVoiTheme();
+    await store.datTheme('dark');
+    expect(Object.keys(store.state).sort()).toEqual(KHOA_STATE);
+    expect(store.state.notes).toEqual([]);
+    expect(store.state.draft).toEqual({ text: '', seq: 0 });
   });
 });
 
@@ -1062,6 +1191,7 @@ describe('action của luồng ghi chuẩn đều nằm trên store, và tập k
     const store = taoStore(portsDay());
     for (const ten of [
       'khoiDong',
+      'datTheme',
       'chotGhiChu',
       'xoaGhiChu',
       'tuLuuNoiDung',
@@ -1074,7 +1204,7 @@ describe('action của luồng ghi chuẩn đều nằm trên store, và tập k
     }
   });
 
-  it('sau một vòng nạp–thêm–xóa–tự lưu, state vẫn đúng bảy khóa đã chốt', async () => {
+  it('sau một vòng nạp–thêm–xóa–tự lưu, state vẫn đúng tám khóa đã chốt', async () => {
     vi.useFakeTimers();
     const { store } = storeVoiKho({ banDau: banGhiMau() });
     await store.khoiDong();
@@ -1085,7 +1215,7 @@ describe('action của luồng ghi chuẩn đều nằm trên store, và tập k
     expect(Object.keys(store.state).sort()).toEqual(KHOA_STATE);
   });
 
-  it('sau khi chạy cả BA action bản nháp, state vẫn đúng bảy khóa — danh tính tab không lọt vào', async () => {
+  it('sau khi chạy cả BA action bản nháp, state vẫn đúng tám khóa — danh tính tab không lọt vào', async () => {
     vi.useFakeTimers();
     const { store } = storeVoiKho({ ketQuaClaim: { tabId: 'tab-moi', text: 'phở' } });
     await store.khoiDongBanNhap();
@@ -1172,7 +1302,7 @@ describe('khoiDongBanNhap — nối danh tính tab với bản nháp giành đư
     expect(store.state.banner).toBe(MA_LOI.DB);
   });
 
-  it('danh tính KHÔNG phải một trường state — tập bảy khóa không nới ra', async () => {
+  it('danh tính KHÔNG phải một trường state — tập tám khóa không nới ra', async () => {
     const { store } = storeVoiKho({ ketQuaClaim: { tabId: 'tab-moi', text: 'phở' } });
     await store.khoiDongBanNhap();
     expect(Object.keys(store.state).sort()).toEqual(KHOA_STATE);

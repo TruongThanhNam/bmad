@@ -60,7 +60,7 @@
 import { dongDuoc, thayDuoc } from './banner.js';
 import { MA_LOI } from './errors.js';
 import { fold } from './fold.js';
-import { AUTOSAVE_MS, DRAFT_STALE_MS, MAX_NOTE_CHARS } from './limits.js';
+import { APP_VERSION, AUTOSAVE_MS, DRAFT_STALE_MS, MAX_NOTE_CHARS } from './limits.js';
 import { localDate, localStamp, nowIso } from './time.js';
 import { kiemTraPorts } from '../ports/index.js';
 
@@ -70,6 +70,26 @@ const MAU_NGAY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Đúng hai nửa, không có nửa thứ ba (AD-15). */
 const KHOA_DIEU_KIEN = Object.freeze(['keyword', 'date']);
+
+/**
+ * Hai bảng màu, và không có giá trị thứ ba (UX-DR-20).
+ *
+ * KHÔNG có `'system'`: nút ở chân trang là một phép LẬT hai chiều, không phải một hộp chọn ba
+ * trạng thái. "Theo hệ thống" vẫn tồn tại, nhưng nó là trạng thái CHƯA CHỌN — khóa `ghichu.theme`
+ * vắng mặt — và nó chỉ sống trong script nội tuyến của `index.html`, chỗ duy nhất đọc theme lúc
+ * tải. Một giá trị `'system'` ghi xuống kho sẽ biến "chưa chọn" thành một lựa chọn, và nút mất
+ * đúng thứ phân biệt hai chuyện đó.
+ */
+const THEME_HOP_LE = Object.freeze(['light', 'dark']);
+
+/** Khóa cấu hình mang lựa chọn theme. Tên THẬT của nó (`ghichu.theme`) là chuyện của adapter. */
+const KHOA_THEME = 'theme';
+
+/** Loại bản tin phát khi một khóa cấu hình đổi (AD-7). */
+const TIN_PHIEN_DOI = 'session-changed';
+
+/** Số hiệu hình dạng bản tin — hiện tại luôn là một (`app/ports/channel.js`). */
+const HINH_DANG_BAN_TIN = 1;
 
 // Chép tại chỗ từ `core/time.js` có chủ ý: gom thành helper dùng chung là thêm một phụ thuộc
 // giữa hai module lõi chỉ để tiết kiệm hai dòng.
@@ -145,6 +165,7 @@ function banGhiSua(cu, text) {
  * Ba tầng phạm vi của AD-3, tất cả cùng sống trong RAM ở đây:
  * - tầng A (bền, dùng chung): `notes`.
  * - tầng B (bền, riêng tab): `draft`.
+ * - tầng B′ (bền, dùng chung, kho cấu hình): `theme`.
  * - tầng C (phù du): `dieuKien`, `expandedIds`, `editing`, `banner`, `readOnly`.
  *
  * `seq` là số đếm chống hẹn tự lưu sống lâu hơn thứ nó định ghi (AD-8): hẹn nào nổ ra mà
@@ -157,6 +178,18 @@ function stateRong() {
     notes: [],
     // Tầng B — bản nháp của riêng tab này; không bao giờ đồng bộ sang tab khác (AD-7).
     draft: { text: '', seq: 0 },
+    // Tầng B′ — bảng màu đang bật, dùng chung cho mọi tab qua kho cấu hình (AD-3, AD-9).
+    //
+    // Nó là một TRƯỜNG STATE chứ không phải một biến closure của `view/nut-theme.js`, và đó là
+    // điều kiện chứ không phải sở thích: nhãn nút là một HÀM của theme (AD-19), và một ô nhớ ở
+    // tầng view là đúng đường đổi state thứ hai mà AD-1 cấm. Nhờ nó nằm ở đây, phép ghi kho bền
+    // vẫn đi qua `ghiTruocDatSau` như mọi phép ghi khác — nên "ghi hỏng thì theme KHÔNG đổi và
+    // dải băng mang mã lỗi" là hệ quả của khuôn chung, không phải một nhánh viết riêng.
+    //
+    // `'light'` là giá trị khởi tạo chứ không phải một lựa chọn: `khoiDong` nhận theme THẬT từ
+    // `data-theme` mà script `<head>` đã đặt. Nếu không ai đưa vào thì bảng light là thứ
+    // `:root` của `app/style.css` vẽ ra, nên state và màn hình vẫn nói cùng một câu.
+    theme: 'light',
     // Tầng C — điều kiện đang bật. `{null, null}` là VẮNG MẶT điều kiện (AD-15).
     dieuKien: { keyword: null, date: null },
     // Tầng C — TẬP mẩu đang mở rộng, và mẩu đang sửa cùng nội dung đang gõ của nó.
@@ -259,8 +292,8 @@ function ngayHopLe(giaTri, giaTriCu) {
  *
  * @param {object} ports Năm cổng của `app/ports/`, do `app/main.js` nối vào.
  * @returns {{ state: object, datDieuKien: Function, xoaHetDieuKien: Function, dongDaiBang:
- *   Function, batTatMoRong: Function, khoiDong:
- *   Function, chotGhiChu: Function, xoaGhiChu: Function, tuLuuNoiDung: Function,
+ *   Function, batTatMoRong: Function, khoiDong: Function, datTheme: Function,
+ *   chotGhiChu: Function, xoaGhiChu: Function, tuLuuNoiDung: Function,
  *   khoiDongBanNhap: Function, datBanNhap: Function, nhipTimBanNhap: Function }}
  *   Store với `state` chỉ đọc và các action. Story sau thêm action vào ĐÂY, không nơi khác.
  */
@@ -273,7 +306,7 @@ export function taoStore(ports) {
   /**
    * Danh tính của tab đang chạy, sống trong CLOSURE chứ không phải một trường state.
    *
-   * Nó không phải thứ view vẽ ra, và tập bảy khóa của AD-3 không có chỗ cho nó. `null` nghĩa
+   * Nó không phải thứ view vẽ ra, và tập tám khóa của AD-3 không có chỗ cho nó. `null` nghĩa
    * là chưa khởi động bản nháp — lúc đó không phép ghi bản nháp nào được chạm cổng, vì một
    * bản nháp không có chủ sẽ nằm lại trong kho mà không tab nào nhận lại được.
    */
@@ -476,8 +509,22 @@ export function taoStore(ports) {
    *
    * Nạp hỏng thì `notes` giữ `[]` và dải băng mang mã của lỗi — không ném ra ngoài, vì chỗ
    * gọi duy nhất là lúc khởi động và ở đó không có ai bắt.
+   *
+   * `themeBanDau` đi vào qua THAM SỐ, không qua một global: theme lúc tải do script nội tuyến
+   * trong `<head>` của `index.html` quyết định (nó là chỗ DUY NHẤT đọc `ghichu.theme` lúc tải),
+   * và `app/main.js` đọc lại kết quả đó từ `data-theme` rồi đưa xuống đây. Lõi vì thế không
+   * chạm `document`, và nó cũng không đọc kho cấu hình lần thứ hai — hai phép đọc sẽ trôi khỏi
+   * nhau đúng ở khung hình đầu tiên, chỗ không ai nhìn.
+   *
+   * Đặt theme ĐỒNG BỘ, trước cả lời hứa đọc kho: nhãn nút phải đúng ngay lượt vẽ đầu tiên, và
+   * lượt vẽ đó không có lý do gì phải đợi IndexedDB trả lời. Giá trị lạ thì bị bỏ qua trong im
+   * lặng — `data-theme` là thứ ai cũng gõ tay được trong DevTools, và một `TypeError` lúc khởi
+   * động vì chuyện đó sẽ giết cả trang.
+   *
+   * @param {string} [themeBanDau] Bảng màu mà lần vẽ đầu tiên đang dùng.
    */
-  function khoiDong() {
+  function khoiDong(themeBanDau) {
+    if (THEME_HOP_LE.includes(themeBanDau)) datLai({ theme: themeBanDau });
     return ports.noteStore.readAll().then(
       (danhSach) => {
         try {
@@ -492,6 +539,79 @@ export function taoStore(ports) {
         datLai({ banner: maBanner(loi) });
       },
     );
+  }
+
+  /**
+   * Phát một bản tin `session-changed` tới mọi tab khác (AD-7).
+   *
+   * Hình dạng đúng bốn trường của `app/ports/channel.js`, và bản tin KHÔNG mang theo giá trị
+   * theme: cổng chỉ mang TIN, không mang nội dung — tab nhận đọc lại từ kho bền, nên một tin
+   * đến muộn không dựng lại được một lựa chọn đã cũ đè lên lựa chọn mới.
+   *
+   * Danh tính tab lấy từ `tabCuaMinh` nếu bản nháp đã khởi động, và hỏi lại kho phạm vi phiên
+   * nếu chưa: một bản tin không có người phát thì tab nhận không lọc ra được tin của chính
+   * mình. Kho từ chối trả danh tính thì KHÔNG phát và cũng KHÔNG có dải băng — phép ghi theme
+   * đã thành công rồi, và một cái chuông không gõ được không phải chuyện của người dùng.
+   */
+  function phatPhienDoi() {
+    let nguoiPhat;
+    try {
+      nguoiPhat = tabCuaMinh ?? ports.sessionStore.tabIdentity();
+    } catch {
+      return;
+    }
+    ports.channel.publish({
+      v: HINH_DANG_BAN_TIN,
+      type: TIN_PHIEN_DOI,
+      from: nguoiPhat,
+      appVersion: APP_VERSION,
+    });
+  }
+
+  /**
+   * Đổi bảng màu: ghi xuống kho cấu hình TRƯỚC, đổi state SAU (AD-8), rồi gõ chuông liên tab.
+   *
+   * Đây là luồng "đổi sự tồn tại" chứ không phải luồng tự lưu, và thứ tự đó là toàn bộ AC "kho
+   * bị chặn": `localStorage` bị chặn hẳn thì theme KHÔNG đổi, nhãn nút giữ nguyên, và dải băng
+   * mang đúng mã của cổng. Đổi state trước rồi ghi sau là hứa một lựa chọn sẽ được nhớ lại
+   * trong khi nó vừa rơi xuống đất.
+   *
+   * Cổng `sessionStore` ĐỒNG BỘ và NÉM, còn `ghiTruocDatSau` nói chuyện bằng lời hứa — nên phép
+   * ghi được bọc trong một `Promise`, và phần thân chạy NGAY trong hàm dựng, không lùi lại một
+   * lượt. Một `throw` trong đó thành một lời hứa bị từ chối, đúng cửa mà nhánh lỗi đang chờ.
+   *
+   * Giá trị lạ thì NÉM chứ không bỏ qua: chỗ gọi duy nhất là một cú lật hai chiều, nên một giá
+   * trị thứ ba đi vào đây là lỗi lập trình, và nuốt nó là để nút im lặng không làm gì cả.
+   *
+   * @param {'light' | 'dark'} giaTri Bảng màu cần bật.
+   * @returns {Promise<void>} Hoàn tất khi state đã phản ánh kết quả. Lời hứa không bao giờ bị từ
+   *   chối — nhưng một giá trị lạ NÉM ĐỒNG BỘ, trước khi có lời hứa nào, nên một `.catch()` treo
+   *   vào lời gọi này không bắt được nó. Đó là chủ ý: lỗi của người dùng đi ra dải băng, lỗi của
+   *   lập trình viên đi ra ngăn xếp.
+   */
+  function datTheme(giaTri) {
+    if (!THEME_HOP_LE.includes(giaTri)) {
+      throw new TypeError(
+        `datTheme chỉ nhận ${THEME_HOP_LE.join(' hoặc ')}, nhận được ${moTa(giaTri)}`,
+      );
+    }
+    // Cờ trong CLOSURE, cùng khuôn `daChot` của `themGhiChu`: `ghiTruocDatSau` không nói cho
+    // chỗ gọi biết nhánh nào đã chạy, và đọc `noiBo.theme` để đoán thì một lần bấm lại đúng
+    // theme đang bật sẽ gõ chuông kể cả khi kho vừa từ chối.
+    let xuongKho = true;
+    return ghiTruocDatSau(
+      () =>
+        new Promise((xong) => {
+          ports.sessionStore.write(KHOA_THEME, giaTri);
+          xong();
+        }).catch((loi) => {
+          xuongKho = false;
+          throw loi;
+        }),
+      () => ({ theme: giaTri }),
+    ).then(() => {
+      if (xuongKho) phatPhienDoi();
+    });
   }
 
   /**
@@ -795,6 +915,7 @@ export function taoStore(ports) {
     dongDaiBang,
     batTatMoRong,
     khoiDong,
+    datTheme,
     chotGhiChu,
     xoaGhiChu,
     tuLuuNoiDung,

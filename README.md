@@ -433,3 +433,34 @@ hay đã thành một sợi chỉ. Máy chốt được con số; mắt chốt p
     Cuối cùng, hai phép thử **âm tính**: **click chuột** vào `nạp lại` — **không** vòng sáng nào
     hiện ra (vòng là bản đồ bàn phím, không phải phản hồi chuột); và gõ `/` rồi `Ctrl+K` khi
     tiêu điểm đang ở chân trang — **không có gì xảy ra**, sản phẩm có đúng bốn phím.
+
+### Nút theme và tương phản ở cả hai bảng màu — một mục phải làm bằng mắt (Story 3.3)
+
+> **CẢNH BÁO — cặp `--danger` trên `--chip-bg` ở bản dark ra đúng **4.55:1**.** Nó đạt ngưỡng
+> 4.5:1, nên đừng sửa; nhưng biên chỉ còn **0.05**, và mắt không thấy 0.05. **Ai đổi `chip-bg`
+> bản dark (hay `danger` bản dark) thì phải tính lại cặp đó *trước khi commit*.**
+> `test/theme.test.js` ghim đúng con số `4.55` chính vì thế — nó là cái chuông kêu **trước** khi
+> cặp kia kịp tụt xuống dưới ngưỡng. Cùng câu này nằm ở đầu `app/style.css`.
+
+`npm test` đã đo ngưỡng **≥ 4.5:1** cho mọi cặp chữ/nền đang dùng, tính từ chính hai khối token
+của `app/style.css`, ở **cả hai** bảng màu — cộng hai lệnh cấm: `--ink-decor` không bao giờ là
+`color`, và vai chữ nhỏ nhất (`--font-foot`) không bao giờ mờ hơn `--ink-2`.
+`npm run thu-bo-cuc` lật nút **bằng chuột và bằng `Enter`** trong trình duyệt thật rồi đo lại
+tương phản của **mọi phần tử mang chữ** với nền thật của nó, ở cả hai theme.
+
+Còn lại là thứ không con số nào nói: lần tải lại có **nháy một khung hình sáng** không.
+
+27. **Lật theme, tải lại, và nhãn đọc đúng chiều.** Mở trang qua HTTP localhost (mục 1). Bấm
+    nút ở **góc phải chân trang**: cả trang đổi bảng màu trong **một khung hình**, không hoạt
+    ảnh, không nháy; nhãn đổi từ `nền tối` sang `nền sáng` (nó nói nơi *sẽ tới*, không phải nơi
+    đang đứng). DevTools → Application → Local Storage: `ghichu.theme` = `dark`.
+
+    Tải lại trang: **khung hình đầu tiên đã tối** — soi kỹ, không được có một khung sáng nào
+    chớp qua — và nhãn đọc `nền sáng`.
+
+    Rồi xóa hẳn key `ghichu.theme`, đặt hệ điều hành sang dark, tải lại: trang tối theo hệ
+    thống, nhãn đọc `nền sáng`, và key **vẫn vắng mặt** cho tới lần bấm đầu tiên — "chưa chọn"
+    không phải một lựa chọn.
+
+    Cuối cùng, `Tab` tới nút rồi bấm `Enter`: lật đúng như bấm chuột, và vòng sáng nhìn rõ ở cả
+    hai bảng màu. Bấm bằng **chuột** thì không có vòng nào.

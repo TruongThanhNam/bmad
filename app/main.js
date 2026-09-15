@@ -8,7 +8,7 @@
 // Và đây là file duy nhất được gọi `taoStore` — đúng một lần, cho đúng một khối state của
 // ứng dụng (AD-1). `test/state-tap-trung.test.js` cưỡng chế cả hai nửa câu đó.
 //
-// Tập cổng TẠM (Story 1.5) vẫn còn cho ba cổng chưa có adapter: đủ mọi phương thức để qua
+// Tập cổng TẠM (Story 1.5) vẫn còn cho hai cổng chưa có adapter: đủ mọi phương thức để qua
 // `kiemTraPorts`, nhưng mỗi phương thức ném khi BỊ GỌI. Hai lý do cho việc ném thay vì trả về
 // `undefined`: một cổng tạm im lặng sẽ làm story sau đi gỡ lỗi một adapter chưa tồn tại, và
 // nó cũng làm mọi test tương lai xanh vì lý do sai. Hai cổng kho bền thì đã có adapter thật.
@@ -18,6 +18,7 @@
 // không có kho dữ liệu nào. Cùng lý do đó, hai adapter mở kho LƯỜI — dựng factory không chạm
 // gì cả.
 
+import { taoBroadcast } from './adapters/broadcast.js';
 import { taoNoteStore } from './adapters/indexeddb.js';
 import { taoSessionStore } from './adapters/localstorage.js';
 import { DRAFT_BEAT_MS } from './core/limits.js';
@@ -25,6 +26,7 @@ import { taoStore } from './core/state.js';
 import { PORT_METHODS } from './ports/index.js';
 import { noiBanner } from './view/banner.js';
 import { noiLuoi } from './view/luoi.js';
+import { noiNutTheme } from './view/nut-theme.js';
 import { noiOSoan } from './view/o-soan.js';
 import { noiTieuDe } from './view/tieu-de.js';
 
@@ -51,7 +53,8 @@ export function congTam() {
 }
 
 /**
- * Tập cổng của ứng dụng: adapter thật cho hai kho bền, cổng tạm cho ba cổng còn lại.
+ * Tập cổng của ứng dụng: adapter thật cho hai kho bền và kênh liên tab, cổng tạm cho hai cổng
+ * còn lại (`fileIO` của Epic 4, `quota` của Epic 8).
  *
  * Adapter đặt SAU `congTam()` trong phép trải: nếu ai đó đảo thứ tự thì cổng tạm ghi đè
  * adapter thật và mọi phép ghi lại ném "chưa nối adapter" — xanh ở mọi test, hỏng ở mọi lần
@@ -62,6 +65,9 @@ function congThat() {
     ...congTam(),
     noteStore: taoNoteStore(),
     sessionStore: taoSessionStore(),
+    // Kênh liên tab (Story 3.3): mở LƯỜI như hai adapter trên, nên dòng này không chạm một
+    // global nào ở Node — `test/trang-tinh.test.js` import động chính tệp này ở đó.
+    channel: taoBroadcast(),
   };
 }
 
@@ -102,19 +108,37 @@ if (typeof document !== 'undefined') {
     if (o !== null) o.focus();
   };
   const banner = noiBanner(store, document, dongRoiVe);
-  // Một callback vẽ chung cho cả ba view: đây là chỗ DUY NHẤT biết rằng "vẽ lại" nghĩa là
-  // vẽ lại cả ba. Treo riêng từng cái vào từng điểm nối là cách một view mới bị quên ở một
+  // Nút theme là view THỨ TƯ, và nó nối SAU ba view trên: thứ tự nối của chúng không đổi một
+  // dòng. Nó vẽ từ đúng MỘT giá trị state (`theme`) và đặt `data-theme` trên `<html>` — nên nó
+  // không biết gì về lưới, tiêu đề lẫn dải băng, đúng như chúng không biết gì về nó.
+  //
+  // `veTatCa` đi vào qua THAM SỐ, cùng khuôn `sauKhiDong` của dải băng và `sauKhiChot` của ô
+  // soạn thảo: lật theme đổi state, và mọi view phải vẽ lại từ state mới.
+  const latRoiVe = () => veTatCa();
+  const nutTheme = noiNutTheme(store, document, latRoiVe);
+  // Một callback vẽ chung cho cả bốn view: đây là chỗ DUY NHẤT biết rằng "vẽ lại" nghĩa là
+  // vẽ lại cả bốn. Treo riêng từng cái vào từng điểm nối là cách một view mới bị quên ở một
   // trong hai chỗ, và tiêu đề sẽ đứng yên sau lần chốt mà không làm gì đỏ cả.
   const veTatCa = () => {
     luoi.ve();
     tieuDe.ve();
     banner.ve();
+    nutTheme.ve();
   };
   // `notes` nạp BẤT ĐỒNG BỘ, nên lượt vẽ đầu tiên phải chờ kho trả lời — vẽ ngay ở đây chỉ
   // dựng lại một mảng rỗng và nháy một con số sai lên thanh tab. Không có cơ chế subscribe
   // trong dự án này (và không được dựng một cái), nên cả hai lượt vẽ lại được nối TAY: một ở
   // đây, một qua `sauKhiChot` bên dưới.
-  store.khoiDong().then(veTatCa);
+  // Theme lúc tải đi vào qua THAM SỐ, đọc lại từ đúng chỗ script nội tuyến trong `<head>` vừa
+  // ghi: đó là nơi DUY NHẤT đọc `ghichu.theme` lúc tải, nên lõi không đọc kho lần thứ hai và
+  // không chạm `document`. Vẽ ngay sau khi gọi (chứ không chỉ trong `.then`) là thứ đưa nhãn
+  // nút về đúng chiều ở khung hình đầu: `khoiDong` đặt theme ĐỒNG BỘ, `notes` mới là phần chờ.
+  const themeLucTai = document.documentElement.getAttribute('data-theme');
+  store.khoiDong(themeLucTai).then(veTatCa);
+  // Lượt vẽ ĐẦU của riêng nút theme chạy ngay, không đợi kho: `khoiDong` đặt `theme` ĐỒNG BỘ
+  // (chỉ `notes` là phần bất đồng bộ), nên nhãn về đúng chiều ở khung hình đầu tiên thay vì
+  // đọc `nền tối` trên một trang đang tối cho tới khi IndexedDB trả lời.
+  nutTheme.ve();
   // View nối TRƯỚC khi giành bản nháp, và thứ tự đó là điều kiện: `claimDraft` là bất đồng
   // bộ, nên mọi ký tự Nam gõ trong lúc kho còn đang trả lời chỉ vào được state nếu bộ nghe
   // `input` đã gắn xong. Nối sau là một cửa sổ im lặng ở đúng giây đầu tiên của trang.
