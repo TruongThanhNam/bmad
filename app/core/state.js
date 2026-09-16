@@ -57,6 +57,7 @@
 // chạm global trình duyệt. `crypto.randomUUID` thì có — nó không phải global của DOM, nó có ở
 // cả Node, và AD-13 chốt nó là nguồn duy nhất của `id`.
 
+import { dungFileSaoLuu, tenFileSaoLuu } from './backup.js';
 import { dongDuoc, thayDuoc } from './banner.js';
 import { MA_LOI } from './errors.js';
 import { fold } from './fold.js';
@@ -84,6 +85,9 @@ const THEME_HOP_LE = Object.freeze(['light', 'dark']);
 
 /** Khóa cấu hình mang lựa chọn theme. Tên THẬT của nó (`ghichu.theme`) là chuyện của adapter. */
 const KHOA_THEME = 'theme';
+
+/** Khóa cấu hình mang mốc xuất sao lưu gần nhất — nguồn duy nhất của dòng nhắc Story 4.4. */
+const KHOA_LAST_BACKUP = 'lastBackupAt';
 
 /** Loại bản tin phát khi một khóa cấu hình đổi (AD-7). */
 const TIN_PHIEN_DOI = 'session-changed';
@@ -293,6 +297,7 @@ function ngayHopLe(giaTri, giaTriCu) {
  * @param {object} ports Năm cổng của `app/ports/`, do `app/main.js` nối vào.
  * @returns {{ state: object, datDieuKien: Function, xoaHetDieuKien: Function, dongDaiBang:
  *   Function, batTatMoRong: Function, khoiDong: Function, datTheme: Function,
+ *   xuatSaoLuu: Function,
  *   chotGhiChu: Function, xoaGhiChu: Function, tuLuuNoiDung: Function,
  *   khoiDongBanNhap: Function, datBanNhap: Function, nhipTimBanNhap: Function }}
  *   Store với `state` chỉ đọc và các action. Story sau thêm action vào ĐÂY, không nơi khác.
@@ -615,6 +620,70 @@ export function taoStore(ports) {
   }
 
   /**
+   * Xuất TOÀN BỘ ghi chú ra một file sao lưu, rồi ghi lại mốc xuất (Story 4.2, UJ-3).
+   *
+   * Đây là phanh an toàn duy nhất của sản phẩm, nên nó có ba luật riêng, và cả ba đều ngược
+   * với khuôn của mọi action khác trong tệp này:
+   *
+   * - KHÔNG đi qua `ghiTruocDatSau`: không có state nào để đổi. Xuất sao lưu không thêm, không
+   *   sửa, không xóa một ghi chú nào — nó chỉ đọc. Một `datLai` ở đây là dựng lại ảnh state cho
+   *   một lần không có gì đổi.
+   * - KHÔNG dải băng ở bất cứ nhánh nào (quyết định đã chốt của spec): xuất thành công thì giao
+   *   diện im lặng tuyệt đối (AD-16 — không chỉ báo "đã lưu"), và xuất hỏng cũng im lặng. Bằng
+   *   chứng của thất bại đã có sẵn và đúng hơn mọi thông báo: `lastBackupAt` KHÔNG được ghi,
+   *   nên dòng nhắc của Story 4.4 vẫn nói "chưa có bản sao lưu nào". Tập mã lỗi đóng của
+   *   `core/errors.js` vì thế không phải nới thêm một mã.
+   * - Nguồn dữ liệu là `noiBo.notes` — tầng A trong RAM, tức TOÀN BỘ ghi chú chưa lọc — chứ
+   *   không phải `ports.noteStore.readAll()`. Bộ lọc đang bật là tầng C và nó không được chạm
+   *   tới nội dung file; còn một phép đọc kho thêm vào đây chỉ đẻ ra một nhánh lỗi nữa cho một
+   *   đường đã hứa im lặng. Bản nháp đang gõ cũng không lọt: nó là tầng B, không phải ghi chú.
+   *
+   * `exportedAt` dựng ĐÚNG MỘT LẦN rồi dùng cho cả tên file, nội dung file và `lastBackupAt`:
+   * hai lời gọi `nowIso()` cho hai giá trị lệch nhau vài mili giây, và Story 4.4 đo khoảng cách
+   * ngày từ mốc đó — một mốc không khớp với chính file nó nói tới là loại lệch không ai đi tìm.
+   *
+   * Cổng `fileIO` có thể NÉM đồng bộ (một adapter dựng Blob hỏng) hoặc trả về một lời hứa bị từ
+   * chối; cả hai đi cùng một đường, nên lời gọi nằm trong `try` và kết quả đi qua
+   * `Promise.resolve`. Ghi `lastBackupAt` hỏng thì NUỐT — file đã rời máy rồi, và một dải băng
+   * lỗi lúc đó nói sai về chuyện vừa xảy ra; chỉ có cái chuông liên tab là không được gõ, vì
+   * không có gì trong kho đổi để tab khác đọc lại.
+   *
+   * @returns {Promise<void>} Hoàn tất khi file đã được trao đi và mốc đã ghi — không bao giờ bị
+   *   từ chối, ở cả hai nhánh.
+   */
+  function xuatSaoLuu() {
+    let exportedAt;
+    let daGoi;
+    // Cả phần DỰNG nằm trong `try`, không chỉ lời gọi cổng: `nowIso` và hai hàm của
+    // `core/backup.js` ném với một bản ghi mang `createdAt` rác, và lời hứa trả về đây được
+    // `app/view/chan-trang.js` tin tới mức cố ý không treo `.catch`.
+    try {
+      exportedAt = nowIso();
+      daGoi = ports.fileIO.exportFile(
+        tenFileSaoLuu(exportedAt),
+        dungFileSaoLuu(noiBo.notes, exportedAt),
+      );
+    } catch {
+      return Promise.resolve();
+    }
+    return Promise.resolve(daGoi).then(
+      () => {
+        try {
+          ports.sessionStore.write(KHOA_LAST_BACKUP, exportedAt);
+        } catch {
+          // Kho cấu hình bị chặn: mốc không ghi được, nên không có gì cho tab khác đọc lại và
+          // không có chuông nào để gõ. File thì đã xuống máy — im lặng là câu đúng.
+          return;
+        }
+        phatPhienDoi();
+      },
+      () => {
+        /* Cổng từ chối: im lặng hoàn toàn, và `lastBackupAt` giữ nguyên giá trị cũ. */
+      },
+    );
+  }
+
+  /**
    * HÀM NỘI BỘ — dựng bản ghi mới rồi ghi nó xuống kho CÙNG bản nháp đã làm rỗng, và chỉ đổi
    * state sau khi giao dịch chốt (AD-8).
    *
@@ -916,6 +985,7 @@ export function taoStore(ports) {
     batTatMoRong,
     khoiDong,
     datTheme,
+    xuatSaoLuu,
     chotGhiChu,
     xoaGhiChu,
     tuLuuNoiDung,

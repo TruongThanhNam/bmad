@@ -143,10 +143,15 @@
       <!-- `<button>` chứ không `<a href="#">`: hai thứ này là HÀNH ĐỘNG, không phải điều
            hướng. Một `href="#"` đổi URL và đẩy một mục vào lịch sử ngay khi bấm — trái hẳn
            AC "bấm vào thì không có gì xảy ra" — và trình đọc màn hình đọc nó thành "liên
-           kết". Chúng chỉ MANG DÁNG link (`.chan-link` gạch chân), không mang ngữ nghĩa. -->
-      <button class="chan-link" type="button">xuất sao lưu</button>
+           kết". Chúng chỉ MANG DÁNG link (`.chan-link` gạch chân), không mang ngữ nghĩa.
+
+           `id` (Story 4.2) để `app/view/chan-trang.js` chọn được đúng từng nút mà không phải
+           dựa vào thứ tự DOM hay nhãn chữ: `.chan-link` khớp cả hai, và một bộ chọn theo nhãn
+           là chỗ đổi microcopy làm gãy hành vi. `#chan-nap` có `id` ngay bây giờ dù chưa có
+           handler nào — Story 4.3 chỉ nối vào, không phải sửa lại chân trang. -->
+      <button id="chan-xuat" class="chan-link" type="button">xuất sao lưu</button>
       <span class="chan-cham" aria-hidden="true">·</span>
-      <button class="chan-link" type="button">nạp lại</button>
+      <button id="chan-nap" class="chan-link" type="button">nạp lại</button>
       <!-- Chỗ đứng của dòng nhắc sao lưu (Story 4.4), rỗng nguyên ở đây và CÙNG DÒNG với hai
            link — UX-DR-19. Đặt sẵn chỗ ngay từ 4.1 để 4.4 chỉ đổ chữ vào, không phải sắp lại
            chân trang; và để ba cam kết của 4.1 kiểm được ngay bây giờ: hai link đứng độc lập

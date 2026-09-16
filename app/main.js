@@ -19,12 +19,14 @@
 // gì cả.
 
 import { taoBroadcast } from './adapters/broadcast.js';
+import { taoFileIo } from './adapters/file-io.js';
 import { taoNoteStore } from './adapters/indexeddb.js';
 import { taoSessionStore } from './adapters/localstorage.js';
 import { DRAFT_BEAT_MS } from './core/limits.js';
 import { taoStore } from './core/state.js';
 import { PORT_METHODS } from './ports/index.js';
 import { noiBanner } from './view/banner.js';
+import { noiChanTrang } from './view/chan-trang.js';
 import { noiLuoi } from './view/luoi.js';
 import { noiNutTheme } from './view/nut-theme.js';
 import { noiOSoan } from './view/o-soan.js';
@@ -53,8 +55,8 @@ export function congTam() {
 }
 
 /**
- * Tập cổng của ứng dụng: adapter thật cho hai kho bền và kênh liên tab, cổng tạm cho hai cổng
- * còn lại (`fileIO` của Epic 4, `quota` của Epic 8).
+ * Tập cổng của ứng dụng: adapter thật cho hai kho bền, kênh liên tab và file vào/ra; cổng tạm
+ * cho cổng còn lại (`quota` của Epic 8).
  *
  * Adapter đặt SAU `congTam()` trong phép trải: nếu ai đó đảo thứ tự thì cổng tạm ghi đè
  * adapter thật và mọi phép ghi lại ném "chưa nối adapter" — xanh ở mọi test, hỏng ở mọi lần
@@ -68,6 +70,10 @@ function congThat() {
     // Kênh liên tab (Story 3.3): mở LƯỜI như hai adapter trên, nên dòng này không chạm một
     // global nào ở Node — `test/trang-tinh.test.js` import động chính tệp này ở đó.
     channel: taoBroadcast(),
+    // File vào/ra (Story 4.2): `taoFileIo()` chỉ dựng object, `document`/`Blob`/`URL` chỉ bị
+    // hỏi tới bên trong `exportFile` — nên dòng này cũng không chạm global nào ở Node.
+    // `readChosenFile` còn ném "chưa làm" cho tới Story 4.3.
+    fileIO: taoFileIo(),
   };
 }
 
@@ -116,6 +122,11 @@ if (typeof document !== 'undefined') {
   // soạn thảo: lật theme đổi state, và mọi view phải vẽ lại từ state mới.
   const latRoiVe = () => veTatCa();
   const nutTheme = noiNutTheme(store, document, latRoiVe);
+  // Chân trang là view THỨ NĂM, và nó KHÔNG vào `veTatCa`: xuất sao lưu không đổi một trường
+  // state nào, nên `ve()` của nó rỗng và gọi nó mỗi lượt vẽ chung chỉ là một lời gọi không
+  // làm gì. Nối ở đây, sau nút theme, để thứ tự nối của bốn view trên không đổi một dòng.
+  // Story 4.4 đổ chữ vào `.chan-nhac` từ `lastBackupAt` và sẽ có lý do để vào lượt vẽ chung.
+  noiChanTrang(store, document);
   // Một callback vẽ chung cho cả bốn view: đây là chỗ DUY NHẤT biết rằng "vẽ lại" nghĩa là
   // vẽ lại cả bốn. Treo riêng từng cái vào từng điểm nối là cách một view mới bị quên ở một
   // trong hai chỗ, và tiêu đề sẽ đứng yên sau lần chốt mà không làm gì đỏ cả.
