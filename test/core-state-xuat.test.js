@@ -48,6 +48,8 @@ function dungSan(tuyChon = {}) {
     tuChoiXuat = false,
     nemKhiXuat = false,
     nemKhiGhiMoc = null,
+    mocDangCo = null,
+    nemKhiDocMoc = false,
   } = tuyChon;
   const daXuat = [];
   const daGhiKho = [];
@@ -61,6 +63,11 @@ function dungSan(tuyChon = {}) {
   };
   ports.sessionStore = {
     ...ports.sessionStore,
+    // `khoiDong` đọc mốc ĐỒNG BỘ ở đây (Story 4.4) — `nemKhiDocMoc` giả cảnh kho bị chặn hẳn.
+    read() {
+      if (nemKhiDocMoc) throw loiUngDung(MA_LOI.DB);
+      return mocDangCo;
+    },
     write(key, value) {
       if (nemKhiGhiMoc !== null) throw loiUngDung(nemKhiGhiMoc);
       daGhiKho.push([key, value]);
@@ -215,15 +222,73 @@ describe('xuatSaoLuu — cổng từ chối thì im lặng HOÀN TOÀN', () => {
     expect(bo.store.state.banner).toBeNull();
   });
 
-  it('không đổi một trường state nào ở CẢ HAI nhánh', async () => {
-    for (const tuChoiXuat of [false, true]) {
-      const bo = dungSan({ tuChoiXuat });
+  it('nhánh HỎNG không đổi một trường state nào', async () => {
+    // RENEGOTIATE CÓ GHI CHÉP (Story 4.4) — ca này trước đây chạy cả hai nhánh (`for (const
+    // tuChoiXuat of [false, true])`) và đòi state y nguyên ở cả hai. Vế THÀNH CÔNG chết đúng ở
+    // story này: xuất xong thì `lastBackupAt` vào state, vì dòng nhắc chân trang đọc trường đó
+    // và để nó còn đứng đó sau một lần xuất vừa thành công là một lời nói dối. Vế HỎNG thì
+    // không đổi một chữ, và đó mới là bất biến thật — xem ca ngay dưới.
+    for (const tuyChon of [{ tuChoiXuat: true }, { nemKhiXuat: true }]) {
+      const bo = dungSan(tuyChon);
       await bo.san;
       const truoc = bo.store.state;
       await bo.store.xuatSaoLuu();
       // So bằng THAM CHIẾU: `datLai` dựng lại ảnh, nên một lần đổi state dù không đổi giá trị
       // nào cũng cho một object khác — và đó chính là thứ cần bắt.
       expect(bo.store.state).toBe(truoc);
+      expect(bo.store.state.lastBackupAt).toBeNull();
     }
+  });
+
+  it('nhánh THÀNH CÔNG đổi ĐÚNG MỘT trường, và đó là `lastBackupAt` (Story 4.4)', async () => {
+    const bo = dungSan();
+    await bo.san;
+    const truoc = { ...bo.store.state };
+    await bo.store.xuatSaoLuu();
+    const sau = bo.store.state;
+    // Cùng một mốc cho cả tên file, nội dung file và state — không phải một `nowIso()` thứ hai.
+    expect(sau.lastBackupAt).toBe(fileCuoi(bo).exportedAt);
+    expect(bo.daGhiKho).toEqual([['lastBackupAt', sau.lastBackupAt]]);
+    // Và KHÔNG một trường nào khác nhúc nhích — nhất là dải băng: lượt vẽ kéo theo chỉ GỠ một
+    // dòng chữ đi, nó không nói thêm câu nào (AD-16).
+    for (const khoa of Object.keys(truoc)) {
+      if (khoa === 'lastBackupAt') continue;
+      expect(sau[khoa]).toBe(truoc[khoa]);
+    }
+    expect(sau.banner).toBeNull();
+  });
+
+  it('kho cấu hình từ chối ghi mốc thì state KHÔNG đổi — hai nguồn không nói hai câu', async () => {
+    const bo = dungSan({ nemKhiGhiMoc: MA_LOI.QUOTA });
+    await bo.san;
+    await bo.store.xuatSaoLuu();
+    expect(bo.store.state.lastBackupAt).toBeNull();
+    expect(bo.store.state.banner).toBeNull();
+  });
+});
+
+describe('khởi động — mốc sao lưu đi vào state, ĐỒNG BỘ và đúng một lần', () => {
+  it('đọc `lastBackupAt` từ kho cấu hình vào state', async () => {
+    const moc = '2026-09-08T10:00:00+07:00';
+    const bo = dungSan({ mocDangCo: moc });
+    // ĐỒNG BỘ: trường đã đúng trước cả khi lời hứa đọc ghi chú trả lời, y như `theme`.
+    expect(bo.store.state.lastBackupAt).toBe(moc);
+    await bo.san;
+    expect(bo.store.state.lastBackupAt).toBe(moc);
+  });
+
+  it('chưa từng sao lưu thì trường giữ `null`', async () => {
+    const bo = dungSan();
+    await bo.san;
+    expect(bo.store.state.lastBackupAt).toBeNull();
+  });
+
+  it('kho cấu hình bị CHẶN lúc khởi động: `null`, không dải băng, app vẫn chạy', async () => {
+    const bo = dungSan({ nemKhiDocMoc: true });
+    await bo.san;
+    expect(bo.store.state.lastBackupAt).toBeNull();
+    expect(bo.store.state.banner).toBeNull();
+    // Và phần còn lại của lượt khởi động không hề hấn gì.
+    expect(bo.store.state.notes).toHaveLength(3);
   });
 });

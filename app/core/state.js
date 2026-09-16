@@ -175,7 +175,7 @@ function banGhiSua(cu, text) {
  * Ba tầng phạm vi của AD-3, tất cả cùng sống trong RAM ở đây:
  * - tầng A (bền, dùng chung): `notes`.
  * - tầng B (bền, riêng tab): `draft`.
- * - tầng B′ (bền, dùng chung, kho cấu hình): `theme`.
+ * - tầng B′ (bền, dùng chung, kho cấu hình): `theme`, `lastBackupAt`.
  * - tầng C (phù du): `dieuKien`, `expandedIds`, `editing`, `banner`, `readOnly`.
  *
  * `seq` là số đếm chống hẹn tự lưu sống lâu hơn thứ nó định ghi (AD-8): hẹn nào nổ ra mà
@@ -200,6 +200,19 @@ function stateRong() {
     // `data-theme` mà script `<head>` đã đặt. Nếu không ai đưa vào thì bảng light là thứ
     // `:root` của `app/style.css` vẽ ra, nên state và màn hình vẫn nói cùng một câu.
     theme: 'light',
+    // Tầng B′ — mốc lần xuất sao lưu gần nhất, sống ở kho cấu hình nên nó dùng chung qua mọi
+    // lần TẢI TRANG (và mọi tab mở sau đó). Chiều NHẬN liên tab thì CHƯA có: mốc chỉ được đọc
+    // đúng một lần lúc khởi động và `app/` không có bộ nghe `session-changed` nào, nên một tab
+    // khác vừa xuất sao lưu không tới được tab này cho tới lần tải lại — lỗ đã biết, để Epic 7.
+    //
+    // Cùng khuôn `theme` ngay trên, và cùng lý do: `app/view/chan-trang.js` phải dựng dòng nhắc
+    // từ giá trị này ở MỌI lượt vẽ chung, và một phép đọc kho trong `ve()` là đường đọc kho bền
+    // thứ hai ngoài tệp này (AD-1) — cộng thêm một lần chạm kho mỗi lượt vẽ. Nhờ nó nằm ở đây,
+    // mốc được đọc ĐÚNG MỘT LẦN lúc khởi động, rồi chỉ đổi qua hai đường ghi của UJ-3.
+    //
+    // `null` là "chưa từng sao lưu", và đó là một giá trị THẬT chứ không phải một chỗ trống:
+    // dòng nhắc im lặng tuyệt đối cho tới lần xuất đầu tiên (quyết định đã chốt của Story 4.4).
+    lastBackupAt: null,
     // Tầng C — điều kiện đang bật. `{null, null}` là VẮNG MẶT điều kiện (AD-15).
     dieuKien: { keyword: null, date: null },
     // Tầng C — TẬP mẩu đang mở rộng, và mẩu đang sửa cùng nội dung đang gõ của nó.
@@ -563,6 +576,27 @@ export function taoStore(ports) {
    */
   function khoiDong(themeBanDau) {
     if (THEME_HOP_LE.includes(themeBanDau)) datLai({ theme: themeBanDau });
+    // Mốc sao lưu đọc ĐỒNG BỘ ở đây, và đúng MỘT lần trong cả vòng đời tab: cổng cấu hình là
+    // đồng bộ, dòng nhắc chân trang phải đúng ngay lượt vẽ đầu, và sau lượt này mốc chỉ còn đổi
+    // qua hai đường ghi của UJ-3 (`xuatSaoLuu`, `ghiMocSaoLuuMoiHon`) — không có phép đọc lại.
+    //
+    // NUỐT lỗi, và không dải băng: kho cấu hình bị chặn hẳn thì cái mất đi là một dòng chữ nhắc,
+    // không phải một ghi chú. Một mã lỗi lúc khởi động vì chuyện đó nói sai về mức nghiêm trọng,
+    // và nó sẽ đè lên dải băng của chính phép đọc ghi chú ngay bên dưới.
+    //
+    // Hình dạng KHÔNG kiểm ở đây: `core/backup.js` đã trả `null` với mọi thứ không dựng được
+    // thành câu, nên một mốc rác trong kho chỉ làm dòng nhắc im lặng — và một cửa kiểm thứ hai
+    // ở đây là hai định nghĩa của "một mốc dùng được".
+    let mocTuKho;
+    try {
+      mocTuKho = ports.sessionStore.read(KHOA_LAST_BACKUP) ?? null;
+    } catch {
+      /* Kho cấu hình từ chối: mốc giữ `null`, dòng nhắc im lặng, app vẫn chạy. */
+      mocTuKho = null;
+    }
+    // `datLai` nằm NGOÀI `try`, đúng khuôn `ghiMocSaoLuuMoiHon`: chỉ phép đọc cổng mới được
+    // nuốt lỗi ở đây, còn một cái ném từ chính khối state là lỗi lập trình và phải đi ra ngoài.
+    datLai({ lastBackupAt: mocTuKho });
     return ports.noteStore.readAll().then(
       (danhSach) => {
         try {
@@ -669,14 +703,16 @@ export function taoStore(ports) {
    * Đây là phanh an toàn duy nhất của sản phẩm, nên nó có ba luật riêng, và cả ba đều ngược
    * với khuôn của mọi action khác trong tệp này:
    *
-   * - KHÔNG đi qua `ghiTruocDatSau`: không có state nào để đổi. Xuất sao lưu không thêm, không
-   *   sửa, không xóa một ghi chú nào — nó chỉ đọc. Một `datLai` ở đây là dựng lại ảnh state cho
-   *   một lần không có gì đổi.
+   * - KHÔNG đi qua `ghiTruocDatSau`: không một GHI CHÚ nào đổi. Xuất sao lưu không thêm, không
+   *   sửa, không xóa — nó chỉ đọc. Trường duy nhất nó đổi là `lastBackupAt` (Story 4.4), và nó
+   *   đổi ở CUỐI nhánh thành công bằng một `datLai` trần: `ghiTruocDatSau` là khuôn của những
+   *   phép ghi có dải băng lỗi, còn đường này đã hứa im lặng ở cả hai nhánh.
    * - KHÔNG dải băng ở bất cứ nhánh nào (quyết định đã chốt của spec): xuất thành công thì giao
    *   diện im lặng tuyệt đối (AD-16 — không chỉ báo "đã lưu"), và xuất hỏng cũng im lặng. Bằng
    *   chứng của thất bại đã có sẵn và đúng hơn mọi thông báo: `lastBackupAt` KHÔNG được ghi,
-   *   nên dòng nhắc của Story 4.4 vẫn nói "chưa có bản sao lưu nào". Tập mã lỗi đóng của
-   *   `core/errors.js` vì thế không phải nới thêm một mã.
+   *   nên dòng nhắc của Story 4.4 GIỮ NGUYÊN — nó vẫn đếm từ mốc cũ, và vẫn nhắc. (Chưa từng
+   *   sao lưu thì nó im lặng hẳn, không có câu "chưa có bản sao lưu nào" — quyết định đã chốt
+   *   của 4.4.) Tập mã lỗi đóng của `core/errors.js` vì thế không phải nới thêm một mã.
    * - Nguồn dữ liệu là `noiBo.notes` — tầng A trong RAM, tức TOÀN BỘ ghi chú chưa lọc — chứ
    *   không phải `ports.noteStore.readAll()`. Bộ lọc đang bật là tầng C và nó không được chạm
    *   tới nội dung file; còn một phép đọc kho thêm vào đây chỉ đẻ ra một nhánh lỗi nữa cho một
@@ -719,6 +755,12 @@ export function taoStore(ports) {
           // không có chuông nào để gõ. File thì đã xuống máy — im lặng là câu đúng.
           return;
         }
+        // State đi ngay sau phép ghi thành công, và CHỈ khi nó thành công: state và kho không
+        // được nói hai câu khác nhau về cùng một mốc. Dòng nhắc của chân trang đọc trường này,
+        // nên để nó còn đứng đó sau một lần xuất vừa xong là một lời nói dối cho tới lần tải
+        // trang sau. Lượt vẽ kéo theo KHÔNG sinh một thông báo nào — nó chỉ GỠ một dòng chữ đi,
+        // nên "im lặng tuyệt đối" của AD-16 vẫn nguyên vẹn.
+        datLai({ lastBackupAt: exportedAt });
         phatPhienDoi();
       },
       () => {
@@ -753,6 +795,10 @@ export function taoStore(ports) {
     } catch {
       return;
     }
+    // Chỉ tới đây mốc mới vào state — tức đúng khi kho đã nhận nó. Ghi hỏng thì state giữ
+    // nguyên mốc cũ, vì một state đi trước kho là hai nguồn sự thật nói hai câu khác nhau, và
+    // dòng nhắc sẽ im lặng về một bản sao lưu mà lần tải trang sau không tìm lại được.
+    datLai({ lastBackupAt: exportedAt });
     // Chỉ gõ chuông khi có một giá trị MỚI trong kho cho tab khác đọc lại — không ghi thì
     // không có gì đổi, và một bản tin rỗng chỉ làm mọi tab đọc lại đúng thứ chúng đang có.
     phatPhienDoi();

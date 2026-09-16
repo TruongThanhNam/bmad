@@ -122,24 +122,24 @@ if (typeof document !== 'undefined') {
   // soạn thảo: lật theme đổi state, và mọi view phải vẽ lại từ state mới.
   const latRoiVe = () => veTatCa();
   const nutTheme = noiNutTheme(store, document, latRoiVe);
-  // Chân trang là view THỨ NĂM, và nó KHÔNG vào `veTatCa`: `ve()` của nó rỗng, nên gọi nó mỗi
-  // lượt vẽ chung chỉ là một lời gọi không làm gì. Nối ở đây, sau nút theme, để thứ tự nối của
-  // bốn view trên không đổi một dòng. Story 4.4 đổ chữ vào `.chan-nhac` từ `lastBackupAt` và
-  // sẽ có lý do để vào lượt vẽ chung.
+  // Chân trang là view THỨ NĂM, và từ Story 4.4 nó VÀO `veTatCa`: `ve()` của nó đổ dòng nhắc
+  // vào `.chan-nhac` từ `lastBackupAt`, tức nó đã có chữ của riêng mình để vẽ. Nối ở đây, sau
+  // nút theme, để thứ tự nối của bốn view trên không đổi một dòng.
   //
   // Nhưng nó NHẬN lượt vẽ chung qua tham số, và chỉ chiều NẠP dùng tới: nạp đổi `notes` và đổi
   // dải băng, nên lưới, tiêu đề tab và dải băng đều phải vẽ lại — trong khi xuất không đổi một
   // trường state nào. Một lớp bọc lười vì `veTatCa` khai ngay bên dưới, cùng khuôn `latRoiVe`.
   const napRoiVe = () => veTatCa();
-  noiChanTrang(store, document, napRoiVe);
-  // Một callback vẽ chung cho cả bốn view: đây là chỗ DUY NHẤT biết rằng "vẽ lại" nghĩa là
-  // vẽ lại cả bốn. Treo riêng từng cái vào từng điểm nối là cách một view mới bị quên ở một
+  const chanTrang = noiChanTrang(store, document, napRoiVe);
+  // Một callback vẽ chung cho cả NĂM view: đây là chỗ DUY NHẤT biết rằng "vẽ lại" nghĩa là
+  // vẽ lại cả năm. Treo riêng từng cái vào từng điểm nối là cách một view mới bị quên ở một
   // trong hai chỗ, và tiêu đề sẽ đứng yên sau lần chốt mà không làm gì đỏ cả.
   const veTatCa = () => {
     luoi.ve();
     tieuDe.ve();
     banner.ve();
     nutTheme.ve();
+    chanTrang.ve();
   };
   // `notes` nạp BẤT ĐỒNG BỘ, nên lượt vẽ đầu tiên phải chờ kho trả lời — vẽ ngay ở đây chỉ
   // dựng lại một mảng rỗng và nháy một con số sai lên thanh tab. Không có cơ chế subscribe

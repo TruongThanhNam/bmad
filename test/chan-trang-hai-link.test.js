@@ -18,6 +18,7 @@ import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { boChuThichCss, boChuThichHtml, boChuThichJs } from './helpers/quet-nguon.js';
 import { noiChanTrang } from '../app/view/chan-trang.js';
+import { cauNhacSaoLuu } from '../app/core/backup.js';
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 const html = boChuThichHtml(readFileSync(join(repoRoot, 'index.html'), 'utf8'));
@@ -125,7 +126,14 @@ describe('Hai link không bao giờ ẩn (UX-DR-19)', () => {
     for (const ten of readdirSync(join(repoRoot, 'app', 'view')).filter((t) => t.endsWith('.js'))) {
       const ma = boChuThichJs(readFileSync(join(repoRoot, 'app', 'view', ten), 'utf8'));
       const nhan = `app/view/${ten}`;
-      if (/chan-link|chan-nhac|xuất sao lưu|nạp lại/.test(ma)) viPham.push(`${nhan} — (a)`);
+      // RENEGOTIATE CÓ GHI CHÉP LẦN BA (Story 4.4) — vế (a) trước đây làm đỏ cả `chan-nhac` ở
+      // MỌI view, kể cả `chan-trang.js`. Lý do đổi: 4.4 đổ dòng nhắc vào chính chỗ đứng đó, nên
+      // "không ai cầm tới `.chan-nhac`" không còn là một bất biến thật — y hệt điều đã xảy ra
+      // với `#chan-xuat` ở 4.2 và `#chan-nap` ở 4.3. Cái bất biến THẬT thì không đổi một chữ:
+      // ĐÚNG MỘT view cầm tới chỗ đứng, và đó là `chan-trang.js`. Hai link thì vẫn cấm tuyệt
+      // đối mọi bộ chọn theo CLASS hay theo NHÃN, ở mọi view không trừ ai.
+      if (/chan-link|xuất sao lưu|nạp lại/.test(ma)) viPham.push(`${nhan} — (a)`);
+      if (/chan-nhac/.test(ma) && ten !== 'chan-trang.js') viPham.push(`${nhan} — (a)`);
       if (/chan-nap/.test(ma) && ten !== 'chan-trang.js') viPham.push(`${nhan} — (b)`);
       // (c) hỏi về HAI LINK, không về mọi phép gỡ nút: `view/banner.js` gỡ nút `✕` của chính
       // nó ở mỗi lượt vẽ, và một ca chân trang không được đỏ vì chuyện đó. Nên chỉ những module
@@ -177,8 +185,8 @@ describe('Hành vi của `#chan-xuat`: một cú bấm, một action, không m�
     const view = noiChanTrang(store, doc);
     nut.boNghe.click();
     expect(goi).toEqual(['xuat']);
-    // `ve()` tồn tại và không làm gì: chân trang chưa vẽ từ state nào ở story này, nhưng
-    // `veTatCa()` của `app/main.js` gọi `ve` của mọi view.
+    // `ve()` gọi được trên một tài liệu KHÔNG có chỗ đứng dòng nhắc, và nó không ném — cùng
+    // khuôn null-safe của `noiNutTheme`. Chữ thì đã có chỗ khác hỏi tới (xem khối cuối tệp).
     expect(() => view.ve()).not.toThrow();
   });
 
@@ -228,7 +236,10 @@ describe('Hành vi của `#chan-nap`: một action, rồi MỘT lượt vẽ l�
     expect(goi).toEqual(['nap', 've']);
   });
 
-  it('bấm nút xuất KHÔNG kéo theo lượt vẽ nào — im lặng tuyệt đối vẫn đứng', async () => {
+  it('bấm nút xuất KHÔNG kéo theo lượt vẽ CHUNG nào — im lặng tuyệt đối vẫn đứng', async () => {
+    // Story 4.4 đổi một nửa câu này: nút xuất bây giờ vẽ lại CHÍNH chân trang (mốc sao lưu vừa
+    // đổi, nên dòng nhắc phải biến mất ngay). Nửa còn lại thì không đổi một chữ — nó không gọi
+    // `sauKhiNap`, tức không kéo lưới, tiêu đề và dải băng vào một thao tác đã hứa im lặng.
     const goi = [];
     const store = {
       napSaoLuu: () => Promise.resolve(),
@@ -359,5 +370,109 @@ describe('Hai link đứng độc lập với dòng nhắc, và giữ nguyên th
     // dòng nhắc, hay một `contenteditable` — cả hai đều là điểm dừng mà không là thẻ nào ở trên.
     expect(chanTrang).not.toMatch(/\btabindex\s*=/i);
     expect(chanTrang).not.toMatch(/\bcontenteditable\b/i);
+  });
+});
+
+describe('Dòng nhắc thụ động: chữ vào `.chan-nhac`, và không gì khác (Story 4.4)', () => {
+  /** Tài liệu tối giản có đủ hai link VÀ chỗ đứng dòng nhắc. */
+  function taiLieuDayDu() {
+    const nut = () => ({
+      boNghe: {},
+      addEventListener(ten, ham) {
+        this.boNghe[ten] = ham;
+      },
+    });
+    const xuat = nut();
+    const nap = nut();
+    const cho = { textContent: 'RÁC CŨ' };
+    const theo = { '#chan-xuat': xuat, '#chan-nap': nap, '.chan-nhac': cho };
+    return { xuat, nap, cho, doc: { querySelector: (chon) => theo[chon] ?? null } };
+  }
+
+  /** Store giả với đúng một trường state — view chỉ được đọc, không được đổi. */
+  function storeVoiMoc(lastBackupAt) {
+    return {
+      state: { lastBackupAt },
+      xuatSaoLuu: () => Promise.resolve(),
+      napSaoLuu: () => Promise.resolve(),
+    };
+  }
+
+  // Hai mốc CỐ ĐỊNH, không một phép tính ngày nào: `ve()` không nhận "bây giờ" qua tham số,
+  // nên cách duy nhất để các ca dưới đây không đổi màu theo ngày chạy máy là chọn hai mốc mà
+  // câu trả lời của `cauNhacSaoLuu` không phụ thuộc hôm nay là ngày nào. Chỗ ghim NGƯỠNG (đúng
+  // bằng, dưới, trên) là `test/core-backup.test.js`, nơi `bayGio` đi vào qua tham số.
+
+  /** Mốc XA trong quá khứ — luôn quá ngưỡng, ở mọi ngày chạy. */
+  const MOC_RAT_CU = '2020-01-01T09:00:00+07:00';
+
+  /** Mốc XA trong tương lai — số ngày âm, nên luôn im lặng, ở mọi ngày chạy. */
+  const MOC_TUONG_LAI = '2999-01-01T09:00:00+07:00';
+
+  it('quá ngưỡng thì chỗ đứng mang đúng câu của `core/backup.js`', () => {
+    const moc = MOC_RAT_CU;
+    const { cho, doc } = taiLieuDayDu();
+    noiChanTrang(storeVoiMoc(moc), doc).ve();
+    // Nguyên văn, và dựng từ CÙNG hàm lõi — view không được có một câu chữ của riêng nó.
+    expect(cho.textContent).toBe(cauNhacSaoLuu(moc));
+    expect(cho.textContent).toMatch(/^Lần sao lưu gần nhất cách đây \d+ ngày\.$/);
+  });
+
+  it('không có gì để nói thì `textContent` RỖNG TUYỆT ĐỐI', () => {
+    // `''` chứ không phải một khoảng trắng: `.chan-nhac:empty { display: none }` là thứ giữ
+    // chân trang khỏi một khoảng `gap` ma, và một node chỉ chứa khoảng trắng phá đúng luật đó.
+    for (const moc of [MOC_TUONG_LAI, null, undefined, 'hôm qua']) {
+      const { cho, doc } = taiLieuDayDu();
+      noiChanTrang(storeVoiMoc(moc), doc).ve();
+      expect(cho.textContent).toBe('');
+    }
+  });
+
+  it('vẽ lại sau khi mốc đổi thì chữ cũ bị DỌN, không chồng lên nhau', () => {
+    const { cho, doc } = taiLieuDayDu();
+    let moc = MOC_RAT_CU;
+    const view = noiChanTrang({ state: { get lastBackupAt() { return moc; } } }, doc);
+    view.ve();
+    expect(cho.textContent).not.toBe('');
+    moc = MOC_TUONG_LAI;
+    view.ve();
+    expect(cho.textContent).toBe('');
+  });
+
+  it('bấm `xuất sao lưu` gỡ dòng nhắc NGAY, sau lời hứa, và không nói thêm câu nào', async () => {
+    const { xuat, cho, doc } = taiLieuDayDu();
+    let moc = MOC_RAT_CU;
+    const store = {
+      state: { get lastBackupAt() { return moc; } },
+      // Đúng cái `xuatSaoLuu` thật làm: mốc vào state ở CUỐI nhánh thành công.
+      xuatSaoLuu: () =>
+        Promise.resolve().then(() => {
+          moc = MOC_TUONG_LAI;
+        }),
+      napSaoLuu: () => Promise.resolve(),
+    };
+    const view = noiChanTrang(store, doc);
+    view.ve();
+    expect(cho.textContent).not.toBe('');
+    xuat.boNghe.click();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(cho.textContent).toBe('');
+  });
+
+  it('không đụng gì ngoài `textContent`: không ẩn/hiện, không thuộc tính, không nút', () => {
+    const { cho, doc } = taiLieuDayDu();
+    noiChanTrang(storeVoiMoc(MOC_RAT_CU), doc).ve();
+    // Chỗ đứng chỉ có đúng một khóa sau lượt vẽ — một `hidden`, một `role`, một `aria-live` mọc
+    // ra ở đây là đúng thứ `index.html:155-164` đã ghi lý do từ chối.
+    expect(Object.keys(cho)).toEqual(['textContent']);
+  });
+
+  it('`app/main.js` treo chân trang vào lượt vẽ CHUNG, không vứt giá trị trả về đi', () => {
+    const main = boChuThichJs(readFileSync(join(repoRoot, 'app', 'main.js'), 'utf8'));
+    const ten = /const\s+([\w$]+)\s*=\s*noiChanTrang\s*\(/.exec(main);
+    expect(ten).not.toBeNull();
+    expect(main).toMatch(new RegExp(String.raw`\b${ten[1]}\s*\.\s*ve\s*\(\s*\)`));
   });
 });

@@ -516,6 +516,46 @@ describe('napSaoLuu — mốc `lastBackupAt` chỉ đi TỚI, không bao giờ l
   });
 });
 
+describe('napSaoLuu — mốc vào STATE cùng lượt vẽ của dải băng (Story 4.4)', () => {
+  it('file mới hơn: `lastBackupAt` trong state đổi theo, không đợi tải lại trang', async () => {
+    const bo = dungSan({ mocDangCo: '2026-09-01T00:00:00+07:00' });
+    await bo.san;
+    expect(bo.store.state.lastBackupAt).toBe('2026-09-01T00:00:00+07:00');
+    await bo.store.napSaoLuu();
+    // Cùng một lượt vẽ với dải băng hàng 6: dòng nhắc biến mất, và dải băng nói câu của nó.
+    expect(bo.store.state.lastBackupAt).toBe(MOC_XUAT);
+    expect(bo.store.state.banner).toBe(LOAI_BANG.NAP_FILE_XONG);
+  });
+
+  it('file CŨ HƠN: state giữ nguyên mốc đang có — dòng nhắc không nhảy lùi', async () => {
+    const bo = dungSan({ mocDangCo: '2026-12-01T00:00:00+07:00' });
+    await bo.san;
+    await bo.store.napSaoLuu();
+    expect(bo.store.state.lastBackupAt).toBe('2026-12-01T00:00:00+07:00');
+  });
+
+  it('ghi mốc NÉM: state KHÔNG đổi — state và kho không nói hai câu khác nhau', async () => {
+    const bo = dungSan({ nemKhiGhiMoc: MA_LOI.QUOTA, mocDangCo: '2026-09-01T00:00:00+07:00' });
+    await bo.san;
+    await bo.store.napSaoLuu();
+    expect(bo.store.state.lastBackupAt).toBe('2026-09-01T00:00:00+07:00');
+  });
+
+  it('mốc RÁC trong file: state giữ nguyên, và không ném ra ngoài', async () => {
+    const bo = dungSan({
+      noiDung: JSON.stringify({
+        schemaVersion: SCHEMA_VERSION,
+        exportedAt: 'hôm qua',
+        notes: [{ id: 'id-3', createdAt: '2026-09-16T08:00:00+07:00', text: 'ba' }],
+      }),
+      mocDangCo: MOC_XUAT,
+    });
+    await bo.san;
+    await bo.store.napSaoLuu();
+    expect(bo.store.state.lastBackupAt).toBe(MOC_XUAT);
+  });
+});
+
 describe('napSaoLuu — bấm hai lần liên tiếp', () => {
   it('lần thứ hai trong lúc lần đầu còn bay thì KHÔNG làm gì cả', async () => {
     // Hai lần chạy chồng nhau gộp trên CÙNG một ảnh chụp `readAll`, và lần ghi sau xoá mất

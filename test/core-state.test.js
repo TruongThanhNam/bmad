@@ -48,10 +48,16 @@ function portsThieu(tenCong, tenPhuongThuc) {
 // chở được. Nó là một trường CẠNH `banner` chứ không phải một `banner` kiểu object vì
 // `core/banner.js:30-35` đã cân và từ chối phép đổi đó — và `datLai` xoá nó ở mọi lần đặt dải
 // băng không nói gì về nó, nên nó không bao giờ lệch khỏi loại đang hiện.
+//
+// Và nới 9 → 10 ở Story 4.4: `lastBackupAt` là trường tầng B′ THỨ HAI, cùng khuôn `theme` và
+// cùng lý do — `app/view/chan-trang.js` dựng dòng nhắc từ nó ở mọi lượt vẽ chung, nên đọc thẳng
+// kho trong `ve()` là đường đọc kho bền thứ hai ngoài `state.js` (AD-1), cộng một lần chạm kho
+// mỗi lượt vẽ. Mốc đọc ĐÚNG MỘT LẦN lúc khởi động, rồi chỉ đổi qua hai đường ghi của UJ-3.
 const KHOA_STATE = [
   'notes',
   'draft',
   'theme',
+  'lastBackupAt',
   'dieuKien',
   'expandedIds',
   'editing',
@@ -69,6 +75,9 @@ describe('taoStore — khởi tạo', () => {
       // Tầng B′: `'light'` là giá trị KHỞI TẠO, không phải một lựa chọn đã ghi — nó khớp đúng
       // bảng mà `:root` của `app/style.css` vẽ ra khi không ai đặt `data-theme`.
       theme: 'light',
+      // Tầng B′ thứ hai (Story 4.4): `null` là "chưa từng sao lưu", và dòng nhắc chân trang im
+      // lặng tuyệt đối cho tới lần xuất đầu tiên.
+      lastBackupAt: null,
       dieuKien: { keyword: null, date: null },
       expandedIds: [],
       editing: { id: null, text: '', seq: 0 },
@@ -1221,7 +1230,7 @@ describe('action của luồng ghi chuẩn đều nằm trên store, và tập k
     }
   });
 
-  it('sau một vòng nạp–thêm–xóa–tự lưu, state vẫn đúng tám khóa đã chốt', async () => {
+  it('sau một vòng nạp–thêm–xóa–tự lưu, state vẫn đúng tập khóa đã chốt', async () => {
     vi.useFakeTimers();
     const { store } = storeVoiKho({ banDau: banGhiMau() });
     await store.khoiDong();
@@ -1232,7 +1241,7 @@ describe('action của luồng ghi chuẩn đều nằm trên store, và tập k
     expect(Object.keys(store.state).sort()).toEqual(KHOA_STATE);
   });
 
-  it('sau khi chạy cả BA action bản nháp, state vẫn đúng tám khóa — danh tính tab không lọt vào', async () => {
+  it('sau khi chạy cả BA action bản nháp, state vẫn đúng tập khóa — danh tính tab không lọt vào', async () => {
     vi.useFakeTimers();
     const { store } = storeVoiKho({ ketQuaClaim: { tabId: 'tab-moi', text: 'phở' } });
     await store.khoiDongBanNhap();
@@ -1319,7 +1328,7 @@ describe('khoiDongBanNhap — nối danh tính tab với bản nháp giành đư
     expect(store.state.banner).toBe(MA_LOI.DB);
   });
 
-  it('danh tính KHÔNG phải một trường state — tập tám khóa không nới ra', async () => {
+  it('danh tính KHÔNG phải một trường state — tập khóa không nới ra', async () => {
     const { store } = storeVoiKho({ ketQuaClaim: { tabId: 'tab-moi', text: 'phở' } });
     await store.khoiDongBanNhap();
     expect(Object.keys(store.state).sort()).toEqual(KHOA_STATE);

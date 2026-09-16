@@ -15,8 +15,8 @@
 
 import { MA_LOI, loiUngDung } from './errors.js';
 import { fold } from './fold.js';
-import { MAX_NOTE_CHARS } from './limits.js';
-import { localDate } from './time.js';
+import { BACKUP_NUDGE_DAYS, MAX_NOTE_CHARS } from './limits.js';
+import { daysBetween, localDate, nowIso } from './time.js';
 
 /** Số hiệu hình dạng file. Story 4.3 từ chối mọi giá trị khác — hợp đồng chỉ có một phiên bản. */
 export const SCHEMA_VERSION = 1;
@@ -233,4 +233,47 @@ export function gopTheoId(dangCo, tuFile) {
     added += 1;
   }
   return { ketQua: [...theoId.values()], added, skipped };
+}
+
+/**
+ * Câu nhắc thụ động ở chân trang, hoặc `null` khi không có gì để nhắc (Story 4.4, FR-17).
+ *
+ * Sống ở `core/` chứ không ở `app/view/chan-trang.js`: câu chữ và phép đo ngày là cùng một
+ * quyết định, và một view tự đếm ngày là đường thứ hai đo cùng một khoảng cách — đúng cái
+ * AD-4 cấm. View chỉ đổ một chuỗi đã dựng sẵn vào DOM.
+ *
+ * Số ngày đo bằng `daysBetween` của `core/time.js` trên hai khóa `yyyy-MM-dd`, và cửa duy nhất
+ * đổi ISO sang khóa đó là `localDate` — không có phép `slice` thứ hai ở đây. `daysBetween` neo
+ * hai mốc vào giữa trưa UTC, nên một lần đổi giờ mùa hè không làm con số lệch một ngày.
+ *
+ * `>` chứ không `>=`: epic viết "đã QUÁ 7 ngày", và ví dụ chuẩn là ngày thứ tám — tức đúng
+ * bằng ngưỡng vẫn im lặng. Mốc ở TƯƠNG LAI cho số ngày âm, nên nó cũng im lặng, không cần một
+ * nhánh riêng.
+ *
+ * Chưa từng sao lưu (`null` trong kho) thì KHÔNG có câu nào — không phải "Chưa có bản sao lưu
+ * nào." (quyết định đã chốt): một câu thường trực cho tới lần xuất đầu tiên là rác trên màn
+ * hình, và hai link chân trang đã thường trực sẵn.
+ *
+ * Mốc RÁC trong kho đi ra `null` chứ không ném: `lastBackupAt` là thứ ai cũng gõ tay được
+ * trong DevTools, và một `TypeError` ở đây rơi vào giữa một lượt vẽ chung — tức giết cả trang
+ * vì một chuỗi hỏng của một dòng chữ phụ.
+ *
+ * @param {unknown} lastBackupAt Mốc xuất gần nhất, ISO-8601 có offset — hoặc bất cứ thứ gì.
+ * @param {string} [bayGio] Mốc "bây giờ", ISO-8601 có offset. Test bơm vào đây để không ca nào
+ *   phải phụ thuộc ngày chạy máy.
+ * @returns {string|null} Câu nhắc, hoặc `null` khi không hiện gì.
+ */
+export function cauNhacSaoLuu(lastBackupAt, bayGio = nowIso()) {
+  if (typeof lastBackupAt !== 'string') return null;
+  let soNgay;
+  try {
+    soNgay = daysBetween(
+      localDate({ createdAt: lastBackupAt }),
+      localDate({ createdAt: bayGio }),
+    );
+  } catch {
+    return null;
+  }
+  if (soNgay <= BACKUP_NUDGE_DAYS) return null;
+  return `Lần sao lưu gần nhất cách đây ${soNgay} ngày.`;
 }

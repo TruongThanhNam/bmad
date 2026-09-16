@@ -11,6 +11,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   SCHEMA_VERSION,
+  cauNhacSaoLuu,
   docFileSaoLuu,
   dungFileSaoLuu,
   gopTheoId,
@@ -18,7 +19,7 @@ import {
   tenFileSaoLuu,
 } from '../app/core/backup.js';
 import { MA_LOI } from '../app/core/errors.js';
-import { MAX_NOTE_CHARS } from '../app/core/limits.js';
+import { BACKUP_NUDGE_DAYS, MAX_NOTE_CHARS } from '../app/core/limits.js';
 
 /** Ba bản ghi ĐỦ NĂM TRƯỜNG của AD-13 — đúng thứ chảy vào từ `noiBo.notes`. */
 function banGhiDay() {
@@ -411,5 +412,81 @@ describe('gopTheoId — bản ĐANG CÓ luôn thắng, và không bao giờ mấ
     gopTheoId(dangCo, tuFile);
     expect(dangCo).toEqual(truoc);
     expect(tuFile).toHaveLength(1);
+  });
+});
+
+// Story 4.4 — câu nhắc thụ động, kiểm ở tầng lõi bằng hai chuỗi.
+//
+// `bayGio` đi vào qua THAM SỐ ở mọi ca: một ca đọc đồng hồ máy là một ca đổi màu theo ngày
+// chạy nó, và ngưỡng của dòng nhắc thì đo bằng ngày.
+describe('cauNhacSaoLuu — chỉ lên tiếng khi đã QUÁ ngưỡng', () => {
+  /** "Bây giờ" cố định cho cả khối, cùng offset với các mốc dưới đây. */
+  const BAY_GIO = '2026-09-16T10:00:00+07:00';
+
+  it('quá ngưỡng: tám ngày cho đúng nguyên văn một câu, kể cả dấu chấm', () => {
+    // Nguyên văn TỪNG KÝ TỰ, và số viết bằng CHỮ SỐ (quyết định đã chốt) — một bảng đọc số
+    // tiếng Việt là một mặt công khai mới của `core/` mà dòng chữ này không đáng.
+    expect(cauNhacSaoLuu('2026-09-08T10:00:00+07:00', BAY_GIO)).toBe(
+      'Lần sao lưu gần nhất cách đây 8 ngày.',
+    );
+  });
+
+  it('ĐÚNG BẰNG ngưỡng thì im lặng — "quá" là lớn hơn hẳn', () => {
+    expect(cauNhacSaoLuu('2026-09-09T10:00:00+07:00', BAY_GIO)).toBeNull();
+  });
+
+  it('chưa quá ngưỡng, và cùng ngày, đều im lặng', () => {
+    expect(cauNhacSaoLuu('2026-09-14T10:00:00+07:00', BAY_GIO)).toBeNull();
+    expect(cauNhacSaoLuu(BAY_GIO, BAY_GIO)).toBeNull();
+  });
+
+  it('ngày thứ chín vẫn nói, và nói đúng con số của nó', () => {
+    expect(cauNhacSaoLuu('2026-09-07T23:59:00+07:00', BAY_GIO)).toBe(
+      'Lần sao lưu gần nhất cách đây 9 ngày.',
+    );
+  });
+
+  it('chưa từng sao lưu: `null` vào thì `null` ra — KHÔNG có câu "chưa có bản nào"', () => {
+    expect(cauNhacSaoLuu(null, BAY_GIO)).toBeNull();
+    expect(cauNhacSaoLuu(undefined, BAY_GIO)).toBeNull();
+  });
+
+  it('mốc RÁC trong kho không ném ra ngoài — nó chỉ im lặng', () => {
+    // `lastBackupAt` là thứ ai cũng gõ tay được trong DevTools, và một `TypeError` ở đây rơi
+    // vào giữa một lượt vẽ chung, tức giết cả trang vì một dòng chữ phụ.
+    for (const rac of ['hôm qua', '', '2026-13-40T00:00:00+07:00', '2026-09-08', 42, {}]) {
+      expect(cauNhacSaoLuu(rac, BAY_GIO)).toBeNull();
+    }
+  });
+
+  it('`bayGio` rác cũng đi cùng đường đó', () => {
+    expect(cauNhacSaoLuu('2026-09-08T10:00:00+07:00', 'không phải mốc')).toBeNull();
+  });
+
+  it('mốc ở TƯƠNG LAI cho số ngày âm, nên nó im lặng — không cần một nhánh riêng', () => {
+    expect(cauNhacSaoLuu('2026-12-01T10:00:00+07:00', BAY_GIO)).toBeNull();
+  });
+
+  it('đo theo NGÀY TẠI CHỖ của mỗi mốc, không theo ngày UTC', () => {
+    // Mốc xuất lúc 00:30 ở `+07:00`: cắt theo UTC thì nó rơi về hôm trước và dòng nhắc đếm
+    // thừa một ngày — đúng cái AD-4 sinh ra để chặn.
+    expect(cauNhacSaoLuu('2026-09-08T00:30:00+07:00', BAY_GIO)).toBe(
+      'Lần sao lưu gần nhất cách đây 8 ngày.',
+    );
+  });
+
+  it('ngưỡng đọc từ `core/limits.js`, không phải một con số chép tay', () => {
+    // Ngày thứ `BACKUP_NUDGE_DAYS` im lặng, ngày kế tiếp lên tiếng — hai ca này neo vào chính
+    // hằng đó, nên đổi ngưỡng ở `limits.js` không để lại một ca xanh nói sai.
+    const ngay = (n) => `2026-09-${String(16 - n).padStart(2, '0')}T10:00:00+07:00`;
+    expect(cauNhacSaoLuu(ngay(BACKUP_NUDGE_DAYS), BAY_GIO)).toBeNull();
+    expect(cauNhacSaoLuu(ngay(BACKUP_NUDGE_DAYS + 1), BAY_GIO)).toBe(
+      `Lần sao lưu gần nhất cách đây ${BACKUP_NUDGE_DAYS + 1} ngày.`,
+    );
+  });
+
+  it('không có `bayGio` thì đọc đồng hồ máy, và không ném', () => {
+    expect(() => cauNhacSaoLuu(null)).not.toThrow();
+    expect(cauNhacSaoLuu(null)).toBeNull();
   });
 });
