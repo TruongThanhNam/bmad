@@ -13,6 +13,9 @@
 // chép hai nguồn sự thật ra ngoài máy, nơi chúng có thể quay về đã lệch — một file sửa tay với
 // `text` mới mà `textFolded` cũ sẽ nạp vào một ghi chú không tìm được bằng chính chữ của nó.
 
+import { MA_LOI, loiUngDung } from './errors.js';
+import { fold } from './fold.js';
+import { MAX_NOTE_CHARS } from './limits.js';
 import { localDate } from './time.js';
 
 /** Số hiệu hình dạng file. Story 4.3 từ chối mọi giá trị khác — hợp đồng chỉ có một phiên bản. */
@@ -76,4 +79,158 @@ export function dungFileSaoLuu(notes, exportedAt) {
     null,
     THUT_LE,
   );
+}
+
+/** Ba trường BẮT BUỘC của một ghi chú trong file — đúng ba trường mà `dungFileSaoLuu` viết ra.
+ *  Trường dẫn xuất không nằm ở đây vì chúng không nằm trong file (AD-11, AD-13). */
+const TRUONG_BAT_BUOC = Object.freeze(['id', 'createdAt', 'text']);
+
+/** Object THUẦN — một mảng hay `null` không phải một tài liệu sao lưu. */
+function laObjectThuan(giaTri) {
+  return typeof giaTri === 'object' && giaTri !== null && !Array.isArray(giaTri);
+}
+
+/** Từ chối cả file với mã `BAD_FILE`. Một hàm có tên thay vì mười lời gọi chép tay: mọi điều
+ *  kiện "file hỏng" phải ra CÙNG một mã, và một chỗ viết ra là một chỗ không thể trôi. */
+function fileHong() {
+  return loiUngDung(MA_LOI.BAD_FILE);
+}
+
+/**
+ * Dựng lại MỘT bản ghi đủ năm trường từ một phần tử `notes` của file, hoặc ném.
+ *
+ * `localDate` và `textFolded` tính LẠI từ `createdAt` và `text` (AD-11, AD-13) — file không
+ * chứa chúng, và kể cả khi một file sửa tay có chứa thì chúng vẫn bị bỏ: một `textFolded` cũ
+ * đi cùng một `text` mới là một ghi chú không tìm được bằng chính chữ của nó.
+ *
+ * `localDate` cũng LÀ cửa kiểm định dạng `createdAt`: `core/time.js` ném `TypeError` với mọi
+ * thứ không phải ISO-8601 có offset và với mọi ngày không có thật. Viết một regex thứ hai ở
+ * đây là dựng một định nghĩa thứ hai của "một mốc hợp lệ trông như thế nào".
+ *
+ * `text` rỗng hay chỉ khoảng trắng là HỢP LỆ (quyết định đã chốt của spec): trường có mặt và
+ * đúng kiểu thì không phải "thiếu trường bắt buộc", và từ chối 467 ghi chú thật vì một dòng
+ * rỗng là cái giá sai.
+ */
+function banGhiTuFile(mau) {
+  if (!laObjectThuan(mau)) throw fileHong();
+  for (const truong of TRUONG_BAT_BUOC) {
+    if (typeof mau[truong] !== 'string') throw fileHong();
+  }
+  if (mau.id === '') throw fileHong();
+  // Trần kiểm ở cửa thứ BA (AD-14) — và trước phép tính lại, vì một ghi chú quá trần không
+  // được tốn một lần `fold` trên vài chục nghìn ký tự chỉ để rồi bị vứt.
+  if (mau.text.length > MAX_NOTE_CHARS) throw loiUngDung(MA_LOI.TOO_LONG);
+  let ngay;
+  try {
+    ngay = localDate(mau);
+  } catch {
+    // `TypeError` của `core/time.js` là lỗi LẬP TRÌNH ở mọi cửa khác, nhưng ở đây nó là một
+    // file do người khác sửa tay — tức chuyện của người dùng, và đường ra của nó là dải băng.
+    throw fileHong();
+  }
+  return {
+    id: mau.id,
+    createdAt: mau.createdAt,
+    localDate: ngay,
+    text: mau.text,
+    textFolded: fold(mau.text),
+  };
+}
+
+/**
+ * PHA 1 của phép nạp: đọc và kiểm TOÀN BỘ file, rồi trả danh sách bản ghi đủ năm trường.
+ *
+ * Hàm này không chạm kho và không biết kho tồn tại. Nó chỉ có hai đường ra: một mảng đã dựng
+ * xong hoàn toàn, hoặc một `Error` mang mã của AD-18. Nhờ vậy "một ghi chú sai ở cuối file
+ * chặn cả file" là hệ quả của kiểu trả về, không phải của một thứ tự lời gọi ở `state.js`.
+ *
+ * Sáu điều kiện từ chối, và KHÔNG có điều kiện thứ bảy về kích thước (quyết định đã chốt):
+ * JSON hỏng · thiếu trường bắt buộc · `id` trùng nhau trong file · `createdAt` sai dạng ·
+ * `text` vượt trần → `TOO_LONG`; `schemaVersion` khác `SCHEMA_VERSION` → `BAD_VERSION`.
+ *
+ * `schemaVersion` kiểm TRƯỚC `notes`: một file của phiên bản sau có thể mang một hình dạng
+ * `notes` mà bộ kiểm này không hiểu, và "file hỏng" là câu sai cho một file hoàn toàn đúng
+ * của một phiên bản khác.
+ *
+ * @param {string} text Toàn bộ nội dung file, dạng văn bản.
+ * @returns {Array<{id: string, createdAt: string, localDate: string, text: string,
+ *   textFolded: string}>} Bản ghi đã dựng lại, theo đúng thứ tự trong file.
+ */
+export function docFileSaoLuu(text) {
+  let goc;
+  try {
+    goc = JSON.parse(text);
+  } catch {
+    throw fileHong();
+  }
+  if (!laObjectThuan(goc)) throw fileHong();
+  if (goc.schemaVersion !== SCHEMA_VERSION) throw loiUngDung(MA_LOI.BAD_VERSION);
+  if (!Array.isArray(goc.notes)) throw fileHong();
+
+  const daThay = new Set();
+  const ra = [];
+  for (const mau of goc.notes) {
+    const banGhi = banGhiTuFile(mau);
+    // `id` trùng trong CHÍNH file: không có cách nào đúng để gộp hai bản ghi tự xưng là một.
+    if (daThay.has(banGhi.id)) throw fileHong();
+    daThay.add(banGhi.id);
+    ra.push(banGhi);
+  }
+  return ra;
+}
+
+/**
+ * Mốc xuất ghi trong file, hoặc `null` khi file không mang một chuỗi nào ở khóa đó.
+ *
+ * Tách khỏi `docFileSaoLuu` chứ không nhét thêm vào giá trị trả về của nó: `exportedAt` KHÔNG
+ * phải một ghi chú, và nó không đi cùng đường với chúng — nó chỉ có một chỗ đến duy nhất là
+ * `lastBackupAt`, và chỉ khi phép gộp đã thành công. Một mảng mang thêm một thuộc tính lạ thì
+ * mất thuộc tính đó ở lần `.map` đầu tiên, trong im lặng.
+ *
+ * KHÔNG kiểm hình dạng mốc ở đây, và không ném: `exportedAt` không nằm trong sáu điều kiện từ
+ * chối của pha 1, nên một file mang mốc rác vẫn nạp được. Phép so "mới hơn" ở `state.js` là
+ * chỗ hình dạng đó bị hỏi tới, và nó nuốt lỗi — ghi chú đã vào kho rồi.
+ *
+ * @param {string} text Toàn bộ nội dung file, dạng văn bản.
+ * @returns {string|null} Giá trị `exportedAt`, hoặc `null`.
+ */
+export function mocXuatSaoLuu(text) {
+  let goc;
+  try {
+    goc = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (!laObjectThuan(goc)) return null;
+  return typeof goc.exportedAt === 'string' ? goc.exportedAt : null;
+}
+
+/**
+ * PHA 2, phần THUẦN: gộp tập đang có với tập đọc từ file, đối chiếu theo `id`.
+ *
+ * Bản ĐANG CÓ luôn thắng, và đó là toàn bộ luật: `id` đã có thì bỏ qua (không ghi đè một chữ,
+ * `createdAt` gốc giữ nguyên tuyệt đối), `id` chưa có thì thêm. Không xóa, không tombstone —
+ * một ghi chú đã xóa mà còn trong file sao lưu thì sống lại, và đó là hành vi đã chốt: "không
+ * bao giờ mất" đứng trước "không bao giờ sống lại".
+ *
+ * Hai con số trả về là con số THẬT của phép gộp này, và chúng là nguồn duy nhất cho dải băng —
+ * view không bao giờ tự đếm lại, vì hai phép đếm sẽ trôi khỏi nhau đúng ở ca khó nhất.
+ *
+ * @param {Array<object>} dangCo Tập đang có, đọc từ kho (KHÔNG phải từ RAM — xem `state.js`).
+ * @param {Array<object>} tuFile Tập đã dựng lại từ file, kết quả của `docFileSaoLuu`.
+ * @returns {{ ketQua: Array<object>, added: number, skipped: number }}
+ */
+export function gopTheoId(dangCo, tuFile) {
+  const theoId = new Map(dangCo.map((mau) => [mau.id, mau]));
+  let added = 0;
+  let skipped = 0;
+  for (const mau of tuFile) {
+    if (theoId.has(mau.id)) {
+      skipped += 1;
+      continue;
+    }
+    theoId.set(mau.id, mau);
+    added += 1;
+  }
+  return { ketQua: [...theoId.values()], added, skipped };
 }

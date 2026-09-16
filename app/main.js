@@ -70,9 +70,9 @@ function congThat() {
     // Kênh liên tab (Story 3.3): mở LƯỜI như hai adapter trên, nên dòng này không chạm một
     // global nào ở Node — `test/trang-tinh.test.js` import động chính tệp này ở đó.
     channel: taoBroadcast(),
-    // File vào/ra (Story 4.2): `taoFileIo()` chỉ dựng object, `document`/`Blob`/`URL` chỉ bị
-    // hỏi tới bên trong `exportFile` — nên dòng này cũng không chạm global nào ở Node.
-    // `readChosenFile` còn ném "chưa làm" cho tới Story 4.3.
+    // File vào/ra (Story 4.2 + 4.3): `taoFileIo()` chỉ dựng object, `document`/`Blob`/`URL`
+    // chỉ bị hỏi tới bên trong `exportFile` và `readChosenFile` — nên dòng này cũng không chạm
+    // global nào ở Node.
     fileIO: taoFileIo(),
   };
 }
@@ -122,11 +122,16 @@ if (typeof document !== 'undefined') {
   // soạn thảo: lật theme đổi state, và mọi view phải vẽ lại từ state mới.
   const latRoiVe = () => veTatCa();
   const nutTheme = noiNutTheme(store, document, latRoiVe);
-  // Chân trang là view THỨ NĂM, và nó KHÔNG vào `veTatCa`: xuất sao lưu không đổi một trường
-  // state nào, nên `ve()` của nó rỗng và gọi nó mỗi lượt vẽ chung chỉ là một lời gọi không
-  // làm gì. Nối ở đây, sau nút theme, để thứ tự nối của bốn view trên không đổi một dòng.
-  // Story 4.4 đổ chữ vào `.chan-nhac` từ `lastBackupAt` và sẽ có lý do để vào lượt vẽ chung.
-  noiChanTrang(store, document);
+  // Chân trang là view THỨ NĂM, và nó KHÔNG vào `veTatCa`: `ve()` của nó rỗng, nên gọi nó mỗi
+  // lượt vẽ chung chỉ là một lời gọi không làm gì. Nối ở đây, sau nút theme, để thứ tự nối của
+  // bốn view trên không đổi một dòng. Story 4.4 đổ chữ vào `.chan-nhac` từ `lastBackupAt` và
+  // sẽ có lý do để vào lượt vẽ chung.
+  //
+  // Nhưng nó NHẬN lượt vẽ chung qua tham số, và chỉ chiều NẠP dùng tới: nạp đổi `notes` và đổi
+  // dải băng, nên lưới, tiêu đề tab và dải băng đều phải vẽ lại — trong khi xuất không đổi một
+  // trường state nào. Một lớp bọc lười vì `veTatCa` khai ngay bên dưới, cùng khuôn `latRoiVe`.
+  const napRoiVe = () => veTatCa();
+  noiChanTrang(store, document, napRoiVe);
   // Một callback vẽ chung cho cả bốn view: đây là chỗ DUY NHẤT biết rằng "vẽ lại" nghĩa là
   // vẽ lại cả bốn. Treo riêng từng cái vào từng điểm nối là cách một view mới bị quên ở một
   // trong hai chỗ, và tiêu đề sẽ đứng yên sau lần chốt mà không làm gì đỏ cả.

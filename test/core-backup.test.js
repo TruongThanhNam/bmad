@@ -9,7 +9,16 @@
 // trôi qua trong im lặng tới lúc Story 4.3 phân tích phải nó.
 
 import { describe, expect, it } from 'vitest';
-import { SCHEMA_VERSION, dungFileSaoLuu, tenFileSaoLuu } from '../app/core/backup.js';
+import {
+  SCHEMA_VERSION,
+  docFileSaoLuu,
+  dungFileSaoLuu,
+  gopTheoId,
+  mocXuatSaoLuu,
+  tenFileSaoLuu,
+} from '../app/core/backup.js';
+import { MA_LOI } from '../app/core/errors.js';
+import { MAX_NOTE_CHARS } from '../app/core/limits.js';
 
 /** Ba bản ghi ĐỦ NĂM TRƯỜNG của AD-13 — đúng thứ chảy vào từ `noiBo.notes`. */
 function banGhiDay() {
@@ -127,5 +136,280 @@ describe('dungFileSaoLuu — đúng ba trường mỗi ghi chú, không một tr
         '}',
       ].join('\n'),
     );
+  });
+});
+
+// ————————————————————————————————————————————————————————————————————————————————————————
+// Story 4.3 — chiều NẠP của cùng hợp đồng file đó: pha 1 (kiểm) và phép gộp theo `id`.
+//
+// Cả hai là hàm THUẦN, nên toàn bộ phần logic dễ sai nhất của ứng dụng kiểm được ở Node bằng
+// một chuỗi — không kho, không trình duyệt, không một lời hứa nào.
+
+/** Một file sao lưu hợp lệ, dựng từ đối tượng rồi in ra chuỗi. */
+function fileVoi(phan = {}) {
+  return JSON.stringify({
+    schemaVersion: SCHEMA_VERSION,
+    exportedAt: MOC_XUAT,
+    notes: [{ id: 'a', createdAt: '2026-09-15T09:12:00+07:00', text: 'phở' }],
+    ...phan,
+  });
+}
+
+/** Mã lỗi của một lời gọi đã ném, hoặc `null` nếu nó không ném. */
+function maKhiNem(chay) {
+  try {
+    chay();
+  } catch (loi) {
+    return loi.code;
+  }
+  return null;
+}
+
+describe('docFileSaoLuu — pha 1 kiểm TOÀN BỘ file trước khi ai chạm kho', () => {
+  it('dựng lại đủ NĂM trường, tính lại `localDate` và `textFolded` từ file ba trường', () => {
+    expect(docFileSaoLuu(fileVoi())).toEqual([
+      {
+        id: 'a',
+        createdAt: '2026-09-15T09:12:00+07:00',
+        localDate: '2026-09-15',
+        text: 'phở',
+        textFolded: 'pho',
+      },
+    ]);
+  });
+
+  it('`localDate` là ngày TẠI CHỖ — chứng minh bằng một offset ÂM', () => {
+    // 23:30 ở `-05:00` là 04:30 hôm SAU theo UTC. Nạp trên một máy đặt múi giờ khác không được
+    // đẩy ghi chú sang ngày khác — đó chính là thứ AD-4 sinh ra để chặn.
+    const ra = docFileSaoLuu(
+      fileVoi({ notes: [{ id: 'a', createdAt: '2026-09-15T23:30:00-05:00', text: 'x' }] }),
+    );
+    expect(ra[0].localDate).toBe('2026-09-15');
+  });
+
+  it('KHÔNG đọc trường dẫn xuất từ file — một `textFolded` sửa tay bị bỏ hẳn', () => {
+    // Một file sửa tay với `text` mới mà `textFolded` cũ nạp vào một ghi chú không tìm được
+    // bằng chính chữ của nó (AD-11, AD-13).
+    const ra = docFileSaoLuu(
+      fileVoi({
+        notes: [
+          {
+            id: 'a',
+            createdAt: '2026-09-15T09:12:00+07:00',
+            text: 'bún chả',
+            textFolded: 'RÁC',
+            localDate: '1999-01-01',
+          },
+        ],
+      }),
+    );
+    expect(ra[0].textFolded).toBe('bun cha');
+    expect(ra[0].localDate).toBe('2026-09-15');
+    expect(Object.keys(ra[0]).sort()).toEqual([
+      'createdAt',
+      'id',
+      'localDate',
+      'text',
+      'textFolded',
+    ]);
+  });
+
+  it('`notes: []` là một file hợp lệ, và nó trả về mảng rỗng', () => {
+    expect(docFileSaoLuu(fileVoi({ notes: [] }))).toEqual([]);
+  });
+
+  it('`text` rỗng hay chỉ khoảng trắng là HỢP LỆ — quyết định đã chốt của spec', () => {
+    // Trường có mặt và đúng kiểu thì không phải "thiếu trường bắt buộc". Từ chối cả file vì
+    // một dòng rỗng là cái giá sai; Epic 5.2 sẽ tự dọn.
+    const ra = docFileSaoLuu(
+      fileVoi({
+        notes: [
+          { id: 'a', createdAt: '2026-09-15T09:12:00+07:00', text: '' },
+          { id: 'b', createdAt: '2026-09-15T09:13:00+07:00', text: '   ' },
+        ],
+      }),
+    );
+    expect(ra.map((mau) => mau.text)).toEqual(['', '   ']);
+  });
+
+  it('`schemaVersion` khác → `BAD_VERSION`, và đó là mã RIÊNG, không phải `BAD_FILE`', () => {
+    expect(maKhiNem(() => docFileSaoLuu(fileVoi({ schemaVersion: 2 })))).toBe(MA_LOI.BAD_VERSION);
+    expect(maKhiNem(() => docFileSaoLuu(fileVoi({ schemaVersion: '1' })))).toBe(
+      MA_LOI.BAD_VERSION,
+    );
+  });
+
+  it('mỗi điều kiện "file hỏng" ra đúng `BAD_FILE`', () => {
+    const hong = {
+      'JSON hỏng': '{ đây không phải json',
+      'gốc là mảng': '[]',
+      'gốc là chuỗi': '"xin chào"',
+      'thiếu notes': JSON.stringify({ schemaVersion: SCHEMA_VERSION, exportedAt: MOC_XUAT }),
+      'notes không phải mảng': fileVoi({ notes: {} }),
+      'phần tử không phải object': fileVoi({ notes: ['a'] }),
+      'thiếu id': fileVoi({ notes: [{ createdAt: '2026-09-15T09:12:00+07:00', text: 'x' }] }),
+      'id rỗng': fileVoi({ notes: [{ id: '', createdAt: '2026-09-15T09:12:00+07:00', text: 'x' }] }),
+      'id không phải chuỗi': fileVoi({
+        notes: [{ id: 7, createdAt: '2026-09-15T09:12:00+07:00', text: 'x' }],
+      }),
+      'thiếu text': fileVoi({ notes: [{ id: 'a', createdAt: '2026-09-15T09:12:00+07:00' }] }),
+      'text không phải chuỗi': fileVoi({
+        notes: [{ id: 'a', createdAt: '2026-09-15T09:12:00+07:00', text: null }],
+      }),
+      'thiếu createdAt': fileVoi({ notes: [{ id: 'a', text: 'x' }] }),
+      'createdAt không có offset': fileVoi({
+        notes: [{ id: 'a', createdAt: '2026-09-15T09:12:00', text: 'x' }],
+      }),
+      'createdAt chỉ có ngày': fileVoi({ notes: [{ id: 'a', createdAt: '2026-09-15', text: 'x' }] }),
+      'createdAt là ngày không có thật': fileVoi({
+        notes: [{ id: 'a', createdAt: '2026-02-30T09:12:00+07:00', text: 'x' }],
+      }),
+      'id trùng nhau trong CHÍNH file': fileVoi({
+        notes: [
+          { id: 'a', createdAt: '2026-09-15T09:12:00+07:00', text: 'x' },
+          { id: 'a', createdAt: '2026-09-15T09:13:00+07:00', text: 'y' },
+        ],
+      }),
+    };
+    const sai = [];
+    for (const [ten, noiDung] of Object.entries(hong)) {
+      const ma = maKhiNem(() => docFileSaoLuu(noiDung));
+      if (ma !== MA_LOI.BAD_FILE) sai.push(`${ten} → ${String(ma)}`);
+    }
+    expect(sai).toEqual([]);
+  });
+
+  it('`text` vượt `MAX_NOTE_CHARS` → `TOO_LONG`, và đúng trần thì KHÔNG', () => {
+    const vua = 'a'.repeat(MAX_NOTE_CHARS);
+    expect(
+      docFileSaoLuu(fileVoi({ notes: [{ id: 'a', createdAt: MOC_XUAT, text: vua }] })),
+    ).toHaveLength(1);
+    expect(
+      maKhiNem(() =>
+        docFileSaoLuu(fileVoi({ notes: [{ id: 'a', createdAt: MOC_XUAT, text: `${vua}a` }] })),
+      ),
+    ).toBe(MA_LOI.TOO_LONG);
+  });
+
+  it('một ghi chú sai ở phần tử CUỐI vẫn từ chối CẢ file', () => {
+    // Đây là toàn bộ điểm của "hai pha": pha 1 không trả về một nửa nào, nên `state.js` không
+    // có cách nào ghi 467 ghi chú đúng rồi dừng ở cái thứ 468.
+    const nhieu = [];
+    for (let i = 0; i < 20; i += 1) {
+      nhieu.push({ id: `id-${i}`, createdAt: '2026-09-15T09:12:00+07:00', text: `ghi ${i}` });
+    }
+    nhieu.push({ id: 'cuoi', createdAt: 'RÁC', text: 'x' });
+    expect(maKhiNem(() => docFileSaoLuu(fileVoi({ notes: nhieu })))).toBe(MA_LOI.BAD_FILE);
+    // Và cùng danh sách đó, bỏ phần tử cuối, thì nạp trọn vẹn.
+    nhieu.pop();
+    expect(docFileSaoLuu(fileVoi({ notes: nhieu }))).toHaveLength(20);
+  });
+
+  it('không thêm trần kích thước nào — một file rất nhiều ghi chú vẫn nạp', () => {
+    // Quyết định đã chốt #1: pha 1 có đúng sáu điều kiện từ chối, không có điều kiện thứ bảy.
+    const nhieu = [];
+    for (let i = 0; i < 2000; i += 1) {
+      nhieu.push({ id: `id-${i}`, createdAt: '2026-09-15T09:12:00+07:00', text: `ghi ${i}` });
+    }
+    expect(docFileSaoLuu(fileVoi({ notes: nhieu }))).toHaveLength(2000);
+  });
+
+  it('VÒNG TRÒN: thứ `dungFileSaoLuu` viết ra thì `docFileSaoLuu` đọc lại đúng nguyên', () => {
+    // Nửa cứng của UJ-3: "file xuất ra nạp lại được" phải là một ca đỏ khi nó gãy, không phải
+    // một lời hứa của hai đoạn mã không ai đối chiếu.
+    const goc = banGhiDay();
+    expect(docFileSaoLuu(dungFileSaoLuu(goc, MOC_XUAT))).toEqual(goc);
+  });
+});
+
+describe('mocXuatSaoLuu — mốc của file, và không bao giờ ném', () => {
+  it('trả đúng `exportedAt` của file', () => {
+    expect(mocXuatSaoLuu(fileVoi())).toBe(MOC_XUAT);
+  });
+
+  it('file không có mốc, mốc sai kiểu, hay JSON hỏng → `null`, KHÔNG ném', () => {
+    expect(mocXuatSaoLuu(fileVoi({ exportedAt: undefined }))).toBeNull();
+    expect(mocXuatSaoLuu(fileVoi({ exportedAt: 7 }))).toBeNull();
+    expect(mocXuatSaoLuu('{ hỏng')).toBeNull();
+    expect(mocXuatSaoLuu('[]')).toBeNull();
+  });
+
+  it('mốc RÁC vẫn trả về nguyên trạng — pha 1 không kiểm nó, và đó là chủ ý', () => {
+    // `exportedAt` không nằm trong sáu điều kiện từ chối, nên một mốc rác không được chặn cả
+    // file. Phép so "mới hơn" ở `state.js` là chỗ nó bị hỏi tới, và chỗ đó nuốt lỗi.
+    expect(mocXuatSaoLuu(fileVoi({ exportedAt: 'hôm qua' }))).toBe('hôm qua');
+  });
+});
+
+describe('gopTheoId — bản ĐANG CÓ luôn thắng, và không bao giờ mất gì', () => {
+  const dangCo = [
+    {
+      id: 'a',
+      createdAt: '2026-09-14T22:00:00+07:00',
+      localDate: '2026-09-14',
+      text: 'cũ',
+      textFolded: 'cu',
+    },
+    {
+      id: 'b',
+      createdAt: '2026-09-15T09:12:00+07:00',
+      localDate: '2026-09-15',
+      text: 'hai',
+      textFolded: 'hai',
+    },
+  ];
+
+  it('hai con số THẬT, và kho ra đúng bốn bản ghi', () => {
+    const tuFile = docFileSaoLuu(
+      fileVoi({
+        notes: [
+          { id: 'a', createdAt: '2026-09-14T22:00:00+07:00', text: 'bản trong file' },
+          { id: 'c', createdAt: '2026-09-16T08:00:00+07:00', text: 'ba' },
+          { id: 'd', createdAt: '2026-09-16T09:00:00+07:00', text: 'bốn' },
+        ],
+      }),
+    );
+    const { ketQua, added, skipped } = gopTheoId(dangCo, tuFile);
+    expect({ added, skipped }).toEqual({ added: 2, skipped: 1 });
+    expect(ketQua.map((mau) => mau.id).sort()).toEqual(['a', 'b', 'c', 'd']);
+  });
+
+  it('`id` đã có thì bản trong kho KHÔNG đổi một chữ — kể cả khi file nói khác', () => {
+    const tuFile = docFileSaoLuu(
+      fileVoi({ notes: [{ id: 'a', createdAt: '2026-01-01T00:00:00+07:00', text: 'ĐÈ LÊN' }] }),
+    );
+    const { ketQua, added, skipped } = gopTheoId(dangCo, tuFile);
+    expect({ added, skipped }).toEqual({ added: 0, skipped: 1 });
+    // So bằng THAM CHIẾU: bản đang có phải đi qua nguyên vẹn, không phải một bản sao "bằng nhau".
+    expect(ketQua.find((mau) => mau.id === 'a')).toBe(dangCo[0]);
+  });
+
+  it('không xóa gì: một ghi chú chỉ có trong kho vẫn ở lại sau khi gộp', () => {
+    const { ketQua, added, skipped } = gopTheoId(dangCo, []);
+    expect({ added, skipped }).toEqual({ added: 0, skipped: 0 });
+    expect(ketQua.map((mau) => mau.id)).toEqual(['a', 'b']);
+  });
+
+  it('kho rỗng: cả file vào hết, `createdAt` gốc giữ nguyên tuyệt đối', () => {
+    const tuFile = docFileSaoLuu(fileVoi());
+    const { ketQua, added, skipped } = gopTheoId([], tuFile);
+    expect({ added, skipped }).toEqual({ added: 1, skipped: 0 });
+    expect(ketQua[0].createdAt).toBe('2026-09-15T09:12:00+07:00');
+  });
+
+  it('gộp LẦN HAI cùng một file thì không thêm gì nữa — phép gộp lũy đẳng', () => {
+    const tuFile = docFileSaoLuu(fileVoi());
+    const lan1 = gopTheoId(dangCo, tuFile);
+    const lan2 = gopTheoId(lan1.ketQua, tuFile);
+    expect({ added: lan2.added, skipped: lan2.skipped }).toEqual({ added: 0, skipped: 1 });
+    expect(lan2.ketQua).toHaveLength(lan1.ketQua.length);
+  });
+
+  it('không đụng hai mảng nguồn', () => {
+    const tuFile = docFileSaoLuu(fileVoi({ notes: [{ id: 'z', createdAt: MOC_XUAT, text: 'z' }] }));
+    const truoc = JSON.parse(JSON.stringify(dangCo));
+    gopTheoId(dangCo, tuFile);
+    expect(dangCo).toEqual(truoc);
+    expect(tuFile).toHaveLength(1);
   });
 });

@@ -86,13 +86,25 @@ export function noiBanner(store, goc = document, sauKhiDong = () => {}) {
    */
   let daVe;
 
+  /**
+   * Hai con số đã vẽ ra ở lượt trước — nửa thứ hai của cùng phép so đó.
+   *
+   * Không có nó thì hai lần nạp liên tiếp (cùng ra `NAP_FILE_XONG`) sẽ đứng im với con số của
+   * lần đầu: `state.banner` bằng nhau ở cả hai lượt, và câu chữ thì khác hẳn. So bằng THAM
+   * CHIẾU là đủ và đúng — `core/state.js` dựng một object mới cho mỗi lần đặt, và nó không bao
+   * giờ sửa tại chỗ (`datLai`).
+   */
+  let daVeSo;
+
   function ve() {
     const loai = store.state.banner;
+    const so = store.state.bannerSo;
     // Không đổi thì không chạm DOM. Vùng `aria-live` chỉ đọc lên khi nội dung THAY ĐỔI, nên
     // "không chạm" ở đây chính là "không đọc lại".
-    if (loai === daVe) return;
+    if (loai === daVe && so === daVeSo) return;
     daVe = loai;
-    const chu = loai === null || loai === undefined ? null : microcopyBanner(loai);
+    daVeSo = so;
+    const chu = loai === null || loai === undefined ? null : microcopyBanner(loai, so);
     if (chu === null || chu === undefined) {
       bang.replaceChildren();
       return;

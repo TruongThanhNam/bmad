@@ -106,16 +106,19 @@ describe('Hai link không bao giờ ẩn (UX-DR-19)', () => {
     expect(viPham).toEqual([]);
   });
 
-  it('chỉ `#chan-xuat` có hành vi; `#chan-nap` vẫn trơ, và không ai sinh/diệt hai link', () => {
-    // RENEGOTIATE CÓ GHI CHÉP (Story 4.2) — ca này trước đây đọc "không module nào ở
-    // `app/view/` cầm tới hai link", và chú thích của nó đã báo trước rằng 4.2/4.3 sẽ phải
-    // đàm phán lại. Lý do đổi: 4.2 nối hành vi XUẤT, nên "không ai cầm tới" không còn là một
-    // bất biến thật. Cái bất biến THẬT thì không đổi một chữ, và ba vế dưới đây giữ đúng nó:
+  it('cả hai link có hành vi, và CHỈ `chan-trang.js` cầm tới chúng — không ai sinh/diệt', () => {
+    // RENEGOTIATE CÓ GHI CHÉP LẦN HAI (Story 4.3) — vế (b) trước đây đọc "chiều NẠP chưa tồn
+    // tại: không view nào cầm tới `#chan-nap`", và chú thích của chính nó đã báo trước rằng
+    // 4.3 sẽ phải đàm phán lại. Lý do đổi: 4.3 nối hành vi NẠP, nên "không ai cầm tới" không
+    // còn là một bất biến thật — y hệt điều đã xảy ra với vế xuất ở 4.2.
+    //
+    // Cái bất biến THẬT thì vẫn không đổi một chữ, và ba vế dưới đây giữ đúng nó:
     //
     //   (a) không module nào cầm tới hai link bằng CLASS hay bằng NHÃN — chỉ bằng `id`. Một
     //       `querySelectorAll('.chan-link')[0]` gắn hành vi xuất vào nút nạp ở ngày ai đó đảo
     //       thứ tự, và một bộ chọn theo nhãn gãy ở ngày đổi microcopy.
-    //   (b) chiều NẠP chưa tồn tại: không view nào cầm tới `#chan-nap`. Story 4.3 sở hữu nó.
+    //   (b) ĐÚNG MỘT view cầm tới `#chan-nap`, và đó là `chan-trang.js`. Một handler nạp thứ
+    //       hai ở một view khác là một cửa thứ hai cho phép gộp dễ sai nhất của ứng dụng.
     //   (c) không view nào ẩn/hiện hai link — không `hidden`, không `display`, không `remove`.
     expect(chanTrang).not.toMatch(/\son[a-z]+\s*=/i);
     const viPham = [];
@@ -123,7 +126,7 @@ describe('Hai link không bao giờ ẩn (UX-DR-19)', () => {
       const ma = boChuThichJs(readFileSync(join(repoRoot, 'app', 'view', ten), 'utf8'));
       const nhan = `app/view/${ten}`;
       if (/chan-link|chan-nhac|xuất sao lưu|nạp lại/.test(ma)) viPham.push(`${nhan} — (a)`);
-      if (/chan-nap/.test(ma)) viPham.push(`${nhan} — (b)`);
+      if (/chan-nap/.test(ma) && ten !== 'chan-trang.js') viPham.push(`${nhan} — (b)`);
       // (c) hỏi về HAI LINK, không về mọi phép gỡ nút: `view/banner.js` gỡ nút `✕` của chính
       // nó ở mỗi lượt vẽ, và một ca chân trang không được đỏ vì chuyện đó. Nên chỉ những module
       // CÓ cầm tới chân trang mới bị soi — tức `chan-trang.js`, và bất cứ module nào sau này
@@ -142,6 +145,9 @@ describe('Hai link không bao giờ ẩn (UX-DR-19)', () => {
     const ma = boChuThichJs(readFileSync(join(repoRoot, 'app', 'view', 'chan-trang.js'), 'utf8'));
     expect(ma).toMatch(/#chan-xuat/);
     expect(ma).toMatch(/store\.xuatSaoLuu\(\)/);
+    // Và chiều nạp, cũng bằng đúng `id` của nó (Story 4.3).
+    expect(ma).toMatch(/#chan-nap/);
+    expect(ma).toMatch(/store\.napSaoLuu\(\)/);
   });
 });
 
@@ -162,6 +168,10 @@ describe('Hành vi của `#chan-xuat`: một cú bấm, một action, không m�
         goi.push('xuat');
         return Promise.resolve();
       },
+      napSaoLuu: () => {
+        goi.push('nap');
+        return Promise.resolve();
+      },
     };
     const { nut, doc } = taiLieuGia();
     const view = noiChanTrang(store, doc);
@@ -179,6 +189,70 @@ describe('Hành vi của `#chan-xuat`: một cú bấm, một action, không m�
   });
 });
 
+describe('Hành vi của `#chan-nap`: một action, rồi MỘT lượt vẽ lại (Story 4.3)', () => {
+  /** Hai nút, mỗi cái sau một `id` riêng — đúng cách `chan-trang.js` tìm chúng. */
+  function taiLieuHaiNut() {
+    const nut = () => ({
+      boNghe: {},
+      addEventListener(ten, ham) {
+        this.boNghe[ten] = ham;
+      },
+    });
+    const xuat = nut();
+    const nap = nut();
+    const theo = { '#chan-xuat': xuat, '#chan-nap': nap };
+    return { xuat, nap, doc: { querySelector: (chon) => theo[chon] ?? null } };
+  }
+
+  it('bấm gọi `store.napSaoLuu()` rồi vẽ lại — khác hẳn nút xuất, và có lý do', async () => {
+    // Nạp đổi `notes` VÀ đổi dải băng; xuất không đổi một trường state nào. Đây là khác biệt
+    // thật giữa hai link, không phải một chỗ viết thiếu ở một trong hai.
+    const goi = [];
+    const store = {
+      napSaoLuu: () => {
+        goi.push('nap');
+        return Promise.resolve();
+      },
+      xuatSaoLuu: () => {
+        goi.push('xuat');
+        return Promise.resolve();
+      },
+    };
+    const { nap, doc } = taiLieuHaiNut();
+    noiChanTrang(store, doc, () => goi.push('ve'));
+    nap.boNghe.click();
+    // Vẽ lại đi SAU lời hứa: mọi thứ đáng vẽ nằm sau phép đọc file và phép ghi kho.
+    expect(goi).toEqual(['nap']);
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(goi).toEqual(['nap', 've']);
+  });
+
+  it('bấm nút xuất KHÔNG kéo theo lượt vẽ nào — im lặng tuyệt đối vẫn đứng', async () => {
+    const goi = [];
+    const store = {
+      napSaoLuu: () => Promise.resolve(),
+      xuatSaoLuu: () => {
+        goi.push('xuat');
+        return Promise.resolve();
+      },
+    };
+    const { xuat, doc } = taiLieuHaiNut();
+    noiChanTrang(store, doc, () => goi.push('ve'));
+    xuat.boNghe.click();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(goi).toEqual(['xuat']);
+  });
+
+  it('không có móc vẽ lại thì vẫn không ném — mặc định là một hàm rỗng', async () => {
+    const { nap, doc } = taiLieuHaiNut();
+    noiChanTrang({ napSaoLuu: () => Promise.resolve(), xuatSaoLuu() {} }, doc);
+    expect(() => nap.boNghe.click()).not.toThrow();
+    await Promise.resolve();
+  });
+});
+
 describe('Điểm nối ở `app/main.js` — nửa vỡ trong im lặng của cả đường xuất', () => {
   // Hai dòng dưới đây bị xóa đi thì MỌI ca trên vẫn xanh và nút xuất chết hẳn: view không được
   // nối vào tài liệu thật, hay cổng `fileIO` rơi về stub `congTam()` ném "chưa nối adapter" —
@@ -186,19 +260,33 @@ describe('Điểm nối ở `app/main.js` — nửa vỡ trong im lặng của c
   // `app/main.js nối dải băng vào CÙNG lượt vẽ chung` của `banner.test.js`.
   const main = boChuThichJs(readFileSync(join(repoRoot, 'app', 'main.js'), 'utf8'));
 
-  it('gọi `noiChanTrang(store, document)` — view được nối vào tài liệu thật', () => {
-    expect(main).toMatch(/noiChanTrang\s*\(\s*store\s*,\s*document\s*\)/);
+  it('gọi `noiChanTrang(store, …)` với tài liệu thật VÀ móc vẽ lại của chiều nạp', () => {
+    // Tham số thứ ba là Story 4.3: nạp đổi `notes` và đổi dải băng, nên lượt vẽ chung phải
+    // xuống được tới đây. Bắt luôn thân của móc đó, cùng khuôn quét `dongRoiVe` của
+    // `banner.test.js` — treo một hàm rỗng vào đó thì mọi ca trên vẫn xanh và lưới đứng im.
+    const noi = /noiChanTrang\s*\(\s*store\s*,\s*document\s*,\s*([\w$]+)\s*\)/.exec(main);
+    expect(noi).not.toBeNull();
+    expect(main).toMatch(new RegExp(`\\b${noi[1]}\\s*=\\s*\\(\\s*\\)\\s*=>\\s*veTatCa\\s*\\(`));
     expect(main).toMatch(/import\s*\{[^}]*\bnoiChanTrang\b[^}]*\}\s*from\s*'\.\/view\/chan-trang\.js'/);
   });
 
   it('cổng `fileIO` là ADAPTER THẬT, không còn là stub `congTam()`', async () => {
-    // Phân biệt bằng CHÍNH câu hai bên ném: stub nói "chưa nối adapter", adapter nói "chưa làm
-    // — Story 4.3". Hỏi `readChosenFile` chứ không `exportFile`, vì chỉ nó ném ở Node mà không
-    // cần một `document` nào.
+    // RENEGOTIATE CÓ GHI CHÉP (Story 4.3) — ca này trước đây phân biệt hai bên bằng CHÍNH câu
+    // chúng ném: stub nói "chưa nối adapter", adapter nói "chưa làm — Story 4.3". Vế sau chết
+    // đúng ở story này, vì `readChosenFile` bây giờ có thân thật. Câu hỏi thì không đổi: cổng
+    // `fileIO` của `main.js` có phải adapter thật không.
+    //
+    // Chỗ phân biệt mới: stub NÉM đồng bộ với mọi phương thức, còn adapter thật thì không —
+    // nó trả về một lời hứa, và ở Node nó chỉ hỏng vì `document` vắng mặt, tức một lời hứa bị
+    // TỪ CHỐI. Hai hình dạng đó không thể nhầm với nhau.
     const { congTam } = await import('../app/main.js');
     const thatSu = await import('../app/adapters/file-io.js');
     expect(() => congTam().fileIO.readChosenFile()).toThrow(/chưa nối adapter/);
-    expect(() => thatSu.taoFileIo().readChosenFile()).toThrow(/chưa làm — Story 4\.3/);
+    const daGoi = thatSu.taoFileIo().readChosenFile();
+    expect(daGoi).toBeInstanceOf(Promise);
+    // Không có `document` ở Node: `throw` đồng bộ trong executor thành một lời hứa bị từ chối,
+    // đúng cửa mà nhánh dải băng của `napSaoLuu` đang chờ — không phải một lời hứa treo mãi.
+    await expect(daGoi).rejects.toThrow();
     expect(main).toMatch(/fileIO\s*:\s*taoFileIo\s*\(\s*\)/);
     expect(main).toMatch(/import\s*\{[^}]*\btaoFileIo\b[^}]*\}\s*from\s*'\.\/adapters\/file-io\.js'/);
   });

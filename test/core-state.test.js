@@ -42,6 +42,12 @@ function portsThieu(tenCong, tenPhuongThuc) {
 // `app/view/nut-theme.js` vì nhãn nút là một hàm của theme (AD-19) — và một ô nhớ ở tầng view
 // là đúng đường đổi state thứ hai mà AD-1 cấm. Đổi lấy: phép ghi kho bền vẫn nằm trọn trong
 // `state.js`, và lỗi ghi tự đi ra dải băng qua khuôn `ghiTruocDatSau` đã có.
+//
+// Và nới 8 → 9 ở Story 4.3, cũng có chủ ý và cũng đúng một lần: `bannerSo` chở HAI CON SỐ của
+// hàng 6 (`Đã nạp N ghi chú, bỏ qua M ghi chú đã có.`), thứ mà một `banner` kiểu chuỗi không
+// chở được. Nó là một trường CẠNH `banner` chứ không phải một `banner` kiểu object vì
+// `core/banner.js:30-35` đã cân và từ chối phép đổi đó — và `datLai` xoá nó ở mọi lần đặt dải
+// băng không nói gì về nó, nên nó không bao giờ lệch khỏi loại đang hiện.
 const KHOA_STATE = [
   'notes',
   'draft',
@@ -50,6 +56,7 @@ const KHOA_STATE = [
   'expandedIds',
   'editing',
   'banner',
+  'bannerSo',
   'readOnly',
 ].sort();
 
@@ -66,6 +73,8 @@ describe('taoStore — khởi tạo', () => {
       expandedIds: [],
       editing: { id: null, text: '', seq: 0 },
       banner: null,
+      // Hai con số của hàng 6 — `null` là "không có dải băng nào đang mang số" (Story 4.3).
+      bannerSo: null,
       readOnly: false,
     });
   });
@@ -359,9 +368,17 @@ function khoGia(tuyChon = {}) {
       if (!Object.prototype.hasOwnProperty.call(tuChoi, 'remove')) banGhi.delete(id);
       return ra('remove');
     },
+    // Ghi THẬT vào `banGhi`, và thay SẠCH: `replaceAll` là "một giao dịch, hoặc tất cả hoặc
+    // không gì" (`ports/note-store.js:49-57`), nên một bản giả chỉ ghi nhật ký sẽ làm phép gộp
+    // file sao lưu (Story 4.3) xanh mà không ai kiểm được kho sau đó chứa gì. Từ chối thì
+    // `banGhi` KHÔNG đổi một bản ghi nào — đúng nửa "kho cuộn ngược" của cùng hợp đồng đó.
     replaceAll(notes) {
       nhatKy.push('replaceAll');
       quanSat('replaceAll', notes);
+      if (!Object.prototype.hasOwnProperty.call(tuChoi, 'replaceAll')) {
+        banGhi.clear();
+        for (const mau of notes) banGhi.set(mau.id, mau);
+      }
       return ra('replaceAll');
     },
 

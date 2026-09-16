@@ -76,9 +76,10 @@ export const BANG_UU_TIEN = Object.freeze([
  *
  * Hàng 6 là `null`, có chủ đích: nguyên văn của nó là `Đã nạp N ghi chú, bỏ qua M ghi chú đã
  * có.` — nó MANG HAI CON SỐ THẬT, nên một chuỗi loại trần không chở được dữ liệu đó. Story
- * này chỉ khai hàng; Epic 4 gắn phần tham số khi nó dựng người phát. `null` ở đây nghĩa là
- * "hàng có mặt trong bảng, chữ chưa có" — và `view/banner.js` vẽ RỖNG với nó, chứ không vẽ
- * một dải băng trắng không ai hiểu.
+ * 4.3 đã gắn phần tham số (`cauNapFileXong` bên dưới), nhưng giá trị trong BẢNG vẫn là `null`
+ * và phải ở nguyên như vậy: `null` ở đây nghĩa là "hàng có mặt trong bảng, chữ chỉ dựng được
+ * khi có hai con số" — và `view/banner.js` vẽ RỖNG khi thiếu chúng, chứ không vẽ một dải băng
+ * trắng không ai hiểu.
  */
 export const MICROCOPY_BANG = Object.freeze({
   [LOAI_BANG.NAP_FILE_XONG]: null,
@@ -137,6 +138,22 @@ export function thayDuoc(dangHien, moi) {
 }
 
 /**
+ * Câu của hàng 6, dựng từ hai con số THẬT của phép gộp (`core/backup.js` → `gopTheoId`).
+ *
+ * Nguyên văn `EXPERIENCE.md` (bảng "Dải băng thông báo", dòng 6) — từng ký tự, và hai con số
+ * viết bằng CHỮ SỐ. Đây là ngoại lệ duy nhất của quy tắc im-lặng-khi-thành-công (AD-16), nên
+ * nó phải nói ra đúng chuyện vừa xảy ra chứ không nói "xong rồi".
+ *
+ * Thiếu tham số → `null`, không phải một câu có chỗ trống: một dải băng nói "Đã nạp undefined
+ * ghi chú" tệ hơn hẳn một dải băng không hiện ra.
+ */
+function cauNapFileXong(so) {
+  if (so === null || so === undefined) return null;
+  if (typeof so.added !== 'number' || typeof so.skipped !== 'number') return null;
+  return `Đã nạp ${so.added} ghi chú, bỏ qua ${so.skipped} ghi chú đã có.`;
+}
+
+/**
  * Nguyên văn microcopy của một loại dải băng — hoặc `null` khi hàng chưa có chữ.
  *
  * Phân nhánh theo BẢNG, không gọi thẳng `microcopyLoi` cho mọi hàng: hai sentinel không nằm
@@ -147,11 +164,17 @@ export function thayDuoc(dangHien, moi) {
  * chính nó hôm nay, nên hai phép tra tình cờ cho cùng kết quả — nhưng `MICROCOPY` là chỗ câu
  * chữ THẬT SỰ sống, và tra nó là phép kiểm đúng cho câu hỏi "hàng này có câu sẵn chưa".
  *
+ * `so` là THAM SỐ TUỲ CHỌN, và chỉ hàng 6 đọc tới nó: sáu hàng lỗi cùng hàng 7 mang câu trần,
+ * nên đưa thêm tham số cho chúng không đổi một ký tự nào. Nhờ vậy mọi chỗ gọi cũ (`view/
+ * banner.js` trước Story 4.3, và mọi ca test của chúng) vẫn đúng nguyên.
+ *
  * @param {string} loai Một giá trị của `LOAI_BANG`. Ngoài bảng → `TypeError`.
+ * @param {{added: number, skipped: number}} [so] Hai con số của phép gộp — chỉ hàng 6 dùng.
  * @returns {string|null}
  */
-export function microcopyBanner(loai) {
+export function microcopyBanner(loai, so) {
   phaiTrongBang(loai);
   if (Object.prototype.hasOwnProperty.call(MICROCOPY, loai)) return microcopyLoi(loai);
+  if (loai === LOAI_BANG.NAP_FILE_XONG) return cauNapFileXong(so);
   return MICROCOPY_BANG[loai];
 }

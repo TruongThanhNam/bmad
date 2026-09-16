@@ -189,11 +189,41 @@ describe('core/banner.js — chữ luôn đến từ ánh xạ có sẵn', () =>
     }
   });
 
-  it('hàng 7 chở nguyên văn của planning; hàng 6 chưa có chữ (Epic 4 gắn tham số)', () => {
+  it('hàng 7 chở nguyên văn của planning; hàng 6 THIẾU tham số thì vẫn chưa có chữ', () => {
     expect(microcopyBanner(LOAI_BANG.DUNG_LUONG_SAP_HET)).toBe(
       'Dung lượng sắp hết. Xuất sao lưu trước khi nó hết.',
     );
+    // Story 4.3 gắn phần tham số, nhưng KHÔNG đổi câu trả lời khi tham số vắng mặt: một dải
+    // băng nói "Đã nạp undefined ghi chú" tệ hơn hẳn một dải băng không hiện ra.
     expect(microcopyBanner(LOAI_BANG.NAP_FILE_XONG)).toBeNull();
+    expect(microcopyBanner(LOAI_BANG.NAP_FILE_XONG, null)).toBeNull();
+    expect(microcopyBanner(LOAI_BANG.NAP_FILE_XONG, {})).toBeNull();
+    expect(microcopyBanner(LOAI_BANG.NAP_FILE_XONG, { added: 1 })).toBeNull();
+    // Và bảng vẫn giữ `null` ở hàng đó: câu chữ chỉ dựng được khi CÓ hai con số.
+    expect(MICROCOPY_BANG[LOAI_BANG.NAP_FILE_XONG]).toBeNull();
+  });
+
+  it('hàng 6 CÓ tham số: nguyên văn từng ký tự, hai con số viết bằng CHỮ SỐ', () => {
+    // Nguyên văn `EXPERIENCE.md:113` — ngoại lệ DUY NHẤT của quy tắc im-lặng-khi-thành-công.
+    expect(microcopyBanner(LOAI_BANG.NAP_FILE_XONG, { added: 2, skipped: 1 })).toBe(
+      'Đã nạp 2 ghi chú, bỏ qua 1 ghi chú đã có.',
+    );
+    expect(microcopyBanner(LOAI_BANG.NAP_FILE_XONG, { added: 0, skipped: 0 })).toBe(
+      'Đã nạp 0 ghi chú, bỏ qua 0 ghi chú đã có.',
+    );
+    expect(microcopyBanner(LOAI_BANG.NAP_FILE_XONG, { added: 0, skipped: 468 })).toBe(
+      'Đã nạp 0 ghi chú, bỏ qua 468 ghi chú đã có.',
+    );
+  });
+
+  it('tham số thừa KHÔNG đổi một ký tự nào của bảy hàng còn lại', () => {
+    const so = { added: 2, skipped: 1 };
+    for (const ma of Object.values(MA_LOI)) {
+      expect(microcopyBanner(ma, so)).toBe(microcopyLoi(ma));
+    }
+    expect(microcopyBanner(LOAI_BANG.DUNG_LUONG_SAP_HET, so)).toBe(
+      'Dung lượng sắp hết. Xuất sao lưu trước khi nó hết.',
+    );
   });
 
   it('loại ngoài bảng thì NÉM — không một câu mặc định nào trước mặt người dùng', () => {
@@ -370,15 +400,53 @@ describe('noiBanner — lượt vẽ', () => {
     expect(store.state.banner).toBeNull();
   });
 
-  it('hàng có mặt nhưng chưa có chữ (nạp file thành công): vẽ RỖNG, không dải băng trắng', () => {
-    // Không đi qua `state.js` được — Epic 4 mới có người phát. Store giả tối thiểu là đủ: câu
-    // hỏi ở đây thuần là "view làm gì với một hàng chưa có chữ".
+  it('hàng có mặt nhưng THIẾU hai con số: vẽ RỖNG, không dải băng trắng', () => {
+    // Store giả tối thiểu là đủ: câu hỏi ở đây thuần là "view làm gì với một hàng không có chữ
+    // để vẽ". `bannerSo` vắng mặt hẳn — đúng cảnh một chỗ gọi quên đưa hai con số xuống.
     const bang = bangGia();
     const store = { state: { banner: LOAI_BANG.NAP_FILE_XONG } };
     noiBanner(store, gocGia(bang)).ve();
 
     expect(bang.con).toEqual([]);
     expect(bang.tongChu()).toBe('');
+  });
+
+  it('hàng 6 với hai con số: vẽ nguyên văn, và có nút đóng như mọi hàng đóng được', () => {
+    const bang = bangGia();
+    const store = { state: { banner: LOAI_BANG.NAP_FILE_XONG, bannerSo: { added: 2, skipped: 1 } } };
+    noiBanner(store, gocGia(bang)).ve();
+
+    expect(bang.tongChu()).toContain('Đã nạp 2 ghi chú, bỏ qua 1 ghi chú đã có.');
+    expect(bang.con).toHaveLength(2);
+  });
+
+  it('hai lần nạp liên tiếp: memo phải VẼ LẠI, vì chỉ hai con số đổi', async () => {
+    // Nửa vỡ trong im lặng của cả đường nạp: `state.banner` bằng nhau ở hai lượt, nên một memo
+    // chỉ so loại sẽ để nguyên con số của lần đầu trên màn hình — một dải băng nói sai về
+    // chuyện vừa xảy ra, và vùng `aria-live` không đọc lại gì.
+    const bang = bangGia();
+    let so = { added: 2, skipped: 1 };
+    const store = {
+      state: {
+        banner: LOAI_BANG.NAP_FILE_XONG,
+        get bannerSo() {
+          return so;
+        },
+      },
+    };
+    const v = noiBanner(store, gocGia(bang));
+    v.ve();
+    expect(bang.tongChu()).toContain('Đã nạp 2 ghi chú, bỏ qua 1 ghi chú đã có.');
+
+    so = { added: 0, skipped: 3 };
+    v.ve();
+    expect(bang.tongChu()).toContain('Đã nạp 0 ghi chú, bỏ qua 3 ghi chú đã có.');
+
+    // Và chiều ngược lại vẫn đứng: KHÔNG đổi gì thì không chạm DOM, nếu không trình đọc màn
+    // hình sẽ đọc lại một dải băng bền ở mọi thao tác.
+    const truoc = bang.con;
+    v.ve();
+    expect(bang.con).toBe(truoc);
   });
 
   it('vẽ lại toàn phần: đổi loại thì nội dung cũ đi hẳn, không cộng dồn', async () => {
@@ -420,9 +488,13 @@ describe('app/view/banner.js — luật của tầng view, cưỡng chế đư�
     expect(nguon).not.toMatch(/subscribe|onChange|theoDoi/i);
   });
 
-  it('đọc ĐÚNG MỘT giá trị state, và đó là `banner`', () => {
+  it('đọc ĐÚNG hai giá trị state, và cả hai là dải băng', () => {
+    // Nới 1 → 2 ở Story 4.3, có chủ ý: hàng 6 mang HAI CON SỐ THẬT, và chúng sống ở
+    // `state.bannerSo` cạnh `state.banner` thay vì biến `banner` thành một object
+    // (`core/banner.js:30-35` đã cân và từ chối phép đổi đó). View vẫn không đọc một trường
+    // nào ngoài dải băng — nó không biết `notes` lẫn `dieuKien` tồn tại.
     const doc = [...nguon.matchAll(/store\s*\.\s*state\s*\.\s*([\w$]+)/g)].map((k) => k[1]);
-    expect([...new Set(doc)]).toEqual(['banner']);
+    expect([...new Set(doc)].sort()).toEqual(['banner', 'bannerSo']);
   });
 
   it('không import app/adapters/, không tự gọi cổng, không tự soạn câu chữ lỗi', () => {
@@ -544,17 +616,30 @@ describe('app/view/banner.js — luật của tầng view, cưỡng chế đư�
     expect(nut).toMatch(/padding\s*:\s*var\(--space-\d\) var\(--space-\d\)/);
   });
 
-  it('bốn nguồn chưa tới KHÔNG có code phát ở đâu dưới app/', () => {
+  it('các nguồn chưa tới KHÔNG có code phát ở đâu dưới app/', () => {
     // Chúng chỉ tồn tại trong bảng: `core/banner.js` khai, và không module nào ĐẶT chúng.
+    //
+    // Story 4.3 gỡ `NAP_FILE_XONG` ra khỏi danh sách này, và chỉ với `core/state.js`: hàng 6
+    // ĐÃ có người phát (`napSaoLuu`), nên "không ai đặt nó" không còn là một bất biến thật.
+    // Ba mã còn lại thì không đổi một chữ — `BAD_FILE`/`BAD_VERSION` đi ra qua `maBanner` từ
+    // `.code` của lỗi, không qua một chỗ viết tên chúng.
     const viPham = [];
     for (const ten of ['core/state.js', 'main.js', 'view/banner.js', 'view/luoi.js',
       'view/mau-giay.js', 'view/o-soan.js', 'view/tieu-de.js']) {
       const ma = boChuThichJs(readFileSync(join(repoRoot, 'app', ...ten.split('/')), 'utf8'));
       for (const loai of ['BAD_FILE', 'BAD_VERSION', 'VERSION_SKEW', 'DUNG_LUONG_SAP_HET',
         'NAP_FILE_XONG']) {
+        if (loai === 'NAP_FILE_XONG' && ten === 'core/state.js') continue;
         if (ma.includes(loai)) viPham.push(`${ten} — ${loai}`);
       }
     }
     expect(viPham).toEqual([]);
+  });
+
+  it('hàng 6 có ĐÚNG MỘT người phát dưới app/, và đó là `core/state.js`', () => {
+    // Nửa còn lại của ca trên: nới một ngoại lệ ra thì phải đóng nó lại ngay bằng một cam kết
+    // hẹp hơn, nếu không "ai được đặt hàng 6" trở thành một câu không ai trả lời.
+    const ma = boChuThichJs(readFileSync(join(repoRoot, 'app', 'core', 'state.js'), 'utf8'));
+    expect([...ma.matchAll(/NAP_FILE_XONG/g)]).toHaveLength(1);
   });
 });

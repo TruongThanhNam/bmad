@@ -1,4 +1,4 @@
-// Hiện thực cổng `fileIO` — chiều XUẤT (Story 4.2). Chiều nạp là Story 4.3.
+// Hiện thực cổng `fileIO` — chiều XUẤT (Story 4.2) và chiều NẠP (Story 4.3).
 //
 // Adapter thứ tư, và mỏng đúng như ba cái kia: nó không biết hình dạng file sao lưu, không
 // dựng JSON, không đọc state. Nội dung và tên file do `app/core/backup.js` dựng sẵn và
@@ -19,6 +19,12 @@
 
 /** Kiểu MIME của file sao lưu — nội dung là JSON, và trình duyệt phải được nói đúng điều đó. */
 const KIEU_JSON = 'application/json';
+
+/** Đuôi tên file, vế thứ hai của bộ lọc ở hộp chọn file. */
+const DUOI_JSON = '.json';
+
+/** Loại ô nhập mở được hộp chọn file. Viết ra để nó không bao giờ thành một ô chữ. */
+const KIEU_INPUT = 'file';
 
 /**
  * Dựng một hiện thực của cổng `fileIO`.
@@ -58,9 +64,80 @@ export function taoFileIo() {
     },
 
     readChosenFile() {
-      // Ném chứ không trả `null`: `null` là câu trả lời HỢP LỆ của cổng này ("người dùng bỏ
-      // ngang"), nên trả nó ở đây sẽ làm Story 4.3 đi gỡ lỗi một phép nạp trông như đã chạy.
-      throw new Error('chưa làm — Story 4.3 (fileIO.readChosenFile)');
+      // Cùng khuôn `exportFile`: thân chạy NGAY trong hàm dựng lời hứa, nên một `throw` đồng
+      // bộ (tài liệu bị chặn, `createElement` hỏng) thành đúng một lời hứa bị từ chối — cửa mà
+      // nhánh dải băng của `napSaoLuu` đang chờ.
+      return new Promise((xong, hong) => {
+        const o = document.createElement('input');
+        o.type = KIEU_INPUT;
+        // Hai vế: kiểu MIME cho hệ điều hành biết, đuôi tên cho những hệ không suy ra được MIME
+        // từ nội dung. Đây là một GỢI Ý lọc, không phải một phép gác — Nam vẫn chọn được một
+        // `.txt`, và pha 1 của `core/backup.js` mới là chỗ từ chối nó bằng một câu tử tế.
+        o.accept = `${KIEU_JSON},${DUOI_JSON}`;
+        // Ẩn hẳn: một `<input type="file">` sót lại trong cây là một điểm dừng bàn phím vô hình
+        // mọc thêm vào trang, và chân trang đã khóa đúng ba điểm dừng.
+        o.hidden = true;
+
+        function don() {
+          o.remove();
+        }
+
+        // `change` chỉ nổ khi có file; `cancel` là cách trực tiếp nhất biết Nam đã bấm Huỷ.
+        //
+        // Nhưng KHÔNG trình duyệt nào được phép làm lời hứa này treo mãi: `core/state.js` giữ
+        // một cờ chống bấm-hai-lần trong closure và chỉ nhả nó khi lời hứa hoàn tất, nên một
+        // lần bỏ ngang không ai báo sẽ giết hẳn link `nạp lại` cho tới lần tải trang sau — và
+        // để lại một `<input>` mồ côi mỗi cú bấm. Nên có cửa thứ ba: tài liệu giành lại tiêu
+        // điểm sau khi hộp thoại đóng, và lúc đó KHÔNG có file nào được chọn, thì đó là một
+        // lần bỏ ngang. Hỏi `o.files` chứ không hẹn giờ: danh sách file đã được đặt xong TRƯỚC
+        // khi `change` được phát, nên cửa này không bao giờ cướp lượt của một lần chọn thật.
+        o.addEventListener('change', () => {
+          const file = o.files === null || o.files === undefined ? undefined : o.files[0];
+          if (file === undefined || file === null) {
+            don();
+            xong(null);
+            return;
+          }
+          // `file.text()` đọc toàn bộ nội dung thành chuỗi — không có trần kích thước ở đây,
+          // theo đúng quyết định đã chốt của spec.
+          file.text().then(
+            (text) => {
+              don();
+              xong({ name: file.name, text });
+            },
+            (loi) => {
+              don();
+              hong(loi);
+            },
+          );
+        });
+        o.addEventListener('cancel', () => {
+          don();
+          xong(null);
+        });
+
+        // Cửa thứ ba. `resolve` lần thứ hai là một phép không làm gì, nên nó không cần một cờ
+        // gác riêng — chỉ `don()` là chạy hai lần, và gỡ một phần tử đã gỡ cũng không làm gì.
+        const cuaSo = document.defaultView;
+        if (cuaSo !== null && cuaSo !== undefined) {
+          cuaSo.addEventListener(
+            'focus',
+            () => {
+              const danhSach = o.files;
+              // Có file thì `change` đang trên đường tới — đừng cướp lượt của nó.
+              if (danhSach !== null && danhSach !== undefined && danhSach.length > 0) return;
+              don();
+              xong(null);
+            },
+            { once: true },
+          );
+        }
+
+        // Gắn vào tài liệu rồi mới bấm, cùng lý do với thẻ `<a download>`: một phần tử rời cây
+        // DOM không mở được hộp thoại ở mọi trình duyệt.
+        document.body.appendChild(o);
+        o.click();
+      });
     },
   };
 }

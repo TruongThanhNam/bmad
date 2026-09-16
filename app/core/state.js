@@ -57,12 +57,18 @@
 // chạm global trình duyệt. `crypto.randomUUID` thì có — nó không phải global của DOM, nó có ở
 // cả Node, và AD-13 chốt nó là nguồn duy nhất của `id`.
 
-import { dungFileSaoLuu, tenFileSaoLuu } from './backup.js';
-import { dongDuoc, thayDuoc } from './banner.js';
+import {
+  docFileSaoLuu,
+  dungFileSaoLuu,
+  gopTheoId,
+  mocXuatSaoLuu,
+  tenFileSaoLuu,
+} from './backup.js';
+import { LOAI_BANG, dongDuoc, thayDuoc } from './banner.js';
 import { MA_LOI } from './errors.js';
 import { fold } from './fold.js';
 import { APP_VERSION, AUTOSAVE_MS, DRAFT_STALE_MS, MAX_NOTE_CHARS } from './limits.js';
-import { localDate, localStamp, nowIso } from './time.js';
+import { localDate, localStamp, msBetweenIso, nowIso } from './time.js';
 import { kiemTraPorts } from '../ports/index.js';
 
 /** Khóa ngày của khối điều kiện: `yyyy-MM-dd` và không gì khác (AD-4). Chỉ kiểm HÌNH DẠNG —
@@ -205,6 +211,14 @@ function stateRong() {
     editing: { id: null, text: '', seq: 0 },
     // Tầng C — dải băng: một giá trị, một chủ (AD-17).
     banner: null,
+    // Tầng C — hai con số đi KÈM dải băng, và chỉ hàng 6 (`NAP_FILE_XONG`) có nghĩa với chúng.
+    //
+    // Một trường cạnh `banner` chứ không phải một `banner` kiểu object: `core/banner.js:30-35`
+    // đã cân và từ chối phép đổi đó (14 chỗ đặt `banner` trong tệp này phải viết lại, cùng mọi
+    // assertion của `test/core-state.test.js`). Đổi lại, `datLai` xoá trường này ở MỌI lần đặt
+    // dải băng không nói gì về nó — nên không có đường nào để hai con số lệch khỏi loại đang
+    // hiện, kể cả đường viết ở Epic sau.
+    bannerSo: null,
     // Tầng C — tab đã thấy mã lệch phiên bản thì mọi action có ghi bị từ chối (AD-21).
     readOnly: false,
   };
@@ -297,7 +311,7 @@ function ngayHopLe(giaTri, giaTriCu) {
  * @param {object} ports Năm cổng của `app/ports/`, do `app/main.js` nối vào.
  * @returns {{ state: object, datDieuKien: Function, xoaHetDieuKien: Function, dongDaiBang:
  *   Function, batTatMoRong: Function, khoiDong: Function, datTheme: Function,
- *   xuatSaoLuu: Function,
+ *   xuatSaoLuu: Function, napSaoLuu: Function,
  *   chotGhiChu: Function, xoaGhiChu: Function, tuLuuNoiDung: Function,
  *   khoiDongBanNhap: Function, datBanNhap: Function, nhipTimBanNhap: Function }}
  *   Store với `state` chỉ đọc và các action. Story sau thêm action vào ĐÂY, không nơi khác.
@@ -327,6 +341,15 @@ export function taoStore(ports) {
   let dangChot = false;
 
   /**
+   * Có một lần nạp file đang bay hay không — cùng khuôn, cùng lý do với `dangChot`.
+   *
+   * Phép gác này cần hơn hẳn phép gác của lần chốt: `napSaoLuu` đọc kho rồi ghi đè cả kho, nên
+   * hai lần chạy chồng nhau sẽ gộp hai lần trên CÙNG một ảnh chụp `readAll` và lần ghi sau xoá
+   * mất kết quả của lần trước. Nó không phải một trường state (AD-16): view không vẽ gì từ nó.
+   */
+  let dangNap = false;
+
+  /**
    * Đường DUY NHẤT một action đổi state: thay các nhánh được nêu bằng object mới, rồi dựng
    * lại ảnh. Không action nào được gán vào một trường lồng bên trong `noiBo` — làm thế thì
    * phép ghi nhớ của `banSaoDongBang` sẽ trả lại bản sao cũ.
@@ -348,12 +371,22 @@ export function taoStore(ports) {
    */
   function datLai(nhanhMoi) {
     let nhanh = nhanhMoi;
-    if (
-      Object.prototype.hasOwnProperty.call(nhanhMoi, 'banner') &&
-      !thayDuoc(noiBo.banner, nhanhMoi.banner)
-    ) {
-      nhanh = { ...nhanhMoi };
-      delete nhanh.banner;
+    if (Object.prototype.hasOwnProperty.call(nhanhMoi, 'banner')) {
+      if (thayDuoc(noiBo.banner, nhanhMoi.banner)) {
+        // Một phép đặt dải băng KHÔNG nói gì về hai con số thì xoá chúng: chúng chỉ có nghĩa
+        // với đúng một hàng, và một cặp số sống sót qua một lần đổi loại là cặp số của một
+        // chuyện khác đứng cạnh một câu chữ không phải của nó.
+        if (!Object.prototype.hasOwnProperty.call(nhanhMoi, 'bannerSo')) {
+          nhanh = { ...nhanhMoi, bannerSo: null };
+        }
+      } else {
+        // Ưu tiên thấp hơn cái đang hiện: bỏ CẢ loại lẫn hai con số của nó, và giữ nguyên phần
+        // còn lại của phép đổi. Bỏ riêng `banner` mà để `bannerSo` vào là cách hai con số của
+        // một dải băng bị từ chối đi đứng cạnh câu chữ của dải băng đang hiện.
+        nhanh = { ...nhanhMoi };
+        delete nhanh.banner;
+        delete nhanh.bannerSo;
+      }
     }
     noiBo = { ...noiBo, ...nhanh };
     anh = banSaoDongBang(noiBo);
@@ -557,6 +590,13 @@ export function taoStore(ports) {
    * nếu chưa: một bản tin không có người phát thì tab nhận không lọc ra được tin của chính
    * mình. Kho từ chối trả danh tính thì KHÔNG phát và cũng KHÔNG có dải băng — phép ghi theme
    * đã thành công rồi, và một cái chuông không gõ được không phải chuyện của người dùng.
+   *
+   * CẢ phép phát nằm trong `try`, không chỉ phép hỏi danh tính: một kênh liên tab đã đóng
+   * (`InvalidStateError`) ném ngay tại `publish`, và hàm này được gọi ở CUỐI những đường đã
+   * thành công trọn vẹn. Để cái ném đó thoát ra ngoài là biến một cái chuông không gõ được
+   * thành một mã lỗi đè lên dải băng của một thao tác vừa chạy đúng — `napSaoLuu` bắt nó ở
+   * `.catch` ngoài cùng và đặt `DB`, tức mã có ưu tiên cao hơn hàng 6 và giết luôn hai con số.
+   * Cùng một lý do với nhánh danh tính, chỉ khác chỗ ném.
    */
   function phatPhienDoi() {
     let nguoiPhat;
@@ -565,12 +605,16 @@ export function taoStore(ports) {
     } catch {
       return;
     }
-    ports.channel.publish({
-      v: HINH_DANG_BAN_TIN,
-      type: TIN_PHIEN_DOI,
-      from: nguoiPhat,
-      appVersion: APP_VERSION,
-    });
+    try {
+      ports.channel.publish({
+        v: HINH_DANG_BAN_TIN,
+        type: TIN_PHIEN_DOI,
+        from: nguoiPhat,
+        appVersion: APP_VERSION,
+      });
+    } catch {
+      /* Chuông không gõ được không phải chuyện của người dùng — và không phải một dải băng. */
+    }
   }
 
   /**
@@ -681,6 +725,121 @@ export function taoStore(ports) {
         /* Cổng từ chối: im lặng hoàn toàn, và `lastBackupAt` giữ nguyên giá trị cũ. */
       },
     );
+  }
+
+  /**
+   * HÀM NỘI BỘ — ghi `lastBackupAt` bằng mốc của file vừa nạp, CHỈ KHI nó mới hơn mốc đang có.
+   *
+   * "Mới hơn" đo bằng `msBetweenIso`, không bằng phép so chuỗi: hai mốc sinh ở hai offset khác
+   * nhau cho thứ tự chuỗi ngược với thứ tự thật, đúng thứ AD-4 cấm.
+   *
+   * Nạp một file CŨ không được đẩy mốc lùi lại: dòng nhắc của Story 4.4 đếm "bao lâu rồi chưa
+   * sao lưu", và một mốc lùi làm nó nhắc sớm; một mốc nhảy tới tương lai vì một file cũ hơn
+   * ghi đè thì tệ hơn — nó im lặng đúng lúc cần nhắc. Nên chiều duy nhất mốc đi là tiến.
+   *
+   * NUỐT mọi lỗi: ghi chú đã vào kho rồi, và dải băng thành công đã nói đúng chuyện vừa xảy
+   * ra. Một mã lỗi ở đây là nói sai về nó. Mốc rác trong file cũng đi cùng đường này —
+   * `msBetweenIso` ném, và pha 1 cố ý không kiểm `exportedAt`.
+   *
+   * @param {string|null} exportedAt Mốc ghi trong file, hoặc `null` khi file không có.
+   */
+  function ghiMocSaoLuuMoiHon(exportedAt) {
+    if (typeof exportedAt !== 'string') return;
+    try {
+      const dangCo = ports.sessionStore.read(KHOA_LAST_BACKUP);
+      // Chưa từng ghi mốc nào thì mọi mốc đều mới hơn.
+      if (typeof dangCo === 'string' && msBetweenIso(dangCo, exportedAt) <= 0) return;
+      ports.sessionStore.write(KHOA_LAST_BACKUP, exportedAt);
+    } catch {
+      return;
+    }
+    // Chỉ gõ chuông khi có một giá trị MỚI trong kho cho tab khác đọc lại — không ghi thì
+    // không có gì đổi, và một bản tin rỗng chỉ làm mọi tab đọc lại đúng thứ chúng đang có.
+    phatPhienDoi();
+  }
+
+  /**
+   * Nạp lại một file sao lưu: hai pha tách bạch, gộp theo `id`, và đúng một lời gọi ghi (4.3).
+   *
+   * Đây là nửa còn lại của phanh an toàn UJ-3, và là action DUY NHẤT được phép nói một câu khi
+   * thành công (AD-16, hàng 6 của AD-17). Bốn luật riêng của nó:
+   *
+   * - HAI PHA TÁCH BẠCH. Pha 1 (`docFileSaoLuu`) kiểm TOÀN BỘ file trước khi chạm kho — một
+   *   ghi chú sai ở ghi chú thứ 468 chặn cả 467 cái trước nó, và `replaceAll` không được gọi
+   *   một lần nào. Pha 2 là đúng MỘT lời gọi cổng, tức một giao dịch: nửa vời là dữ liệu lai.
+   * - NGUỒN ĐỂ GỘP LÀ KHO, không phải `noiBo.notes`. `replaceAll` xoá sạch rồi ghi lại, nên
+   *   gộp trên một bản RAM cũ hơn kho là một phép XOÁ THẬT những ghi chú mà tab khác vừa thêm
+   *   — đúng cái "không bao giờ mất" mà epic cấm. Đây là chỗ duy nhất trong tệp này đọc kho
+   *   giữa chừng, và lý do nó đọc thì ngược hẳn với lý do `xuatSaoLuu` cố ý KHÔNG đọc.
+   * - GỘP, KHÔNG BAO GIỜ MẤT: bản đang có luôn thắng (`gopTheoId`), `createdAt` gốc giữ nguyên
+   *   tuyệt đối, không xóa, không ghi đè, không tombstone.
+   * - `dieuKien` KHÔNG bị xoá, khác hẳn `chotGhiChu`: `EXPERIENCE.md:251` tả đúng cảnh lưới
+   *   vẫn rỗng sau khi nạp và Nam tự gõ lại ngày — đó là hành vi đã chốt, không phải sơ suất.
+   *
+   * Dải băng thành công đặt ở một `datLai` THỨ HAI, sau `ghiTruocDatSau` chứ không lồng vào
+   * nó: helper chung trộn `banner: null` vào nhánh thành công (AD-8 — một phép ghi thành công
+   * tắt dải băng), và đó là luật đúng, kể cả ở đây. Một `QUOTA` đang hiện phải tắt TRƯỚC, rồi
+   * hàng 6 mới lên; nhét hàng 6 vào thẳng `ghiTruocDatSau` thì phép gác ưu tiên từ chối nó và
+   * `QUOTA` ở lại vĩnh viễn sau một phép ghi vừa thành công.
+   *
+   * @returns {Promise<void>} Hoàn tất khi state đã phản ánh kết quả — không bao giờ bị từ chối.
+   */
+  function napSaoLuu() {
+    if (dangNap) return Promise.resolve();
+    dangNap = true;
+    // Cả lời gọi cổng nằm trong chuỗi lời hứa: `readChosenFile` có thể NÉM đồng bộ (một adapter
+    // chưa nối), và cửa ra của mọi lỗi ở action này là dải băng, không phải một lời hứa bị từ
+    // chối mà `view/chan-trang.js` cố ý không bắt.
+    return Promise.resolve()
+      .then(() => ports.fileIO.readChosenFile())
+      .then((daChon) => {
+        // Nam bấm Huỷ ở hộp chọn file: `null` là câu trả lời HỢP LỆ của cổng, không phải lỗi.
+        // Im lặng tuyệt đối — không dải băng, không một trường state nào đổi.
+        if (daChon === null || daChon === undefined) return undefined;
+        let tuFile;
+        try {
+          tuFile = docFileSaoLuu(daChon.text);
+        } catch (loi) {
+          datLai({ banner: maBanner(loi) });
+          return undefined;
+        }
+        const moc = mocXuatSaoLuu(daChon.text);
+        return ports.noteStore.readAll().then(
+          (dangCo) => {
+            const gop = gopTheoId(dangCo, tuFile);
+            // Cờ trong CLOSURE, cùng khuôn `daChot` của `themGhiChu`: `ghiTruocDatSau` không
+            // nói cho chỗ gọi biết nhánh nào đã chạy, và đọc `noiBo.banner` để đoán thì một
+            // lần nạp sau một lỗi kho sẽ tự khen mình đã xong.
+            let daGop = true;
+            return ghiTruocDatSau(
+              () =>
+                ports.noteStore.replaceAll(gop.ketQua).catch((loi) => {
+                  daGop = false;
+                  throw loi;
+                }),
+              () => ({ notes: sapGiamDan(gop.ketQua) }),
+            ).then(() => {
+              if (!daGop) return;
+              datLai({
+                banner: LOAI_BANG.NAP_FILE_XONG,
+                bannerSo: { added: gop.added, skipped: gop.skipped },
+              });
+              ghiMocSaoLuuMoiHon(moc);
+            });
+          },
+          (loi) => {
+            // Kho không đọc được thì KHÔNG ghi gì: gộp trên một tập rỗng tưởng tượng là xoá
+            // sạch kho bằng đúng nội dung file.
+            datLai({ banner: maBanner(loi) });
+          },
+        );
+      })
+      .catch((loi) => {
+        datLai({ banner: maBanner(loi) });
+      })
+      .then(() => {
+        dangNap = false;
+      });
   }
 
   /**
@@ -986,6 +1145,7 @@ export function taoStore(ports) {
     khoiDong,
     datTheme,
     xuatSaoLuu,
+    napSaoLuu,
     chotGhiChu,
     xoaGhiChu,
     tuLuuNoiDung,
