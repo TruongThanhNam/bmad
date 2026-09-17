@@ -5,7 +5,7 @@
 
 App ghi chú tĩnh chạy thẳng trong trình duyệt: ES module thuần, không bundler, không
 transpile, không thư viện runtime. `package.json` tồn tại chỉ để chạy Vitest. Tài liệu
-gốc: `README.md` (vận hành + checklist thủ công 1–27) và
+gốc: `README.md` (vận hành + checklist thủ công 1–29) và
 `_bmad-output/planning-artifacts/architecture/architecture-ghi-chu-hang-ngay-2026-09-10/ARCHITECTURE-SPINE.md`
 — spine thắng khi lệch với `solution-design.md`.
 
@@ -27,7 +27,7 @@ gốc: `README.md` (vận hành + checklist thủ công 1–27) và
 - `app/core/limits.js` — mọi hằng số, ngưỡng, và `APP_VERSION`
 - `app/core/time.js` — mọi chỗ dựng/đọc `Date`; `app/core/fold.js` — bỏ dấu tiếng Việt
 - `app/core/errors.js` — tập mã lỗi đóng + microcopy; `app/core/banner.js` — bảng ưu tiên dải băng
-- `app/adapters/` không có test tự động theo luật; kiểm nó bằng checklist 1–27 trong `README.md`
+- `app/adapters/` không có test tự động theo luật; kiểm nó bằng checklist 1–29 trong `README.md`
 
 ## Chạy và kiểm chứng
 

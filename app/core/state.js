@@ -181,6 +181,11 @@ function banGhiSua(cu, text) {
  * `seq` là số đếm chống hẹn tự lưu sống lâu hơn thứ nó định ghi (AD-8): hẹn nào nổ ra mà
  * `seq` của nó không còn là `seq` hiện tại thì bị bỏ. Một số đếm cho bản nháp, một cho mẩu
  * đang sửa, vì chúng là hai mục tiêu tự lưu độc lập.
+ *
+ * HAI HÌNH DẠNG khác nhau, và sự khác nhau đó là một bài học đã đo (Story 5.1, review vòng 1):
+ * `draft.seq` là MỘT số, vì bản nháp chỉ có một. `editing.seq` là một BẢNG theo `id`, vì chế độ
+ * sửa có bao nhiêu mẩu thì có bấy nhiêu mục tiêu tự lưu độc lập — một số đếm dùng chung làm hẹn
+ * ghi của mẩu A bị một phím gõ vào mẩu B bỏ, tức mất những ký tự cuối của A TRONG IM LẶNG.
  */
 function stateRong() {
   return {
@@ -221,7 +226,9 @@ function stateRong() {
     // hai cùng mở", nên một ô nhớ đơn sẽ thu mẩu trước lại mỗi lần mở mẩu sau. Và nó nằm ở
     // tầng C chứ không ở kho bền, nên tải lại trang là MỌI mẩu về thu gọn — theo thiết kế.
     expandedIds: [],
-    editing: { id: null, text: '', seq: 0 },
+    // `seq` là một BẢNG `{ [id]: số }`, không một con số — xem docstring của `stateRong`.
+    // `{}` là "chưa mẩu nào từng được gõ vào", và một `id` vắng mặt đọc là `0`.
+    editing: { id: null, text: '', seq: {} },
     // Tầng C — dải băng: một giá trị, một chủ (AD-17).
     banner: null,
     // Tầng C — hai con số đi KÈM dải băng, và chỉ hàng 6 (`NAP_FILE_XONG`) có nghĩa với chúng.
@@ -327,6 +334,7 @@ function ngayHopLe(giaTri, giaTriCu) {
  *   Function, batTatMoRong: Function, khoiDong: Function, datTheme: Function,
  *   xuatSaoLuu: Function, napSaoLuu: Function,
  *   chotGhiChu: Function, xoaGhiChu: Function, tuLuuNoiDung: Function,
+ *   vaoCheDoSua: Function, roiCheDoSua: Function,
  *   khoiDongBanNhap: Function, datBanNhap: Function, nhipTimBanNhap: Function }}
  *   Store với `state` chỉ đọc và các action. Story sau thêm action vào ĐÂY, không nơi khác.
  */
@@ -362,6 +370,36 @@ export function taoStore(ports) {
    * mất kết quả của lần trước. Nó không phải một trường state (AD-16): view không vẽ gì từ nó.
    */
   let dangNap = false;
+
+  /**
+   * Chữ vừa gõ của mỗi mẩu mà hẹn ghi của nó CHƯA nổ — sống trong CLOSURE, không phải state.
+   *
+   * Vì sao nó cần: `notes` chỉ đổi khi `put` chốt, và `editing.text` chỉ chở chữ của MỘT mẩu
+   * (mẩu vừa gõ gần nhất). Nên khi Nam rời mẩu A, gõ sang mẩu B, rồi quay lại A trong
+   * `AUTOSAVE_MS`, cả hai nguồn đó đều nói sai: `notes` còn chữ CŨ của A, `editing.text` đang
+   * mang chữ của B. Bảng này là chỗ duy nhất trả lời đúng câu "chữ mới nhất của A là gì".
+   *
+   * Vì sao nó KHÔNG là một trường state: view không vẽ gì từ nó, và AD-3 chốt đúng mười khóa.
+   * Nó là bookkeeping của đường ghi, cùng khuôn `tabCuaMinh` / `dangChot` / `dangNap` ở trên.
+   *
+   * BA đường một mục rời khỏi bảng, và phải đủ cả ba:
+   *
+   * - hẹn của chính mẩu đó nổ VÀ phép ghi chốt — chữ đã xuống kho, `notes` nay là nguồn đúng;
+   * - `xoaGhiChu` — mẩu không còn thì chữ đang chờ của nó cũng không còn nghĩa;
+   * - (không có đường thứ ba) — phép ghi HỎNG thì mục Ở LẠI, có chủ ý: "ghi hỏng thì chữ vừa gõ
+   *   không bị trả lại" là một ràng buộc đã chốt, và mở lại ô sửa lúc đó phải thấy chữ của Nam
+   *   chứ không phải bản cũ trong `notes`.
+   *
+   * Một mục vào bảng ở MỌI phím gõ, kể cả phím làm chữ vượt trần — nhánh đó không đặt hẹn nào,
+   * nên mục của nó nằm lại cho tới khi một phép ghi thành công (hay một lần xóa) dọn đi. Đó là
+   * đúng hành vi cần: chữ vượt trần vẫn là chữ mới nhất Nam đang nhìn.
+   */
+  const chuDangCho = new Map();
+
+  /** Số đếm tự lưu của một mẩu. `id` chưa từng được gõ vào đọc là `0`, không `undefined`. */
+  function soDemSua(id) {
+    return noiBo.editing.seq[id] ?? 0;
+  }
 
   /**
    * Đường DUY NHẤT một action đổi state: thay các nhánh được nêu bằng object mới, rồi dựng
@@ -539,32 +577,54 @@ export function taoStore(ports) {
   /**
    * HELPER DÙNG CHUNG 2 — luồng "tự lưu": state đã đổi rồi, phép ghi đi sau (AD-8).
    *
-   * `seqCuaHen` là số đếm tại lúc hẹn được đặt. Hẹn nào nổ ra mà `editing.seq` đã tăng thì nó
-   * đang định ghi một chữ không còn trên màn hình — nó BỊ BỎ, và không chạm cổng.
+   * `seqCuaHen` là số đếm CỦA RIÊNG `id` đó tại lúc hẹn được đặt, và phép so cũng theo đúng
+   * `id` đó. Hẹn nào nổ ra mà `editing.seq[id]` đã tăng thì nó đang định ghi một chữ không còn
+   * trên màn hình — nó BỊ BỎ, và không chạm cổng. So theo một số đếm dùng chung thì một phím gõ
+   * vào mẩu B bỏ luôn hẹn của mẩu A: chữ cuối của A mất, và mất trong im lặng.
    *
    * Không hủy hẹn cũ lúc đặt hẹn mới, có chủ ý: `seq` là cơ chế chính thức của AD-8, và nếu
    * `clearTimeout` gánh phần đó thì phép gác `seq` không còn đường nào chạy qua — tức nó trở
    * thành mã không ai kiểm, đúng lúc nó là thứ duy nhất chặn một hẹn sống dai ghi đè chữ mới.
+   *
+   * TRẢ VỀ một lời hứa chốt khi phép ghi đã xong — hay khi hẹn bị bỏ. Không có cơ chế subscribe
+   * trong dự án này, nên đây là đường DUY NHẤT để `app/main.js` biết rằng `notes` hay `banner`
+   * vừa đổi và gọi một lượt vẽ. Thiếu nó thì chữ vừa sửa và dải băng trần không bao giờ hiện ra
+   * được (review vòng 1 của Story 5.1 — hai lỗi `high` cùng một gốc).
    */
-  function henGhiDiSau(seqCuaHen, dungBanGhi) {
-    setTimeout(() => {
-      if (noiBo.editing.seq !== seqCuaHen) return;
-      const banGhi = dungBanGhi();
-      // Mục tiêu đã biến mất khỏi kho trong RAM (bị xóa trong lúc chờ) — không hồi sinh nó.
-      if (banGhi === null) return;
-      ports.noteStore.put(banGhi).then(
-        () => {
-          // Cùng quy tắc với `ghiTruocDatSau`: một phép ghi thành công tắt dải băng (AD-8).
-          datLai({
-            notes: noiBo.notes.map((mau) => (mau.id === banGhi.id ? banGhi : mau)),
-            banner: null,
-          });
-        },
-        (loi) => {
-          datLai({ banner: maBanner(loi) });
-        },
-      );
-    }, AUTOSAVE_MS);
+  function henGhiDiSau(id, seqCuaHen, dungBanGhi) {
+    return new Promise((xong) => {
+      setTimeout(() => {
+        if (soDemSua(id) !== seqCuaHen) {
+          xong();
+          return;
+        }
+        const banGhi = dungBanGhi();
+        // Mục tiêu đã biến mất khỏi kho trong RAM (bị xóa trong lúc chờ) — không hồi sinh nó.
+        if (banGhi === null) {
+          xong();
+          return;
+        }
+        ports.noteStore.put(banGhi).then(
+          () => {
+            // CHỈ ở đây mục mới rời `chuDangCho`: chữ đã xuống kho thật, nên `notes` từ giờ là
+            // nguồn đúng. Dọn TRƯỚC khi gọi cổng thì một lần ghi HỎNG sẽ trả chữ vừa gõ về bản
+            // cũ ở lần mở lại kế tiếp — đúng thứ ràng buộc "ghi hỏng thì chữ không bị trả lại"
+            // cấm, và nó lặng lẽ vì dải băng vẫn lên đúng như phải thế.
+            chuDangCho.delete(id);
+            // Cùng quy tắc với `ghiTruocDatSau`: một phép ghi thành công tắt dải băng (AD-8).
+            datLai({
+              notes: noiBo.notes.map((mau) => (mau.id === banGhi.id ? banGhi : mau)),
+              banner: null,
+            });
+            xong();
+          },
+          (loi) => {
+            datLai({ banner: maBanner(loi) });
+            xong();
+          },
+        );
+      }, AUTOSAVE_MS);
+    });
   }
 
   /**
@@ -1024,13 +1084,23 @@ export function taoStore(ports) {
     if (!noiBo.notes.some((mau) => mau.id === id)) return Promise.resolve();
     return ghiTruocDatSau(
       () => ports.noteStore.remove(id),
+      // Hai bảng bookkeeping của chế độ sửa cũng phải quên mẩu này, cùng lý do với
+      // `expandedIds` ngay dưới: chúng khóa theo `id`, và một `id` không còn bản ghi nào mang
+      // sẽ ở lại tới hết phiên. Dọn trong closure của `dungNhanh` nên nó chỉ chạy khi kho ĐÃ
+      // nhận lệnh xóa — mẩu còn sống thì chữ đang chờ của nó vẫn còn nghĩa.
       // Mẩu đi thì cái nhớ phù du về nó cũng đi: một `id` không còn bản ghi nào mang sẽ ở lại
       // trong `expandedIds` tới hết phiên, và tập đó phình dần theo số lần xóa trong một tab
       // mở lâu. Lọc ngay trong closure của `datLai` sẵn có, nên nó vẫn là MỘT phép đổi state.
-      () => ({
-        notes: noiBo.notes.filter((mau) => mau.id !== id),
-        expandedIds: noiBo.expandedIds.filter((khac) => khac !== id),
-      }),
+      () => {
+        chuDangCho.delete(id);
+        const seq = { ...noiBo.editing.seq };
+        delete seq[id];
+        return {
+          notes: noiBo.notes.filter((mau) => mau.id !== id),
+          expandedIds: noiBo.expandedIds.filter((khac) => khac !== id),
+          editing: { ...noiBo.editing, seq },
+        };
+      },
     );
   }
 
@@ -1043,7 +1113,9 @@ export function taoStore(ports) {
    *
    * @param {string} id Định danh ghi chú đang sửa.
    * @param {string} text Nội dung vừa gõ.
-   * @returns {void}
+   * @returns {Promise<void>} Chốt khi phép ghi đã xong, đã hỏng, hay hẹn đã bị bỏ — KHÔNG bao
+   *   giờ bị từ chối. Chỗ gọi (`app/main.js`) treo một lượt vẽ vào đây, và đó là đường duy nhất
+   *   để chữ vừa xuống kho và dải băng vừa bật lên hiện được ra: dự án không có subscribe.
    */
   function tuLuuNoiDung(id, text) {
     if (typeof id !== 'string') {
@@ -1052,18 +1124,90 @@ export function taoStore(ports) {
     if (typeof text !== 'string') {
       throw new TypeError(`tuLuuNoiDung nhận text là chuỗi, nhận được ${moTa(text)}`);
     }
+    // Số đếm của RIÊNG mẩu này tăng; số đếm của mọi mẩu khác giữ nguyên, nên hẹn đang treo của
+    // chúng vẫn nổ và vẫn ghi. Bảng mới là một object MỚI: `datLai` thay cả nhánh, và sửa tại
+    // chỗ sẽ làm `banSaoDongBang` trả lại bản sao cũ.
+    // Chữ vừa gõ là chữ mới nhất của mẩu này kể cả khi nó vượt trần — mở lại ô sửa phải thấy
+    // đúng nó, không thấy bản trong `notes`.
+    chuDangCho.set(id, text);
     // Trần chặn ở MỌI cửa vào, không chỉ ở cửa thêm mới (AD-14): cửa sửa cũng ghi vào cùng
     // một store, nên một cửa không chặn là trần không tồn tại.
+    //
+    // Nhưng chữ VẪN vào state, đúng khuôn cửa em sinh đôi `datBanNhap`: trả về TRƯỚC khi đồng
+    // bộ `editing.text` làm chữ vừa dán biến mất ở lượt vẽ sau — cắt bớt trong im lặng là cách
+    // chắc chắn nhất làm mất chữ người ta vừa gõ (AD-14, AD-17).
+    //
+    // Và `seq` KHÔNG tăng ở nhánh này, có chủ ý: nhánh này TỪ CHỐI ghi, nó không hủy một phép
+    // ghi đã nhận. Tăng `seq` ở đây bỏ mất hẹn mà phím HỢP LỆ ngay trước đó vừa đặt — gõ một
+    // câu đúng rồi dán quá trần lên trên là câu đúng ấy không bao giờ xuống kho, trong im lặng.
     if (text.length > MAX_NOTE_CHARS) {
-      datLai({ banner: MA_LOI.TOO_LONG });
-      return;
+      datLai({
+        editing: { id, text, seq: noiBo.editing.seq },
+        banner: LOAI_BANG.TOO_LONG_KHI_SUA,
+      });
+      // Lời hứa chốt NGAY: dải băng phải hiện ra ở lượt vẽ kế tiếp, không đợi tới `AUTOSAVE_MS`
+      // (và không đợi một lần rời mẩu) — cổng không bị gọi nên không có gì khác để chờ.
+      return Promise.resolve();
     }
-    const seqMoi = noiBo.editing.seq + 1;
-    datLai({ editing: { id, text, seq: seqMoi } });
-    henGhiDiSau(seqMoi, () => {
+    const seqMoi = soDemSua(id) + 1;
+    datLai({ editing: { id, text, seq: { ...noiBo.editing.seq, [id]: seqMoi } } });
+    return henGhiDiSau(id, seqMoi, () => {
       const cu = noiBo.notes.find((mau) => mau.id === id);
       if (cu === undefined) return null;
       return banGhiSua(cu, text);
+    });
+  }
+
+  /**
+   * Vào chế độ sửa một mẩu: `editing.id` nhận `id`, `editing.text` nhận chữ MỚI NHẤT của nó.
+   *
+   * "Mới nhất" không phải `notes[id].text`: `notes` chỉ đổi khi `put` chốt, nên mở lại đúng mẩu
+   * vừa gõ trong `AUTOSAVE_MS` mà đọc thẳng `notes` là mở ô sửa bằng chữ CŨ — chữ vừa gõ biến
+   * mất trước mắt Nam dù nó vẫn đang trên đường xuống kho. `chuDangCho` là chỗ trả lời đúng.
+   *
+   * `seq` KHÔNG tăng ở đây: đây không phải một lệnh hủy. Tăng nó sẽ BỎ hẹn tự lưu đang treo của
+   * chính mẩu vừa mở lại.
+   *
+   * KHÔNG chạm cổng nào, và không tự mở rộng mẩu: cả hai là tầng C, và `id` lạ chỉ đơn giản để
+   * lại một ô sửa rỗng ở lượt vẽ mà không mẩu nào mang `id` đó — tức không lượt vẽ nào.
+   *
+   * @param {string} id `id` của mẩu cần vào chế độ sửa.
+   * @returns {void}
+   */
+  function vaoCheDoSua(id) {
+    if (typeof id !== 'string' || id === '') {
+      throw new TypeError(`vaoCheDoSua nhận id là chuỗi khác rỗng, nhận được ${moTa(id)}`);
+    }
+    const cu = noiBo.notes.find((mau) => mau.id === id);
+    const text = chuDangCho.has(id) ? chuDangCho.get(id) : (cu?.text ?? '');
+    datLai({ editing: { id, text, seq: noiBo.editing.seq } });
+  }
+
+  /**
+   * Rời chế độ sửa: `editing.id` về `null`, VÀ mẩu đó thu gọn lại — trong MỘT lần `datLai`.
+   *
+   * Gỡ khỏi `expandedIds` là một quyết định đã chốt của story, không một hệ quả: lưới không tích
+   * tụ mẩu mở rộng sau mỗi lần sửa. Cái giá đã nhận — muốn soát lại toàn văn thì phải click lại
+   * hai nhịp.
+   *
+   * `seq` KHÔNG tăng, cùng lý do với `vaoCheDoSua`: hẹn tự lưu đang treo của mẩu vừa rời PHẢI
+   * nổ và PHẢI ghi. Nó mang `id` và `text` của riêng nó trong closure, nên nó ghi đúng bản ghi
+   * đó và không đụng tới mẩu nào khác.
+   *
+   * `editing.text` cũng giữ nguyên: nó là "chữ của lần gõ gần nhất", không phải một trường phải
+   * dọn — và `vaoCheDoSua` không đọc nó mà đọc `chuDangCho`.
+   *
+   * Không đang sửa gì thì không làm gì cả: `blur` nổ cả khi một phần tử bị GỠ khỏi DOM, nên
+   * hàm này bị gọi ở những lúc không có gì để rời.
+   *
+   * @returns {void}
+   */
+  function roiCheDoSua() {
+    const dangSua = noiBo.editing.id;
+    if (dangSua === null) return;
+    datLai({
+      editing: { id: null, text: noiBo.editing.text, seq: noiBo.editing.seq },
+      expandedIds: noiBo.expandedIds.filter((khac) => khac !== dangSua),
     });
   }
 
@@ -1217,6 +1361,8 @@ export function taoStore(ports) {
     chotGhiChu,
     xoaGhiChu,
     tuLuuNoiDung,
+    vaoCheDoSua,
+    roiCheDoSua,
     khoiDongBanNhap,
     datBanNhap,
     nhipTimBanNhap,

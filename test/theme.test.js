@@ -124,6 +124,9 @@ const NEN_CUA = Object.freeze({
   // Ô ngày không mang nền riêng; nền của nó là khung bọc `.o-ngay-boc`, và chữ của nó cũng
   // thừa hưởng màu từ đó.
   '.o-ngay-boc': '--surface',
+  // Ô sửa tại chỗ (Story 5.1) mang nền `--surface` của chính nó, y như `.o-soan` — nó là chỗ
+  // đang gõ, và chỗ đang gõ sáng hơn nền giấy quanh nó.
+  '.mau-sua': '--surface',
   '.mau-gio': '--paper',
   '.mau-xoa': '--paper',
   '.mau-gap': '--paper',

@@ -25,11 +25,12 @@ import { MA_LOI, MICROCOPY, microcopyLoi } from './errors.js';
 /**
  * Tập giá trị hợp lệ của `state.banner` — một CHUỖI, và chỉ một trong những giá trị dưới đây.
  *
- * Sáu mã lỗi của AD-18 cộng BA sentinel KHÔNG-PHẢI-LỖI-CỦA-AD-18 (hàng 6 và hàng 7 của bảng
- * AD-17, cộng `TOO_LONG_TU_FILE` chia sẻ hàng 4). Chín giá trị cho BẢY hàng: hàng 4 ("nạp file
- * thất bại") giờ chở BA mã cùng nghĩa với người dùng — `BAD_FILE` · `BAD_VERSION` (đã chung câu
- * từ trước) cộng `TOO_LONG_TU_FILE` (Story 4.3/4.4 review — epic-4-context.md đòi ưu tiên 4 cho
- * ca này, ngang với lỗi nạp file, cao hơn hẳn `TOO_LONG` của bàn phím ở hàng 5).
+ * Sáu mã lỗi của AD-18 cộng BỐN sentinel KHÔNG-PHẢI-LỖI-CỦA-AD-18 (hàng 6 và hàng 7 của bảng
+ * AD-17, cộng `TOO_LONG_TU_FILE` chia sẻ hàng 4 và `TOO_LONG_KHI_SUA` chia sẻ hàng 5). Mười giá
+ * trị cho BẢY hàng: hàng 4 ("nạp file thất bại") chở BA mã cùng nghĩa với người dùng —
+ * `BAD_FILE` · `BAD_VERSION` (đã chung câu từ trước) cộng `TOO_LONG_TU_FILE` (Story 4.3/4.4
+ * review — epic-4-context.md đòi ưu tiên 4 cho ca này, ngang với lỗi nạp file, cao hơn hẳn
+ * `TOO_LONG` của bàn phím ở hàng 5) — và hàng 5 chở HAI (Story 5.1).
  *
  * `TOO_LONG_TU_FILE` là sentinel RIÊNG của bảng này, KHÔNG một mã của `core/errors.js`'s
  * `MA_LOI` (tập đó vẫn đóng, đúng sáu giá trị — AD-18 không nới): một ghi chú vượt trần được
@@ -49,6 +50,18 @@ export const LOAI_BANG = Object.freeze({
   DUNG_LUONG_SAP_HET: 'DUNG_LUONG_SAP_HET',
   /** Hàng 4 — `TOO_LONG` phát hiện lúc ĐỌC FILE NẠP, không phải lúc gõ. Xem docstring ở trên. */
   TOO_LONG_TU_FILE: 'TOO_LONG_TU_FILE',
+  /**
+   * Hàng 5 — `TOO_LONG` phát sinh trong CHẾ ĐỘ SỬA một mẩu đã chốt (Story 5.1).
+   *
+   * Cùng tiền lệ `TOO_LONG_TU_FILE`, chỉ khác chỗ nó rơi trong bảng: nó là một sentinel RIÊNG
+   * của bảng này, KHÔNG một mã của `MA_LOI` (tập đó vẫn đóng, đúng sáu giá trị), và nó ở lại
+   * đúng hàng 5 cạnh `TOO_LONG` vì với người dùng đây là cùng một chuyện — chỉ câu chữ khác.
+   *
+   * Vì sao cần câu riêng: câu của `TOO_LONG` kết bằng mệnh đề "Chốt bằng Ctrl+Enter rồi gõ tiếp
+   * vào ghi chú mới." Mệnh đề đó chỉ đúng ở Ô SOẠN THẢO. Trong ô sửa của một mẩu ĐÃ chốt thì
+   * `Ctrl+Enter` không làm gì cả, nên nó là một chỉ dẫn dẫn tới không đâu.
+   */
+  TOO_LONG_KHI_SUA: 'TOO_LONG_KHI_SUA',
 });
 
 /**
@@ -71,16 +84,45 @@ export const BANG_UU_TIEN = Object.freeze([
     loai: Object.freeze([LOAI_BANG.BAD_FILE, LOAI_BANG.BAD_VERSION, LOAI_BANG.TOO_LONG_TU_FILE]),
     dongDuoc: true,
   }),
-  Object.freeze({ loai: Object.freeze([LOAI_BANG.TOO_LONG]), dongDuoc: true }),
+  // Hàng 5 chở HAI loại từ Story 5.1: `TOO_LONG` (ô soạn thảo) và `TOO_LONG_KHI_SUA` (ô sửa của
+  // một mẩu đã chốt). Cùng ưu tiên vì với người dùng đây là cùng một chuyện — chỉ câu chữ khác.
+  Object.freeze({
+    loai: Object.freeze([LOAI_BANG.TOO_LONG, LOAI_BANG.TOO_LONG_KHI_SUA]),
+    dongDuoc: true,
+  }),
   Object.freeze({ loai: Object.freeze([LOAI_BANG.NAP_FILE_XONG]), dongDuoc: true }),
   Object.freeze({ loai: Object.freeze([LOAI_BANG.DUNG_LUONG_SAP_HET]), dongDuoc: true }),
 ]);
 
 /**
- * Câu chữ của BA hàng KHÔNG-PHẢI-MÃ-CỦA-`MICROCOPY`.
+ * Câu của hàng 5 khi trần bị vượt trong CHẾ ĐỘ SỬA: đúng câu của `TOO_LONG`, CẮT ở hết câu đầu.
+ *
+ * CẮT chứ không chép tay, cùng lý do `TOO_LONG_TU_FILE` tra lại câu của `BAD_FILE`: vế đầu
+ * ("Ghi chú này đã đạt 20.000 ký tự — không nhận thêm.") phải đứng sau cả hai loại, và một bản
+ * chép tay là chỗ hai câu bắt đầu trôi khỏi nhau.
+ *
+ * Neo vào `'. '` — dấu chấm CỘNG khoảng trắng — chứ không vào dấu chấm trần: `20.000` cũng có
+ * một dấu chấm, và cắt ở đó cho ra "Ghi chú này đã đạt 20." `test/banner.test.js` ghim nguyên
+ * văn kết quả, nên phép cắt không thể lặng lẽ trả về một câu khác.
+ *
+ * Không tìm thấy dấu kết câu thì trả NGUYÊN câu: đó là một đường lui xấu (nó mang lại đúng mệnh
+ * đề `Ctrl+Enter` mà hàm này tồn tại để bỏ), và nó được viết ra như vậy có chủ ý — mọi lựa chọn
+ * khác ở đây là một chuỗi rỗng hay một câu bịa, tức một dải băng không nói gì trước mặt người
+ * dùng. Ca ghim nguyên văn là thứ giữ nhánh này không bao giờ chạy.
+ */
+const HET_CAU = '. ';
+
+function cauTranKhiSua() {
+  const cau = MICROCOPY[MA_LOI.TOO_LONG];
+  const cat = cau.indexOf(HET_CAU);
+  return cat < 0 ? cau : cau.slice(0, cat + 1);
+}
+
+/**
+ * Câu chữ của BỐN hàng KHÔNG-PHẢI-MÃ-CỦA-`MICROCOPY`.
  *
  * `microcopyLoi` NÉM với một giá trị ngoài `MICROCOPY` (`errors.js:47`), và đó là luật đúng —
- * không được nới. Nên ba sentinel có bảng riêng ở đây, và `microcopyBanner` phân nhánh theo
+ * không được nới. Nên bốn sentinel có bảng riêng ở đây, và `microcopyBanner` phân nhánh theo
  * bảng thay vì gọi thẳng `microcopyLoi` cho mọi hàng.
  *
  * `TOO_LONG_TU_FILE` dùng LẠI nguyên văn của `BAD_FILE` (`MICROCOPY[MA_LOI.BAD_FILE]`), không
@@ -100,6 +142,8 @@ export const MICROCOPY_BANG = Object.freeze({
   [LOAI_BANG.DUNG_LUONG_SAP_HET]: 'Dung lượng sắp hết. Xuất sao lưu trước khi nó hết.',
   // Câu của `BAD_FILE`/`BAD_VERSION`, tra lại chứ không chép — xem docstring ở trên.
   [LOAI_BANG.TOO_LONG_TU_FILE]: MICROCOPY[MA_LOI.BAD_FILE],
+  // Câu của `TOO_LONG`, CẮT ở hết câu đầu — xem `cauTranKhiSua` ngay trên.
+  [LOAI_BANG.TOO_LONG_KHI_SUA]: cauTranKhiSua(),
 });
 
 /** Vị trí của một loại trong bảng, tức ƯU TIÊN của nó. Loại ngoài bảng → `TypeError`, cùng

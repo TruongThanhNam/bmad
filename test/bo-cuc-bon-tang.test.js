@@ -211,7 +211,13 @@ describe('Bóng: đúng hai cái, và cả hai là token', () => {
       .map(([, s]) => s.trim());
     // Sắp cả hai vế: thứ tự các luật trong file không đổi một điểm ảnh nào, nên nó không được
     // là thứ làm ca này đỏ.
-    expect(chon.sort()).toEqual(['.o-luoi', '.o-soan', '.o-soan:focus-visible'].sort());
+    // `.mau-sua` gia nhập ở Story 5.1, và đây là một lần RENEGOTIATE có ghi chép: nó KHÔNG thêm
+    // một cái bóng thứ ba — nó DÙNG LẠI `--shadow-inset`, đúng cái bóng lõm của `.o-soan`, vì
+    // nó là chỗ đang gõ thứ hai của sản phẩm và chỗ gõ thì lún xuống. Tập token bóng vẫn đúng
+    // hai (ca ngay trên ghim điều đó); chỉ số selector mang bóng tăng một.
+    expect(chon.sort()).toEqual(
+      ['.o-luoi', '.o-soan', '.o-soan:focus-visible', '.mau-sua'].sort(),
+    );
   });
 
   it('không dùng drop-shadow hay text-shadow ở bất cứ đâu', () => {

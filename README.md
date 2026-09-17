@@ -483,3 +483,61 @@ Còn lại là thứ không con số nào nói: lần tải lại có **nháy m�
 
     Cuối cùng, `Tab` tới nút rồi bấm `Enter`: lật đúng như bấm chuột, và vòng sáng nhìn rõ ở cả
     hai bảng màu. Bấm bằng **chuột** thì không có vòng nào.
+
+28. **Hai nhịp click, và con trỏ rơi đúng chỗ bấm.** Mở trang qua HTTP localhost (mục 1). Chốt
+    một ghi chú **NGẮN** (một dòng) và một ghi chú **DÀI** (bảy, tám dòng có xuống dòng thật).
+
+    *Mẩu ngắn:* click một lần vào giữa một từ trong thân mẩu. Mẩu **vào chế độ sửa ngay** — thân
+    mẩu thành một ô gõ được, nền sáng hơn nền giấy, con trỏ nháy **đúng chỗ vừa bấm** (không ở
+    đầu, không ở cuối). Giờ hiển thị ở đầu mẩu **không đổi**, và mẩu **không nhảy vị trí**.
+
+    *Mẩu dài:* click một lần — nó **chỉ mở rộng** (dòng cuối đổi thành `thu lại ▴`), **chưa** vào
+    chế độ sửa. Click lần thứ hai vào giữa một từ — bây giờ mới vào chế độ sửa, và con trỏ vẫn
+    rơi đúng chỗ bấm. `caretPositionFromPoint` không kiểm được bằng test tự động, nên mục này là
+    người canh duy nhất của nó.
+
+    *Bấm ra ngoài thân mẩu:* click vào **dòng giờ** ở đầu mẩu (ví dụ `09:05`) của một mẩu ngắn.
+    Nó vẫn vào chế độ sửa, nhưng con trỏ phải ở **cuối chữ** — không ở một chỗ tính theo `09:05`
+    rồi áp vào toàn văn.
+
+    *Bàn phím:* `Tab` tới một mẩu (mọi mẩu nay là một điểm dừng) rồi bấm `Enter` hay phím cách:
+    vào chế độ sửa, con trỏ ở **cuối chữ**. Trong ô sửa, `Enter` **xuống dòng** như một ô gõ
+    bình thường — nó không bị ăn mất.
+
+    *Đổi bề rộng cửa sổ khi ô sửa đang mở:* để ô sửa mở với một ghi chú đủ dài để ngắt dòng, rồi
+    **kéo hẹp cửa sổ lại** (hay `Ctrl` + `+` tới 150%). Cùng một chữ nay chiếm nhiều dòng hơn:
+    ô phải **cao thêm ngay**, không được cắt mất dòng cuối. Kéo rộng lại: ô **co lại** khít chữ.
+    Ô sửa là `overflow: hidden` cộng một chiều cao do JS ghim — nó **không bao giờ** được mọc ra
+    một thanh cuộn của riêng nó (trang chỉ có hai vùng cuộn: tầng lưới và ô soạn thảo).
+
+29. **Sửa tại chỗ: chữ xuống kho, giờ không đổi, và mẩu thu lại khi rời.** Tiếp mục 28. Trong ô
+    sửa của một mẩu, gõ thêm vài chữ rồi **ngồi yên hơn một giây**. Không có một chỉ báo nào hiện
+    ra (không "đang lưu", không "đã lưu", không đếm ký tự) — đó là thiết kế. Nhìn lưới: chữ mới
+    **có mặt** mà không phải bấm thêm gì.
+
+    Bấm ra chỗ trống ngoài mẩu: ô sửa đóng lại, mẩu **thu gọn** về ba dòng, và giờ hiển thị vẫn
+    y nguyên. Tải lại trang: chữ vừa sửa còn đó, mẩu **vẫn ở đúng vị trí cũ** trên lưới.
+
+    *Hai mẩu liên tiếp:* vào chế độ sửa mẩu A, gõ vài chữ, rồi **bấm thẳng sang mẩu B** (một cú
+    bấm, không phải hai) và gõ vào B ngay. Đợi hai giây rồi tải lại: **cả hai** mẩu giữ đúng chữ
+    của mình. Đây là ca mà một số đếm tự lưu dùng chung làm mất chữ của A trong im lặng.
+
+    *Mở lại ngay:* gõ vào một mẩu rồi bấm ra ngoài và bấm vào lại **thật nhanh** (dưới nửa giây):
+    ô sửa mở ra với **chữ vừa gõ**, không phải chữ cũ.
+
+    *`Tab` ra khỏi ô sửa:* đang sửa, bấm `Tab`. Ô sửa đóng, và vòng sáng phải nằm ở **điểm dừng
+    kế tiếp** — không biến mất về đầu trang.
+
+    *Quá trần:* dán hơn 20.000 ký tự vào ô sửa. Dải băng hiện ra **ngay**, đọc đúng
+    `Ghi chú này đã đạt 20.000 ký tự — không nhận thêm.` — **không** có mệnh đề `Ctrl+Enter`
+    (mệnh đề đó chỉ đúng ở ô soạn thảo). Chữ vừa dán **vẫn còn** trong ô. Gõ một câu hợp lệ
+    **trước** rồi mới dán quá trần: đợi hai giây, tải lại — câu hợp lệ ấy phải có trong ghi chú,
+    nó không được bị lần dán bị từ chối nuốt mất.
+
+    *Ô sửa ở bản dark.* Đổi `ghichu.theme` sang `dark` (mục 14) rồi mở lại một ô sửa. Ba thứ
+    phải đọc được ngay bằng mắt, cùng cách mục 25 soi dải băng: chữ trong ô **rõ** trên nền
+    `--surface` của nó (ô sửa sáng hơn nền giấy ở cả hai bảng màu — nó là *chỗ đang gõ*), đường
+    viền `--rule` **thấy được** nên ô không lẫn vào mẩu, và vòng sáng khi ô nhận tiêu điểm lấy
+    màu `--focus` — nhìn rõ trên nền tối. Lật lại `light` và soi đúng ba thứ đó. Bóng lõm đổi
+    theo theme (`--shadow-inset`), nên ở bản dark nó phải là một vệt **tối**, không phải một
+    vệt xám nổi lên trên nền sẫm.

@@ -751,22 +751,33 @@ try {
         'mẩu nhiều dòng có `còn N dòng ▾` đúng số; đoạn dài một-dòng-logic thì KHÔNG có',
         thuGon[0].gap === 'còn 6 dòng ▾' &&
           thuGon[1].gap === null &&
-          thuGon[1].tab === null &&
           thuGon[2].gap === 'còn 6 dòng ▾',
-        JSON.stringify(thuGon.map((m) => [m.gap, m.tab])),
+        JSON.stringify(thuGon.map((m) => m.gap)),
       );
+      // ĐO LẠI theo hành vi mới của Story 5.1: MỌI mẩu vào thứ tự Tab, không chỉ mẩu bị cắt.
+      // Ca cũ ghim "chỉ mẩu BỊ CẮT" và nó ghim đúng trạng thái lúc đó — mẩu ngắn thật sự không
+      // có hành vi nào cho tới story này. Nay click nó vào chế độ sửa, nên nó phải mở được
+      // bằng cả bàn phím.
       ghi(
-        'mỗi mẩu mang giờ tạo HH:mm, và chỉ mẩu BỊ CẮT mới vào thứ tự Tab',
-        thuGon.every((m) => /^\d{2}:\d{2}$/.test(m.gio)) &&
-          thuGon.filter((m) => m.tab === '0').length === thuGon.filter((m) => m.gap !== null).length,
+        'mỗi mẩu mang giờ tạo HH:mm, và MỌI mẩu vào thứ tự Tab (Story 5.1)',
+        thuGon.every((m) => /^\d{2}:\d{2}$/.test(m.gio)) && thuGon.every((m) => m.tab === '0'),
         JSON.stringify(thuGon.map((m) => [m.gio, m.tab])),
       );
 
-      /** Click mẩu thứ `i` đúng đường của người dùng. */
+      /** Click mẩu thứ `i` đúng đường của người dùng — kèm TOẠ ĐỘ THẬT ở giữa thân mẩu.
+       *
+       *  Toạ độ không phải trang trí: `caretPositionFromPoint` đọc `clientX`/`clientY`, và một
+       *  `MouseEvent` dựng trần mang `0/0` — tức con trỏ luôn rơi về đường lui (cuối chữ) và
+       *  phép đo "con trỏ theo điểm bấm" xanh mà không chứng minh gì. */
       const CLICK = (i) => `
-        document.querySelectorAll('.luoi > *')[${i}].dispatchEvent(
-          new MouseEvent('click', { bubbles: true }),
-        );
+        const mau = document.querySelectorAll('.luoi > *')[${i}];
+        const than = mau.querySelector('.mau-than') ?? mau;
+        const r = than.getBoundingClientRect();
+        mau.dispatchEvent(new MouseEvent('click', {
+          bubbles: true,
+          clientX: Math.round(r.left + r.width / 2),
+          clientY: Math.round(r.top + r.height / 2),
+        }));
         return true;
       `;
       // Mẩu cuối trong danh sách là mẩu CŨ NHẤT bộ đo tạo; ở lưới 3 cột nó nằm ở hàng thứ hai,
@@ -793,15 +804,249 @@ try {
         JSON.stringify(haiMo.map((m) => m.mo)),
       );
 
-      // Click một mẩu KHÔNG bị cắt không đổi gì cả — kể cả chiều cao của chính nó.
-      await cdp.chay(tab.sessionId, CLICK(1));
-      await nghi(100);
-      const sauClickNgan = (await cdp.chay(tab.sessionId, DO_MAU)).slice(0, CHU_MAU.length);
-      ghi(
-        'click mẩu KHÔNG bị cắt: không một thứ gì đổi',
-        JSON.stringify(sauClickNgan) === JSON.stringify(haiMo),
-        JSON.stringify(sauClickNgan.map((m) => m.mo)),
+      // ── Chế độ sửa tại chỗ (Story 5.1) ──────────────────────────────────────────────
+      //
+      // Bốn phép đo, và cả bốn là câu hỏi mà `npm test` không trả lời được: chiều cao ĐÃ TÍNH
+      // của ô sửa, tiêu điểm sau một lượt `replaceChildren` thật, một dải băng hiện ra trên màn
+      // hình thật, và chữ trên lưới sau khi hẹn ghi nổ.
+      //
+      // Mọi phép đọc `.mau-sua` kiểm `null` và báo qua `ghi(...)`: một hồi quy phải hiện ra như
+      // một dòng FAIL, không như một lần NỔ của công cụ.
+
+      // Vị trí trong DOM của MỘT mẩu cụ thể, hỏi lại mỗi lần: lưới sắp theo khóa thời gian và
+      // kho trên máy người chạy có thể đã mang ghi chú thật, nên một chỉ số viết cứng là cách
+      // bộ đo lặng lẽ sửa nhầm một mẩu khác — rồi báo đỏ về một thứ sản phẩm làm đúng.
+      const CHI_SO = (id) => `
+        const m = await import('/app/main.js');
+        const q = await import('/app/core/query.js');
+        const t = await import('/app/core/time.js');
+        const ds = q.locGhiChu(m.store.state.notes, m.store.state.dieuKien, t.nowIso());
+        return ds.findIndex((x) => x.id === ${JSON.stringify(id)});
+      `;
+      /** Mẩu MỘT-ĐOẠN-DÀI (`CHU_MAU[2]`) — mẩu duy nhất KHÔNG bị cắt (một dòng LOGIC), tức
+       *  nhịp 1 vào chế độ sửa luôn. */
+      const idNgan = idMau[2];
+      const viTriNgan = async () => cdp.chay(tab.sessionId, CHI_SO(idNgan));
+
+      // ĐO LẠI theo hành vi mới: click một mẩu KHÔNG bị cắt nay vào chế độ sửa (nhịp 1), vì nó
+      // không có gì bị cắt để mở. Ca cũ ghim "không một thứ gì đổi".
+      await cdp.chay(tab.sessionId, CLICK(await viTriNgan()));
+      await nghi(150);
+      const oSuaMoiMo = await cdp.chay(
+        tab.sessionId,
+        `
+        const o = document.querySelector('.mau-sua');
+        if (o === null) return null;
+        const r = o.getBoundingClientRect();
+        const s = getComputedStyle(o);
+        return {
+          cao: Math.round(r.height),
+          blockSize: o.style.blockSize,
+          cuon: o.scrollHeight - o.clientHeight,
+          tieuDiem: document.activeElement === o,
+          conTro: o.selectionStart,
+          chu: o.value,
+          tranOng: s.overflow,
+          keoDuoc: s.resize,
+        };
+      `,
       );
+      if (oSuaMoiMo === null) {
+        ghi('click mẩu ngắn mở ô sửa tại chỗ', false, 'không tìm thấy `.mau-sua` sau cú click');
+      } else {
+        // `scrollHeight` của một phần tử còn RỜI khỏi DOM là 0, nên một phép đo quá sớm ghim
+        // `block-size: 0px` và ô sửa mở ra VÔ HÌNH cho tới phím đầu tiên.
+        ghi(
+          'ô sửa lúc vừa mở: cao > 0, khít nội dung, nhận tiêu điểm, và con trỏ ở ĐÚNG CHỖ BẤM',
+          oSuaMoiMo.cao > 0 &&
+            oSuaMoiMo.blockSize !== '0px' &&
+            oSuaMoiMo.cuon <= 1 &&
+            oSuaMoiMo.tieuDiem &&
+            // Bấm vào GIỮA thân mẩu, nên con trỏ phải nằm giữa chữ — không ở đầu, và không ở
+            // cuối. Đường lui "cuối chữ" là đúng cho bàn phím; ở đây nó là một hồi quy, và nếu
+            // con số này không vào phép so thì nó là một hồi quy không ai thấy.
+            oSuaMoiMo.conTro > 0 &&
+            oSuaMoiMo.conTro < oSuaMoiMo.chu.length,
+          JSON.stringify({ ...oSuaMoiMo, chu: `${oSuaMoiMo.chu.length} ký tự` }),
+        );
+        ghi(
+          'ô sửa KHÔNG là vùng cuộn thứ ba và KHÔNG kéo được — hình học của hàng lưới còn nguyên',
+          oSuaMoiMo.tranOng === 'hidden' && oSuaMoiMo.keoDuoc === 'none',
+          `overflow=${oSuaMoiMo.tranOng} · resize=${oSuaMoiMo.keoDuoc}`,
+        );
+      }
+
+      // `Tab` ra khỏi ô sửa: `blur` → `roiCheDoSua` → một lượt `replaceChildren` cả lưới, tức
+      // gỡ đúng phần tử vừa nhận tiêu điểm. Không giữ tiêu điểm thì nó rơi về `<body>` và `Tab`
+      // tiếp theo bắt đầu lại từ đầu trang.
+      await cdp.chay(
+        tab.sessionId,
+        `
+        const o = document.querySelector('.mau-sua');
+        if (o === null) return false;
+        // Điểm dừng kế tiếp trong thứ tự DOM là mẩu ngay sau nó — nay MỌI mẩu mang tabindex.
+        const ds = [...document.querySelectorAll('.luoi > *')];
+        const sau = ds[ds.indexOf(o.closest('.o-luoi')) + 1];
+        if (sau !== undefined) sau.focus();
+        else o.blur();
+        return true;
+      `,
+      );
+      await nghi(200);
+      const sauTab = await cdp.chay(
+        tab.sessionId,
+        `
+        const m = await import('/app/main.js');
+        const a = document.activeElement;
+        return {
+          veBody: a === document.body || a === null,
+          ten: a === null ? null : a.tagName.toLowerCase() + '.' + String(a.className || '').trim(),
+          dangSua: m.store.state.editing.id,
+          conOSua: document.querySelector('.mau-sua') !== null,
+        };
+      `,
+      );
+      ghi(
+        '`Tab` ra khỏi ô sửa: thoát chế độ sửa, và tiêu điểm KHÔNG rơi về <body>',
+        !sauTab.veBody && sauTab.dangSua === null && !sauTab.conOSua,
+        JSON.stringify(sauTab),
+      );
+
+      // Trần ký tự TRONG ô sửa: dải băng phải hiện ra NGAY, và câu của nó không có `Ctrl+Enter`
+      // — mệnh đề đó chỉ đúng ở ô soạn thảo.
+      await cdp.chay(tab.sessionId, CLICK(await viTriNgan()));
+      await nghi(150);
+      const banTran = await cdp.chay(
+        tab.sessionId,
+        `
+        const l = await import('/app/core/limits.js');
+        const o = document.querySelector('.mau-sua');
+        if (o === null) return null;
+        o.value = 'x'.repeat(l.MAX_NOTE_CHARS + 1);
+        o.dispatchEvent(new Event('input', { bubbles: true }));
+        return true;
+      `,
+      );
+      if (banTran === null) {
+        ghi('dải băng trần khi đang sửa', false, 'không tìm thấy `.mau-sua` để dán chữ vào');
+      } else {
+        await nghi(200);
+        const chuBang = await cdp.chay(
+          tab.sessionId,
+          `
+          const m = await import('/app/main.js');
+          const c = document.querySelector('.dai-bang-chu');
+          const o = document.querySelector('.mau-sua');
+          return {
+            chu: c === null ? null : c.textContent,
+            loai: m.store.state.banner,
+            conChu: o === null ? null : o.value.length,
+            trongState: m.store.state.editing.text.length,
+          };
+        `,
+        );
+        ghi(
+          'dán quá trần lúc đang sửa: dải băng HIỆN RA, câu không có `Ctrl+Enter`, chữ vẫn còn',
+          chuBang.chu !== null &&
+            !chuBang.chu.includes('Ctrl+Enter') &&
+            chuBang.chu.includes('không nhận thêm.') &&
+            chuBang.loai === 'TOO_LONG_KHI_SUA' &&
+            chuBang.conChu === chuBang.trongState,
+          JSON.stringify(chuBang),
+        );
+        // Dọn: đưa ô sửa về đúng chữ cũ rồi rời, nếu không mẩu này giữ 20.001 ký tự.
+        await cdp.chay(
+          tab.sessionId,
+          `
+          const o = document.querySelector('.mau-sua');
+          if (o === null) return false;
+          o.value = ${JSON.stringify(CHU_MAU[2])};
+          o.dispatchEvent(new Event('input', { bubbles: true }));
+          o.blur();
+          return true;
+        `,
+        );
+        await nghi(600);
+      }
+
+      // Chữ vừa sửa phải hiện trên LƯỚI ngay lúc phép ghi xong — không đợi một tương tác khác.
+      // Dự án không có subscribe, nên vế này chỉ đúng nếu `main.js` treo một lượt vẽ vào lời
+      // hứa của `tuLuuNoiDung`.
+      const CHU_SUA = `${CHU_MAU[2]}— đã sửa`;
+      // Vị trí TRƯỚC khi sửa: "mẩu không nhảy chỗ sau một lần sửa" là một lời hứa trung tâm của
+      // story, và nó chỉ đo được bằng hai phép đọc quanh phép sửa.
+      const viTriTruocKhiSua = await viTriNgan();
+      // Bấm rồi ĐỢI CÓ ô sửa, không đợi một khoảng cố định: lượt vẽ khi rời chế độ sửa trước đó
+      // được hoãn một nhịp và một hẹn ghi có thể còn đang bay, nên một `nghi()` cố định là một
+      // cuộc đua — và nó thua ở đúng những máy chậm mà bộ đo cần chạy được.
+      for (let i = 0; i < 20; i += 1) {
+        await cdp.chay(tab.sessionId, CLICK(await viTriNgan()));
+        await nghi(150);
+        const co = await cdp.chay(
+          tab.sessionId,
+          `return document.querySelector('.mau-sua') !== null;`,
+        );
+        if (co) break;
+      }
+      const daGo = await cdp.chay(
+        tab.sessionId,
+        `
+        const o = document.querySelector('.mau-sua');
+        if (o === null) return false;
+        o.value = ${JSON.stringify(CHU_SUA)};
+        o.dispatchEvent(new Event('input', { bubbles: true }));
+        return true;
+      `,
+      );
+      if (daGo !== true) {
+        ghi('sửa nội dung tại chỗ rồi chờ hẹn ghi', false, 'không tìm thấy `.mau-sua` để gõ vào');
+      } else {
+        // Đợi hết `AUTOSAVE_MS` cộng một khoảng cho giao dịch IndexedDB — KHÔNG rời ô sửa, vì
+        // đúng vế đang đo là "lưới hiện chữ mới mà không cần tương tác thêm".
+        await nghi(1200);
+        const sauGhi = await cdp.chay(
+          tab.sessionId,
+          `
+          const m = await import('/app/main.js');
+          const n = m.store.state.notes.find((x) => x.id === ${JSON.stringify(idNgan)});
+          return {
+            trongKho: n === undefined ? null : n.text,
+            createdAt: n === undefined ? null : n.createdAt,
+            viTri: m.store.state.notes.indexOf(n),
+          };
+        `,
+        );
+        ghi(
+          'hẹn ghi nổ: bản ghi trong RAM mang chữ mới, và `createdAt` giữ nguyên',
+          sauGhi.trongKho === CHU_SUA && sauGhi.createdAt !== null,
+          JSON.stringify(sauGhi),
+        );
+        // Rời ô sửa rồi đọc THÂN MẨU trên lưới: đây là vế "hiện ra được".
+        await cdp.chay(
+          tab.sessionId,
+          `
+          const o = document.querySelector('.mau-sua');
+          if (o !== null) o.blur();
+          return true;
+        `,
+        );
+        await nghi(300);
+        const iSau = await viTriNgan();
+        const chuTrenLuoi = await cdp.chay(
+          tab.sessionId,
+          `
+          const t = [...document.querySelectorAll('.luoi > *')].map((x) =>
+            x.querySelector('.mau-than') === null ? null : x.querySelector('.mau-than').textContent,
+          );
+          return t;
+        `,
+        );
+        ghi(
+          'thân mẩu trên lưới đọc đúng chữ vừa sửa, và mẩu KHÔNG đổi vị trí',
+          iSau === viTriTruocKhiSua && chuTrenLuoi[iSau] === CHU_SUA,
+          `vị trí ${viTriTruocKhiSua}→${iSau} · ${JSON.stringify(String(chuTrenLuoi[iSau]).slice(0, 48))}`,
+        );
+      }
 
       // Tải lại trang THẬT: đây là phép đo duy nhất chứng minh trạng thái mở rộng không rơi
       // xuống một kho bền nào. Hỏi thẳng cả hai kho sau đó, vì "trông thấy thu gọn" vẫn có thể
@@ -978,7 +1223,7 @@ try {
         `
         const l = await import('/app/view/luoi.js');
         const td = await import('/app/view/tieu-de.js');
-        const rong = { state: { notes: [], dieuKien: { keyword: null, date: null }, expandedIds: [] } };
+        const rong = { state: { notes: [], dieuKien: { keyword: null, date: null }, expandedIds: [], editing: { id: null, text: '', seq: {} } } };
         l.noiLuoi(rong, document).ve();
         td.noiTieuDe(rong, document).ve();
         const luoi = document.querySelector('.luoi');
@@ -1280,7 +1525,7 @@ try {
         textFolded: '',
       }));
       const gia = {
-        state: { notes, dieuKien: { keyword: null, date: null }, expandedIds: [] },
+        state: { notes, dieuKien: { keyword: null, date: null }, expandedIds: [], editing: { id: null, text: '', seq: {} } },
         batTatMoRong() {},
       };
       l.noiLuoi(gia, document, () => '2026-01-01T12:00:00+00:00').ve();
@@ -1538,7 +1783,14 @@ try {
               ${diem.x} >= Math.floor(r.left) && ${diem.x} <= Math.ceil(r.right) &&
               ${diem.y} >= Math.floor(r.top) && ${diem.y} <= Math.ceil(r.bottom),
             khop: el.matches(':focus-visible'),
-            sangCaTrang: document.querySelectorAll(':focus-visible').length,
+            // Từ Story 5.1 một cú click vào mẩu ngắn mở ô sửa và đưa tiêu điểm vào đó. Một
+            // textarea đang nhận tiêu điểm LUÔN khớp :focus-visible theo chính định nghĩa của
+            // trình duyệt (ô nhập chữ luôn hiện vòng sáng, bất kể chuột hay bàn phím), và đó là
+            // hành vi ĐÚNG — con trỏ nháy ở đâu thì vòng sáng ở đó. Nên phép đếm bỏ riêng ô sửa
+            // ra; vế đang hỏi vẫn nguyên: phần tử VỪA BẤM không được sáng lên.
+            sangCaTrang: [...document.querySelectorAll(':focus-visible')].filter(
+              (x) => !x.classList.contains('mau-sua'),
+            ).length,
             vong: vong(el),
             khoa: khoa(el),
           };
@@ -1816,7 +2068,7 @@ try {
           textFolded: '',
         }];
         const gia = {
-          state: { notes, dieuKien: { keyword: null, date: null }, expandedIds: [] },
+          state: { notes, dieuKien: { keyword: null, date: null }, expandedIds: [], editing: { id: null, text: '', seq: {} } },
           batTatMoRong() {},
         };
         l.noiLuoi(gia, document, () => '2026-01-01T12:00:00+00:00').ve();

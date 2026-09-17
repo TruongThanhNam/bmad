@@ -133,7 +133,10 @@ const THU_TU_AD_17 = [
   // `TOO_LONG_TU_FILE` gia nhập hàng 4 ở review Epic 4 (Story 4.3): ghi chú vượt trần PHÁT HIỆN
   // lúc đọc file nạp đứng ngang ưu tiên với lỗi nạp file, không phải `TOO_LONG` trần của hàng 5.
   { loai: ['BAD_FILE', 'BAD_VERSION', 'TOO_LONG_TU_FILE'], dongDuoc: true },
-  { loai: ['TOO_LONG'], dongDuoc: true },
+  // `TOO_LONG_KHI_SUA` gia nhập hàng 5 ở Story 5.1: vượt trần trong ô SỬA của một mẩu đã chốt
+  // là cùng một chuyện với vượt trần khi gõ ở ô soạn thảo — chỉ câu chữ khác (mệnh đề
+  // `Ctrl+Enter` không đúng trong ô sửa), nên cùng hàng, cùng cờ đóng-được.
+  { loai: ['TOO_LONG', 'TOO_LONG_KHI_SUA'], dongDuoc: true },
   { loai: ['NAP_FILE_XONG'], dongDuoc: true },
   { loai: ['DUNG_LUONG_SAP_HET'], dongDuoc: true },
 ];
@@ -215,6 +218,34 @@ describe('core/banner.js — chữ luôn đến từ ánh xạ có sẵn', () =>
     expect(thayDuoc(LOAI_BANG.TOO_LONG_TU_FILE, LOAI_BANG.BAD_FILE)).toBe(true);
     expect(thayDuoc(LOAI_BANG.TOO_LONG, LOAI_BANG.TOO_LONG_TU_FILE)).toBe(true);
     expect(thayDuoc(LOAI_BANG.TOO_LONG_TU_FILE, LOAI_BANG.TOO_LONG)).toBe(false);
+  });
+
+  it('TOO_LONG_KHI_SUA (Story 5.1 — vượt trần trong ô sửa) CẮT câu của TOO_LONG ở hết câu đầu', () => {
+    // Nguyên văn, từng ký tự: nếu không thì phép cắt có thể lặng lẽ trả về một câu khác — cắt ở
+    // dấu chấm của `20.000` cho ra "Ghi chú này đã đạt 20.", và không ca nào khác thấy.
+    expect(microcopyBanner(LOAI_BANG.TOO_LONG_KHI_SUA)).toBe(
+      'Ghi chú này đã đạt 20.000 ký tự — không nhận thêm.',
+    );
+    // Và nó là câu của `TOO_LONG` TRỪ ĐÚNG mệnh đề `Ctrl+Enter` — vế duy nhất nói sai trong ô
+    // sửa của một mẩu ĐÃ chốt, nơi `Ctrl+Enter` không làm gì cả.
+    expect(microcopyBanner(LOAI_BANG.TOO_LONG_KHI_SUA)).not.toContain('Ctrl+Enter');
+    expect(microcopyLoi(MA_LOI.TOO_LONG)).toContain('Ctrl+Enter');
+    expect(microcopyLoi(MA_LOI.TOO_LONG).startsWith(microcopyBanner(LOAI_BANG.TOO_LONG_KHI_SUA))).toBe(
+      true,
+    );
+    // Và nó KHÔNG lẫn với `TOO_LONG_TU_FILE`: hai sentinel khác câu, khác hàng.
+    expect(microcopyBanner(LOAI_BANG.TOO_LONG_KHI_SUA)).not.toBe(
+      microcopyBanner(LOAI_BANG.TOO_LONG_TU_FILE),
+    );
+    expect(thayDuoc(LOAI_BANG.TOO_LONG_TU_FILE, LOAI_BANG.TOO_LONG_KHI_SUA)).toBe(false);
+    expect(thayDuoc(LOAI_BANG.TOO_LONG_KHI_SUA, LOAI_BANG.TOO_LONG_TU_FILE)).toBe(true);
+    // Cùng hàng 5 với `TOO_LONG`: thay được nhau cả hai chiều, và đóng được.
+    expect(thayDuoc(LOAI_BANG.TOO_LONG, LOAI_BANG.TOO_LONG_KHI_SUA)).toBe(true);
+    expect(thayDuoc(LOAI_BANG.TOO_LONG_KHI_SUA, LOAI_BANG.TOO_LONG)).toBe(true);
+    expect(dongDuoc(LOAI_BANG.TOO_LONG_KHI_SUA)).toBe(true);
+    // Tập mã lỗi của AD-18 giữ đúng SÁU giá trị — sentinel không phải một mã thứ bảy.
+    expect(Object.values(MA_LOI)).toHaveLength(6);
+    expect(Object.values(MA_LOI)).not.toContain(LOAI_BANG.TOO_LONG_KHI_SUA);
   });
 
   it('hàng 6 CÓ tham số: nguyên văn từng ký tự, hai con số viết bằng CHỮ SỐ', () => {

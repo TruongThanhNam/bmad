@@ -43,6 +43,34 @@ const LOP_THAN = 'mau-than';
 const LOP_THAN_MO = 'mau-than-mo';
 const LOP_GAP = 'mau-gap';
 
+/** Thẻ và class của ô sửa tại chỗ (Story 5.1) — nó THAY thân mẩu, không nằm cạnh. */
+const THE_SUA = 'textarea';
+const LOP_SUA = 'mau-sua';
+
+/** Thuộc tính chở `id` của mẩu đang sửa, đọc từ DOM.
+ *
+ *  Nó không phải trang trí: `app/view/luoi.js` gác lượt vẽ bằng nó (đang sửa mẩu nào mà DOM ĐÃ
+ *  có ô sửa của đúng mẩu đó thì không thay danh sách con), và `app/main.js` tìm ô sửa vừa mở
+ *  bằng nó. Giữ `id` trong một biến của view là đúng cái state thứ hai mà AD-1 cấm. */
+export const THUOC_TINH_SUA = 'data-sua';
+
+/** Cùng một thuộc tính, viết ở dạng mệnh đề chọn. EXPORT để `luoi.js` và `main.js` dùng lại
+ *  chứ không khai lại: tên viết ở ba chỗ là ba chỗ có thể trôi khỏi nhau, và khi nó trôi thì
+ *  phép gác không-vẽ-lại lặng lẽ tắt (gõ ngược) còn tiêu điểm lặng lẽ rơi về `<body>`. */
+export const CHON_SUA = `[${THUOC_TINH_SUA}]`;
+
+/** Thuộc tính chở `id` của MỌI mẩu — kể cả mẩu không ở chế độ sửa.
+ *
+ *  `app/main.js` neo tiêu điểm vào nó khi phải vẽ lại lưới: neo theo VỊ TRÍ trong danh sách con
+ *  là sai ngay khi lượt vẽ đó dựng một tập mẩu khác (bộ lọc đang bật, hay nửa đêm vừa trôi qua
+ *  giữa hai lượt vẽ) — tiêu điểm sẽ nhảy sang một ghi chú khác. */
+export const THUOC_TINH_MAU = 'data-mau';
+
+/** Nhãn của ô sửa cho trình đọc màn hình. Một `<textarea>` không nhãn là một ô không tên —
+ *  `index.html` đã cho ô soạn thảo đúng một cái như vậy. */
+const THUOC_TINH_NHAN = 'aria-label';
+const NHAN_SUA = 'nội dung ghi chú';
+
 /** Nhãn của nút xóa — nguyên văn microcopy đã chốt, chữ thường, không dấu chấm. */
 const NHAN_XOA = 'xóa';
 
@@ -57,7 +85,17 @@ const NHAN_THU_LAI = 'thu lại ▴';
  *  `còn N dòng ▾` — suy giảm có ý thức của story này, không phải khiếm khuyết. */
 const XUONG_DONG = '\n';
 
-/** `tabindex` của mẩu bị cắt: chỉ mẩu CÓ hành vi mới vào thứ tự Tab. */
+/** `tabindex` của MỌI mẩu: từ Story 5.1 mọi mẩu đều có một hành vi — click để vào chế độ sửa —
+ *  nên mọi mẩu là một điểm dừng bàn phím.
+ *
+ *  Đây là một lần RENEGOTIATE có ghi chép, không một lần lách: QĐ-2 của Story 3.2 ghim "chỉ mẩu
+ *  BỊ CẮT mang `tabindex`", và nó ghim đúng trạng thái lúc đó — mẩu ngắn KHÔNG có hành vi nào.
+ *  Nay nó có, và một hành vi chỉ mở được bằng chuột là một hành vi không tồn tại với bàn phím.
+ *  `test/focus-va-tab.test.js` mang chú thích của lần đổi này ở đúng ca QĐ-2.
+ *
+ *  Mẩu ĐANG sửa là ngoại lệ, và đó là điều kiện: ô sửa là một `<textarea>`, nên nó tự là điểm
+ *  dừng. Để `tabindex` trên mẩu bọc thì `Tab` phải đi qua hai điểm dừng cho một thứ; và để bộ
+ *  nghe `keydown` ở đó thì `Enter` cùng phím cách bị ăn mất ngay trong ô đang gõ. */
 const TAB_CO = '0';
 
 /** `tabindex` của nút xóa: nó tồn tại về mặt HÌNH DẠNG ở story này (hộp thoại xác nhận và phép
@@ -85,19 +123,157 @@ export function soDong(text) {
 }
 
 /**
+ * Vị trí con trỏ suy từ ĐIỂM BẤM, hay `null` khi không suy được.
+ *
+ * Hai API cho cùng một câu hỏi và không trình duyệt nào có cả hai:
+ * `caretPositionFromPoint` (chuẩn, Firefox/Chromium mới) và `caretRangeFromPoint` (WebKit và
+ * Chromium cũ). Cả hai đều có thể trả `null` ngay trên một điểm hợp lệ, nên mọi nhánh ra `null`
+ * và chỗ gọi có đường lui là CUỐI chữ.
+ *
+ * Node trả về PHẢI nằm trong thân mẩu, và phép kiểm đó là toàn bộ điểm của hàm này: bộ nghe
+ * `click` gắn trên cả phần tử mẩu, nên một cú bấm vào dòng giờ tạo cho một `offset` tính trong
+ * chuỗi `"09:05"` — rồi `offset` đó được áp vào TOÀN VĂN ghi chú, tức con trỏ nhảy sai chỗ mà
+ * không ai giải thích được.
+ *
+ * @param {Document} ownerDocument Tài liệu chứa điểm bấm.
+ * @param {Element} than Thân mẩu — node dưới điểm bấm phải nằm trong nó.
+ * @param {object} [suKien] Sự kiện chuột. Vắng mặt (bàn phím) → `null`.
+ * @returns {number|null}
+ */
+export function viTriConTroTuDiem(ownerDocument, than, suKien) {
+  if (suKien === null || suKien === undefined) return null;
+  const { clientX, clientY } = suKien;
+  if (typeof clientX !== 'number' || typeof clientY !== 'number') return null;
+
+  let node = null;
+  let viTri = null;
+  if (typeof ownerDocument.caretPositionFromPoint === 'function') {
+    const diem = ownerDocument.caretPositionFromPoint(clientX, clientY);
+    if (diem === null || diem === undefined) return null;
+    node = diem.offsetNode;
+    viTri = diem.offset;
+  } else if (typeof ownerDocument.caretRangeFromPoint === 'function') {
+    const pham = ownerDocument.caretRangeFromPoint(clientX, clientY);
+    if (pham === null || pham === undefined) return null;
+    node = pham.startContainer;
+    viTri = pham.startOffset;
+  } else {
+    return null;
+  }
+
+  if (typeof viTri !== 'number') return null;
+  if (node === null || node === undefined) return null;
+  // Node PHẢI là một node CHỮ. Cả hai API trả `offset` theo chính node chúng trả về: với một
+  // node chữ đó là một vị trí KÝ TỰ (thứ đang cần), nhưng với một node PHẦN TỬ — chuyện xảy ra
+  // khi điểm bấm rơi vào khoảng đệm, hay vào khoảng trống sau dòng cuối — nó là CHỈ SỐ CON. Một
+  // chỉ số con đọc thành vị trí ký tự cho ra con trỏ ở ký tự thứ 0 hay thứ 1 của cả ghi chú.
+  // Hằng so sánh lấy từ chính node (`Node` là global của DOM, và tệp này không chạm global nào).
+  if (node.nodeType !== node.TEXT_NODE) return null;
+  // `contains` tính cả chính phần tử, nên một cú bấm vào khoảng đệm của thân mẩu vẫn đi qua.
+  if (typeof than.contains !== 'function') return null;
+  if (!than.contains(node)) return null;
+  return viTri;
+}
+
+/**
+ * Ô sửa cao khít nội dung — cùng phép đo với `caoTheoNoiDung` của `o-soan.js`, cùng lý do.
+ *
+ * Hàm này được EXPORT và gọi từ `luoi.js` SAU `replaceChildren`, không gọi ngay lúc dựng phần
+ * tử: `scrollHeight` của một phần tử còn RỜI khỏi DOM là `0`, nên đo lúc dựng sẽ ghim
+ * `block-size: 0px` và ô sửa mở ra vô hình cho tới phím đầu tiên.
+ *
+ * @param {Element} o Ô sửa (`<textarea class="mau-sua">`).
+ * @returns {void}
+ */
+export function caoTheoNoiDungSua(o) {
+  if (o === null || o === undefined) return;
+  // `block-size` về `auto` TRƯỚC khi đọc `scrollHeight`: một ô đang bị ghim chiều cao có
+  // `scrollHeight` bằng đúng chiều cao đó, nên bỏ bước này là ô chỉ cao lên và không co lại.
+  o.style.blockSize = 'auto';
+  // `box-sizing: border-box` đếm cả viền mà `scrollHeight` thì không — hiệu số được ĐO, không
+  // viết thành số, nên luật CSS đổi thì nó tự đúng theo.
+  const vienTrenDuoi = o.offsetHeight - o.clientHeight;
+  o.style.blockSize = `${o.scrollHeight + vienTrenDuoi}px`;
+}
+
+/** Thân mẩu ở dạng CHỮ CHẾT — hình dạng mặc định của một thứ đã chốt. */
+function veThanChu(note, ownerDocument, dangMoRong) {
+  const than = ownerDocument.createElement(THE_THAN);
+  than.className = dangMoRong ? `${LOP_THAN} ${LOP_THAN_MO}` : LOP_THAN;
+  // `textContent` chứ không `innerHTML`, và đó là một luật: chữ của Nam KHÔNG BAO GIỜ được
+  // thành markup. `'<b>x</b>'` phải hiện ra nguyên văn như chữ, và `textContent` giữ nguyên
+  // mọi ký tự xuống dòng cho `white-space: pre-wrap` của CSS xử.
+  than.textContent = note.text;
+  return than;
+}
+
+/**
+ * Thân mẩu ở CHẾ ĐỘ SỬA — một `<textarea>` mượn nguyên ngôn ngữ vật liệu của ô soạn thảo.
+ *
+ * Hàm riêng chứ không một nhánh `if` trong `veMau`, và đó là một điều kiện chứ không thẩm mỹ:
+ * `test/focus-va-tab.test.js` SUY RA tập điều khiển focusable từ chính mã nguồn bằng cách nối
+ * `const x = …createElement(T)` với `x.className = L`. Một phần tử dựng qua `let` rồi gán thì
+ * bộ quét không thấy — tức `.mau-sua` sẽ không được cửa "mọi điều khiển đều có vòng sáng" phủ,
+ * trong im lặng.
+ */
+function veThanSua(note, ownerDocument, sua) {
+  const oSua = ownerDocument.createElement(THE_SUA);
+  oSua.className = LOP_SUA;
+  oSua.setAttribute(THUOC_TINH_SUA, note.id);
+  oSua.setAttribute(THUOC_TINH_NHAN, NHAN_SUA);
+  // `value`, KHÔNG `textContent`: với một `<textarea>` thì `textContent` đặt nội dung MẶC ĐỊNH
+  // chứ không đặt chữ đang hiện.
+  oSua.value = sua.text;
+  // Đúng MỘT lời gọi action cho mỗi phím, và không gì khác — khuôn `o-soan.js`. Debounce, số
+  // đếm `seq` và dải băng khi ghi hỏng đều đã nằm trong `store.tuLuuNoiDung`, nên dựng lại một
+  // nửa nào của chúng ở đây là dựng đường đổi state thứ hai.
+  //
+  // KHÔNG gọi một lượt vẽ ở đây: `luoi.js` sẽ `replaceChildren` cả lưới, tức thay chính
+  // `<textarea>` đang gõ và đưa con trỏ về đầu — triệu chứng sẽ là "gõ ngược".
+  oSua.addEventListener('input', () => {
+    sua.go(oSua.value);
+    caoTheoNoiDungSua(oSua);
+  });
+  // Đổi bề rộng cửa sổ là NGẮT DÒNG LẠI, y như ở ô soạn thảo: chiều cao đã ghim lúc gõ không
+  // còn đúng và những dòng mọc thêm bị `overflow: hidden` kẹp mất. Cửa sổ lấy qua CHÍNH tài
+  // liệu đi vào bằng tham số, không qua một global.
+  //
+  // Và nó được GỠ lúc mất tiêu điểm, khác `o-soan.js`: ô soạn thảo có đúng một phần tử sống
+  // suốt vòng đời trang, còn ô sửa bị `replaceChildren` thay ra ở mỗi lần rời chế độ sửa — một
+  // bộ nghe không gỡ sẽ ở lại trên cửa sổ và ghim một `<textarea>` đã rời DOM, mỗi lần sửa một
+  // cái. Mất tiêu điểm LÀ lúc ô sắp bị thay ra, nên nó là chỗ gỡ đúng.
+  const cuaSo = ownerDocument.defaultView ?? null;
+  const doLaiTheoCuaSo = () => caoTheoNoiDungSua(oSua);
+  if (cuaSo !== null) cuaSo.addEventListener('resize', doLaiTheoCuaSo);
+  oSua.addEventListener('blur', () => {
+    if (cuaSo !== null) cuaSo.removeEventListener('resize', doLaiTheoCuaSo);
+    sua.roi();
+  });
+  return oSua;
+}
+
+/**
  * Vẽ MỘT mẩu giấy.
  *
  * @param {{ id: string, createdAt: string, text: string }} note Bản ghi ghi chú.
  * @param {Document} ownerDocument Tài liệu dựng phần tử — đi vào qua tham số, không qua global.
  * @param {boolean} dangMoRong Mẩu này có đang mở rộng không (đọc từ `store.state.expandedIds`).
- * @param {() => void} khiClick Gọi khi người dùng click một mẩu BỊ CẮT. Mẩu không bị cắt không
- *   gắn bộ nghe nào: "click mẩu ngắn không đổi gì cả" là một luật, và cách chắc nhất giữ nó là
- *   không có gì để chạy.
+ * @param {(viTri: number|null) => void} khiClick Gọi khi người dùng click (hay bấm `Enter`/phím
+ *   cách trên) THÂN mẩu. `viTri` là vị trí con trỏ suy từ điểm bấm, hay `null` khi không suy
+ *   được — chỗ gọi quyết định nhịp này là "mở rộng" hay "vào chế độ sửa". Mẩu ĐANG sửa không
+ *   gắn bộ nghe nào: ô sửa là một `<textarea>` và nó tự lo phần bàn phím.
+ * @param {{ text: string, go: (text: string) => void, roi: () => void } | null} [sua] Khác
+ *   `null` thì mẩu này đang ở CHẾ ĐỘ SỬA: thân mẩu là một `<textarea>` mang `text`, mỗi phím gõ
+ *   gọi `go`, và mất tiêu điểm gọi `roi`.
+ * @param {() => void} [khiGap] Gọi khi người dùng click DÒNG GẤP. Mặc định là `khiClick` để chỗ
+ *   gọi cũ không phải đổi; `luoi.js` truyền một móc riêng vì nhãn `thu lại ▴` phải THU mẩu lại,
+ *   không vào chế độ sửa.
  * @returns {Element} Phần tử mẩu giấy, sẵn sàng cho `replaceChildren`.
  */
-export function veMau(note, ownerDocument, dangMoRong, khiClick) {
+export function veMau(note, ownerDocument, dangMoRong, khiClick, sua = null, khiGap = khiClick) {
   const mau = ownerDocument.createElement(THE_MAU);
   mau.className = LOP_MAU;
+  mau.setAttribute(THUOC_TINH_MAU, note.id);
 
   const dau = ownerDocument.createElement(THE_DAU);
   dau.className = LOP_DAU;
@@ -121,17 +297,18 @@ export function veMau(note, ownerDocument, dangMoRong, khiClick) {
 
   dau.append(gio, xoa);
 
-  const than = ownerDocument.createElement(THE_THAN);
-  than.className = dangMoRong ? `${LOP_THAN} ${LOP_THAN_MO}` : LOP_THAN;
-  // `textContent` chứ không `innerHTML`, và đó là một luật: chữ của Nam KHÔNG BAO GIỜ được
-  // thành markup. `'<b>x</b>'` phải hiện ra nguyên văn như chữ, và `textContent` giữ nguyên
-  // mọi ký tự xuống dòng cho `white-space: pre-wrap` của CSS xử.
-  than.textContent = note.text;
+  const dangSua = sua !== null && sua !== undefined;
+
+  // Thân mẩu: một `<div>` chữ chết, hay một `<textarea>` gõ được. MỘT trong hai, không bao giờ
+  // cả hai — ô sửa THAY thân mẩu, nên không có lúc nào cùng một nội dung nằm ở hai chỗ.
+  const than = dangSua
+    ? veThanSua(note, ownerDocument, sua)
+    : veThanChu(note, ownerDocument, dangMoRong);
 
   mau.append(dau, than);
 
-  // Chỉ mẩu BỊ CẮT mới có dòng gấp, mới vào thứ tự Tab, và mới nghe click. Ba thứ đi cùng nhau
-  // vì chúng là cùng một câu: mẩu này có một hành vi.
+  // Dòng gấp chỉ có mặt khi mẩu BỊ CẮT — nó là con số "còn bao nhiêu dòng chưa thấy", và với
+  // một mẩu không bị cắt thì con số đó là không.
   const duDaiDeCat = soDong(note.text) > COLLAPSED_LINES;
   if (duDaiDeCat) {
     const gap = ownerDocument.createElement(THE_GAP);
@@ -139,17 +316,30 @@ export function veMau(note, ownerDocument, dangMoRong, khiClick) {
     gap.textContent = dangMoRong
       ? NHAN_THU_LAI
       : `${GAP_TRUOC}${soDong(note.text) - COLLAPSED_LINES}${GAP_SAU}`;
+    // Chặn nổi bọt NGAY TẠI DÒNG GẤP, đúng khuôn nút `xóa`: nhãn `thu lại ▴` phải THU mẩu lại,
+    // và để cú bấm chạy tiếp lên thẻ mẩu là để nó vào chế độ sửa thay vì thu.
+    gap.addEventListener('click', (suKien) => {
+      suKien?.stopPropagation?.();
+      khiGap();
+    });
     mau.append(gap);
+  }
+
+  // MỌI mẩu vào thứ tự Tab và nghe click, vì từ Story 5.1 mọi mẩu có một hành vi: click để sửa.
+  // Mẩu ĐANG sửa là ngoại lệ duy nhất — xem chú thích của `TAB_CO`.
+  if (!dangSua) {
     mau.setAttribute(THUOC_TINH_TAB, TAB_CO);
-    mau.addEventListener('click', khiClick);
+    mau.addEventListener('click', (suKien) => {
+      khiClick(viTriConTroTuDiem(ownerDocument, than, suKien));
+    });
     // Bàn phím đi cùng chuột, không sau nó: mẩu đã vào thứ tự Tab thì Enter và phím cách phải
     // làm đúng việc mà một cú click làm. `preventDefault` chỉ chạy trên đúng hai phím đó —
     // phím cách mặc định cuộn trang, và cuộn lưới đi một màn hình mỗi lần mở một mẩu là hỏng
-    // đúng lời hứa "mở TẠI CHỖ".
+    // đúng lời hứa "mở TẠI CHỖ". Bàn phím không có điểm bấm, nên con trỏ về CUỐI chữ (`null`).
     mau.addEventListener('keydown', (suKien) => {
       if (!PHIM_MO.includes(suKien.key)) return;
       suKien.preventDefault();
-      khiClick();
+      khiClick(null);
     });
   }
 

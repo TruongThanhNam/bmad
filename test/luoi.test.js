@@ -46,6 +46,12 @@ function phanTuGia() {
     textContent: '',
     className: '',
     type: '',
+    // Story 5.1: ô sửa nhận chữ qua `value`, và `caoTheoNoiDungSua` ghi `style.blockSize`.
+    value: '',
+    style: {},
+    scrollHeight: 0,
+    offsetHeight: 0,
+    clientHeight: 0,
     con: [],
     thuocTinh: {},
     boNghe: {},
@@ -55,10 +61,23 @@ function phanTuGia() {
     setAttribute(ten, giaTri) {
       this.thuocTinh[ten] = giaTri;
     },
+    getAttribute(ten) {
+      return Object.prototype.hasOwnProperty.call(this.thuocTinh, ten) ? this.thuocTinh[ten] : null;
+    },
     addEventListener(ten, ham) {
       this.boNghe[ten] = ham;
     },
   };
+}
+
+/** Phần tử mang đúng một THUỘC TÍNH, tìm trong cả cây con — `null` nếu không có. */
+function timTheoThuocTinh(phanTu, ten) {
+  if (phanTu.thuocTinh !== undefined && phanTu.thuocTinh[ten] !== undefined) return phanTu;
+  for (const con of phanTu.con ?? []) {
+    const thay = timTheoThuocTinh(con, ten);
+    if (thay !== null) return thay;
+  }
+  return null;
 }
 
 /** Con cháu của một ô mang đúng một class — `null` nếu không có. */
@@ -94,8 +113,18 @@ function luoiGia() {
       luoi.con = moi;
       luoi.soLanThayCon += 1;
     },
+    /** `luoi.js` tìm ô sửa đang có trong DOM bằng `[data-sua]` — phép gác không-vẽ-lại đọc
+     *  `id` từ chính nó, không từ một biến của view. */
+    querySelector(chon) {
+      if (chon !== '[data-sua]') return null;
+      for (const c of luoi.con) {
+        const thay = timTheoThuocTinh(c, 'data-sua');
+        if (thay !== null) return thay;
+      }
+      return null;
+    },
     chu() {
-      return luoi.con.map((c) => timTheoLop(c, 'mau-than').textContent);
+      return luoi.con.map((c) => timTheoLop(c, 'mau-than')?.textContent ?? null);
     },
   };
   return luoi;
@@ -242,7 +271,160 @@ describe('noiLuoi — lưới của hôm nay', () => {
     expect(luoi.soLanThayCon).toBe(2);
   });
 
-  it('click một mẩu bị cắt: gọi action của lõi VÀ vẽ lại — click nữa thì thu lại', async () => {
+  it('HAI NHỊP CLICK: mẩu bị cắt thì nhịp 1 CHỈ mở rộng, nhịp 2 mới vào chế độ sửa', async () => {
+    // Hai nhịp không bao giờ nhập một, và đó là toàn bộ điểm của hàng "Mẩu bị cắt, click 1"
+    // trong Matrix: một mẩu đang bị cắt thì cú bấm đầu tiên là "cho tôi xem hết", không phải
+    // "cho tôi sửa" — sửa một đoạn chữ mà mình chỉ thấy ba dòng đầu là sửa trong bóng tối.
+    const dai = Array.from({ length: COLLAPSED_LINES + 2 }, (_, i) => `dòng ${i}`).join('\n');
+    const luoi = luoiGia();
+    const store = storeVoiKho([ban(HOM_NAY, '09:00:00', dai)]);
+    await store.khoiDong();
+    const vao = [];
+    const v = noiLuoi(store, gocGia(luoi), () => MOC, { vao: (id, viTri) => vao.push([id, viTri]) });
+    v.ve();
+
+    luoi.con[0].boNghe.click();
+    // Nhịp 1: CHỈ mở rộng — không một lời gọi vào chế độ sửa nào.
+    expect(vao).toEqual([]);
+    expect(store.state.expandedIds).toEqual([store.state.notes[0].id]);
+
+    luoi.con[0].boNghe.click();
+    // Nhịp 2: vào chế độ sửa, và KHÔNG thu mẩu lại.
+    expect(vao).toEqual([[store.state.notes[0].id, null]]);
+    expect(store.state.expandedIds).toEqual([store.state.notes[0].id]);
+  });
+
+  it('mẩu NGẮN: nhịp 1 vào chế độ sửa luôn — nó không có gì bị cắt để mở', async () => {
+    const luoi = luoiGia();
+    const store = storeVoiKho([ban(HOM_NAY, '09:00:00', 'phở')]);
+    await store.khoiDong();
+    const vao = [];
+    const v = noiLuoi(store, gocGia(luoi), () => MOC, { vao: (id) => vao.push(id) });
+    v.ve();
+
+    luoi.con[0].boNghe.click();
+    expect(vao).toEqual([store.state.notes[0].id]);
+    expect(store.state.expandedIds).toEqual([]);
+  });
+
+  it('editing.id xuống ĐÚNG mẩu: chỉ nó thành ô sửa, mẩu khác giữ thân chữ', async () => {
+    const luoi = luoiGia();
+    const store = storeVoiKho([
+      ban(HOM_NAY, '11:00:00', 'mẩu trên'),
+      ban(HOM_NAY, '10:00:00', 'mẩu dưới'),
+    ]);
+    await store.khoiDong();
+    const v = noiLuoi(store, gocGia(luoi), () => MOC, {});
+    v.ve();
+    expect(luoi.chu()).toEqual(['mẩu trên', 'mẩu dưới']);
+
+    store.vaoCheDoSua(store.state.notes[1].id);
+    v.ve();
+    // Mẩu trên giữ thân chữ; mẩu dưới thành ô sửa và thân chữ của nó biến mất.
+    expect(timTheoLop(luoi.con[0], 'mau-than').textContent).toBe('mẩu trên');
+    expect(timTheoLop(luoi.con[1], 'mau-than')).toBeNull();
+    const oSua = timTheoLop(luoi.con[1], 'mau-sua');
+    expect(oSua).not.toBeNull();
+    expect(oSua.value).toBe('mẩu dưới');
+    expect(oSua.thuocTinh['data-sua']).toBe(store.state.notes[1].id);
+  });
+
+  it('KHÔNG vẽ lại khi đang gõ: một lượt vẽ từ nguồn khác không chạm danh sách con', async () => {
+    // Kiểm bằng cách CHẠY chỗ nối, không quét chuỗi mã nguồn: `veTatCa()` được gọi từ năm nguồn
+    // khác (đóng dải băng, lật theme, nạp file, chốt ghi chú, phép ghi tự lưu vừa xong), và mỗi
+    // lượt như vậy sẽ thay cả lưới ra giữa lúc đang gõ — `<textarea>` bị thay bằng một phần tử
+    // mới và con trỏ về đầu. Triệu chứng sẽ là "gõ ngược".
+    const luoi = luoiGia();
+    const store = storeVoiKho([ban(HOM_NAY, '09:00:00', 'phở')]);
+    await store.khoiDong();
+    const v = noiLuoi(store, gocGia(luoi), () => MOC, {});
+    store.vaoCheDoSua(store.state.notes[0].id);
+    v.ve();
+    const oTruoc = timTheoLop(luoi.con[0], 'mau-sua');
+    const soLan = luoi.soLanThayCon;
+
+    v.ve();
+    v.ve();
+    expect(luoi.soLanThayCon).toBe(soLan);
+    // Và ô sửa vẫn LÀ chính nó — không một phần tử mới nào thay chỗ.
+    expect(timTheoLop(luoi.con[0], 'mau-sua')).toBe(oTruoc);
+  });
+
+  it('ĐỔI mẩu đang sửa (A → B) VẪN vẽ được — phép gác so theo id, không theo "có đang sửa"', async () => {
+    // Vế này là điều kiện, không phải sự tỉ mỉ thừa: khi đổi mẩu đang sửa, ô sửa của A VẪN còn
+    // trong DOM lúc lượt vẽ của B chạy. Một phép gác viết rộng tay ("đang sửa gì thì thoát")
+    // sẽ chặn đúng lượt vẽ mở ô sửa của B, và Nam phải bấm hai lần.
+    const luoi = luoiGia();
+    const store = storeVoiKho([
+      ban(HOM_NAY, '11:00:00', 'mẩu A'),
+      ban(HOM_NAY, '10:00:00', 'mẩu B'),
+    ]);
+    await store.khoiDong();
+    const [a, b] = store.state.notes;
+    const v = noiLuoi(store, gocGia(luoi), () => MOC, {});
+    store.vaoCheDoSua(a.id);
+    v.ve();
+    expect(timTheoLop(luoi.con[0], 'mau-sua').thuocTinh['data-sua']).toBe(a.id);
+
+    store.vaoCheDoSua(b.id);
+    v.ve();
+    expect(timTheoLop(luoi.con[0], 'mau-sua')).toBeNull();
+    expect(timTheoLop(luoi.con[1], 'mau-sua').thuocTinh['data-sua']).toBe(b.id);
+  });
+
+  it('dòng gấp của mẩu ĐANG sửa gọi móc RỜI, không batTatMoRong — nó không bật mẩu mở lại', async () => {
+    // `blur` đi trước `click` và nó đã gỡ `id` khỏi `expandedIds`, nên một lần `batTatMoRong`
+    // ở đây làm mẩu MỞ RỘNG thay vì thu — đúng ngược lại nhãn `thu lại ▴` đang nói.
+    const dai = Array.from({ length: COLLAPSED_LINES + 2 }, (_, i) => `dòng ${i}`).join('\n');
+    const luoi = luoiGia();
+    const store = storeVoiKho([ban(HOM_NAY, '09:00:00', dai)]);
+    await store.khoiDong();
+    const id = store.state.notes[0].id;
+    const roi = [];
+    const v = noiLuoi(store, gocGia(luoi), () => MOC, { roi: (x) => roi.push(x) });
+    store.batTatMoRong(id);
+    store.vaoCheDoSua(id);
+    v.ve();
+
+    timTheoLop(luoi.con[0], 'mau-gap').boNghe.click({ stopPropagation() {} });
+    expect(roi).toEqual([id]);
+    // Và `expandedIds` KHÔNG bị bật lại một lần nữa.
+    expect(store.state.expandedIds).toEqual([id]);
+  });
+
+  it('mỗi phím trong ô sửa gọi ĐÚNG móc `go` với id của chính mẩu đó', async () => {
+    const luoi = luoiGia();
+    const store = storeVoiKho([ban(HOM_NAY, '09:00:00', 'phở')]);
+    await store.khoiDong();
+    const id = store.state.notes[0].id;
+    const nhatKy = [];
+    const v = noiLuoi(store, gocGia(luoi), () => MOC, {
+      go: (x, text) => nhatKy.push([x, text]),
+      roi: (x) => nhatKy.push(['roi', x]),
+    });
+    store.vaoCheDoSua(id);
+    v.ve();
+
+    const oSua = timTheoLop(luoi.con[0], 'mau-sua');
+    oSua.value = 'phở bò';
+    oSua.boNghe.input();
+    oSua.boNghe.blur();
+    expect(nhatKy).toEqual([
+      [id, 'phở bò'],
+      ['roi', id],
+    ]);
+  });
+
+  it('móc sửa VẮNG MẶT thì lưới vẫn vẽ và click không ném — đường của test bố cục', async () => {
+    const luoi = luoiGia();
+    const store = storeVoiKho([ban(HOM_NAY, '09:00:00', 'phở')]);
+    await store.khoiDong();
+    const v = noiLuoi(store, gocGia(luoi), () => MOC);
+    v.ve();
+    expect(() => luoi.con[0].boNghe.click()).not.toThrow();
+  });
+
+  it('click một mẩu bị cắt: gọi action của lõi VÀ vẽ lại — click nữa thì vào chế độ sửa', async () => {
     // Không ca này thì cả đường nối `luoi.js` ↔ `veMau` không được chạy ở đâu cả: bỏ `ve()`
     // khỏi handler, hay truyền cứng `false` thay cho `dangMo.includes(note.id)`, đều đi qua
     // toàn bộ suite mà xanh — và mẩu sẽ không bao giờ mở ra dưới tay Nam.
@@ -264,7 +446,13 @@ describe('noiLuoi — lưới của hôm nay', () => {
     expect(moRong()).toContain('mau-than-mo');
     expect(luoi.soLanThayCon).toBe(2);
 
+    // Nhịp 2 KHÔNG thu mẩu lại nữa (Story 5.1 đổi vế này): nó vào chế độ sửa, và đường thu mẩu
+    // lại là dòng gấp `thu lại ▴` — hay chính lần rời chế độ sửa, thứ gỡ `id` khỏi `expandedIds`.
     luoi.con[0].boNghe.click();
+    expect(store.state.expandedIds).toEqual([store.state.notes[0].id]);
+    expect(moRong()).toContain('mau-than-mo');
+    // Và dòng gấp vẫn thu được — nhãn nói gì thì cú bấm làm đúng thứ đó.
+    timTheoLop(luoi.con[0], 'mau-gap').boNghe.click({ stopPropagation() {} });
     expect(store.state.expandedIds).toEqual([]);
     expect(moRong()).not.toContain('mau-than-mo');
   });
@@ -406,5 +594,47 @@ describe('app/view/luoi.js — luật của tầng view, cưỡng chế được
     ]);
     // Lưới nối TRƯỚC khi kho được hỏi — `luoi.ve` phải tồn tại trước khi có chỗ treo nó vào.
     expect(main.search(/noiLuoi\s*\(/)).toBeLessThan(main.search(/store\s*\.\s*khoiDong\s*\(/));
+  });
+
+  it('app/main.js nối BA móc của chế độ sửa, và cả ba kéo theo một lượt vẽ (Story 5.1)', () => {
+    // Bốn nửa, và cả bốn vỡ trong IM LẶNG — chúng là đúng bốn lỗi của vòng review 1:
+    //
+    //   (1) `go` phải treo lượt vẽ vào LỜI HỨA của `tuLuuNoiDung`, không gọi nó ở phím gõ: dự
+    //       án không có subscribe, nên `notes` đổi (chữ vừa sửa) và `banner` bật lên (dải băng
+    //       trần) chỉ hiện ra được ở đó.
+    //   (2) `roi` phải mang theo `id` và chỉ rời khi `editing.id` khớp: `blur` nổ cả khi phần
+    //       tử bị GỠ khỏi DOM, nên lượt vẽ mở ô sửa của mẩu B phát `blur` của mẩu A giữa đường.
+    //   (3) lượt vẽ khi rời phải HOÃN một nhịp: `blur` đi trước `mouseup`, nên vẽ ngay làm cú
+    //       bấm từ mẩu A sang mẩu B rơi vào tổ tiên chung.
+    //   (4) và lượt vẽ đó phải GIỮ TIÊU ĐIỂM, theo tiền lệ `dongRoiVe`.
+    const main = boChuThichJs(readFileSync(join(repoRoot, 'app', 'main.js'), 'utf8'));
+    const noi = /noiLuoi\s*\(\s*store\s*,\s*document\s*,\s*[\w$]+\s*,\s*([\w$]+)\s*\)/.exec(main);
+    expect(noi).not.toBeNull();
+    const moc = new RegExp(`\\b${noi[1]}\\s*=\\s*\\{([\\s\\S]*?)\\n  \\}`).exec(main);
+    expect(moc).not.toBeNull();
+    // Ba móc, đúng ba action của lõi.
+    expect(moc[1]).toMatch(/\bvao\s*:/);
+    expect(moc[1]).toMatch(/\broi\s*:/);
+    expect(moc[1]).toMatch(/store\s*\.\s*tuLuuNoiDung\s*\([^)]*\)\s*\.\s*then\s*\(/);
+
+    const vao = /\bvaoSuaRoiVe\s*=\s*\(\s*id\s*,\s*viTri\s*\)\s*=>\s*\{([\s\S]*?)\n  \}/.exec(main);
+    expect(vao).not.toBeNull();
+    expect(vao[1]).toMatch(/store\s*\.\s*vaoCheDoSua\s*\(\s*id\s*\)/);
+    expect(vao[1]).toMatch(/\.\s*focus\s*\(\s*\)/);
+    expect(vao[1]).toMatch(/setSelectionRange\s*\(/);
+
+    const roi = /\broiSuaRoiVe\s*=\s*\(\s*id\s*\)\s*=>\s*\{([\s\S]*?)\n  \}/.exec(main);
+    expect(roi).not.toBeNull();
+    expect(roi[1]).toMatch(/store\s*\.\s*state\s*\.\s*editing\s*\.\s*id\s*!==\s*id/);
+    expect(roi[1]).toMatch(/store\s*\.\s*roiCheDoSua\s*\(\s*\)/);
+    // HOÃN bằng `setTimeout`, không `requestAnimationFrame` — bộ quét của
+    // `test/chuyen-dong-va-tin-hieu.test.js` chặn cái sau, nên đây là cửa duy nhất.
+    expect(roi[1]).toMatch(/setTimeout\s*\(/);
+    expect(roi[1]).not.toMatch(/requestAnimationFrame/);
+
+    const giu = /\bveGiuTieuDiem\s*=\s*\(\s*\)\s*=>\s*\{([\s\S]*?)\n  \}/.exec(main);
+    expect(giu).not.toBeNull();
+    expect(giu[1]).toMatch(/activeElement/);
+    expect(giu[1]).toMatch(/\.\s*focus\s*\(\s*\)/);
   });
 });

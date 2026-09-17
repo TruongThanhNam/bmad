@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { taoStore } from '../app/core/state.js';
+import { LOAI_BANG } from '../app/core/banner.js';
 import { MA_LOI, loiUngDung } from '../app/core/errors.js';
 import { APP_VERSION, AUTOSAVE_MS, DRAFT_STALE_MS, MAX_NOTE_CHARS } from '../app/core/limits.js';
 import { localStamp } from '../app/core/time.js';
@@ -80,7 +81,10 @@ describe('taoStore — khởi tạo', () => {
       lastBackupAt: null,
       dieuKien: { keyword: null, date: null },
       expandedIds: [],
-      editing: { id: null, text: '', seq: 0 },
+      // `editing.seq` là một BẢNG theo `id`, không một con số (Story 5.1, review vòng 1): một
+      // số đếm dùng chung làm hẹn ghi của mẩu A bị một phím gõ vào mẩu B bỏ, tức mất chữ của A
+      // trong im lặng. `draft.seq` ở trên vẫn là một số — bản nháp chỉ có một.
+      editing: { id: null, text: '', seq: {} },
       banner: null,
       // Hai con số của hàng 6 — `null` là "không có dải băng nào đang mang số" (Story 4.3).
       bannerSo: null,
@@ -1083,15 +1087,162 @@ describe('tuLuuNoiDung — state đổi ngay, phép ghi đi sau với debounce +
     expect(store.state.notes.find((mau) => mau.id === 'a').text).toBe('a');
   });
 
-  it('text quá trần ở cửa SỬA cũng bị chặn — put không được gọi, banner TOO_LONG', async () => {
+  it('text quá trần ở cửa SỬA: put không được gọi, banner TOO_LONG_KHI_SUA, chữ VẪN vào state', async () => {
     vi.useFakeTimers();
     const { store, kho } = storeVoiKho({ banDau: banGhiMau() });
     await store.khoiDong();
     kho.nhatKy.length = 0;
-    store.tuLuuNoiDung('a', 'x'.repeat(MAX_NOTE_CHARS + 1));
+    const dai = 'x'.repeat(MAX_NOTE_CHARS + 1);
+    store.tuLuuNoiDung('a', dai);
+    // Chữ đồng bộ NGAY, trước cả khi hẹn nào nổ: trả về sớm làm chữ vừa dán biến mất ở lượt vẽ
+    // sau. Đúng khuôn cửa em sinh đôi `datBanNhap`, thứ đã lưu chữ vượt trần từ Story 1.7.
+    expect(store.state.editing.text).toBe(dai);
+    expect(store.state.editing.id).toBe('a');
+    // Câu riêng của ô sửa: cùng hàng 5 với `TOO_LONG` nhưng KHÔNG mệnh đề `Ctrl+Enter`, thứ chỉ
+    // đúng ở ô soạn thảo.
+    expect(store.state.banner).toBe(LOAI_BANG.TOO_LONG_KHI_SUA);
+    expect(store.state.banner).not.toBe(MA_LOI.TOO_LONG);
     await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
     expect(kho.nhatKy).toEqual([]);
-    expect(store.state.banner).toBe(MA_LOI.TOO_LONG);
+    expect(store.state.banner).toBe(LOAI_BANG.TOO_LONG_KHI_SUA);
+  });
+
+  it('vượt trần KHÔNG hủy hẹn mà phím HỢP LỆ ngay trước đó vừa đặt — câu đúng vẫn xuống kho', async () => {
+    // Nhánh vượt trần TỪ CHỐI ghi; nó không phải một lệnh hủy. Tăng `seq` ở đó bỏ mất hẹn của
+    // phím hợp lệ liền trước, nên gõ một câu đúng rồi dán quá trần lên trên là câu đúng ấy không
+    // bao giờ xuống kho — và không một triệu chứng nào ngoài dải băng, thứ vẫn lên đúng như
+    // phải thế.
+    vi.useFakeTimers();
+    const { store, kho } = storeVoiKho({ banDau: banGhiMau() });
+    await store.khoiDong();
+    kho.nhatKy.length = 0;
+
+    store.tuLuuNoiDung('a', 'chữ HỢP LỆ');
+    store.tuLuuNoiDung('a', 'x'.repeat(MAX_NOTE_CHARS + 1));
+    // Dải băng lên NGAY, và chữ vượt trần vào state ngay — hai vế kia không bị đổi lấy vế này.
+    expect(store.state.banner).toBe(LOAI_BANG.TOO_LONG_KHI_SUA);
+    expect(store.state.editing.text.length).toBe(MAX_NOTE_CHARS + 1);
+
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS * 3);
+    expect(kho.nhatKy).toEqual(['put:a']);
+    expect(kho.banGhi.get('a').text).toBe('chữ HỢP LỆ');
+    // Và dải băng TẮT sau đó, đúng luật chung: một phép ghi thành công tắt dải băng (AD-8).
+    // Nó không phải một ngoại lệ của story này — chữ trong ô vẫn là chữ Nam đang nhìn, và lần
+    // gõ kế tiếp sẽ dựng lại dải băng nếu nó vẫn quá trần.
+    expect(store.state.banner).toBeNull();
+  });
+
+  it('ghi HỎNG thì chữ vừa gõ KHÔNG bị trả lại — mở lại ô sửa vẫn thấy chữ của Nam', async () => {
+    // Ràng buộc đã chốt của story. Dọn "chữ đang chờ" TRƯỚC khi gọi cổng làm nó vỡ trong im
+    // lặng: dải băng lên đúng, nhưng lần mở lại kế tiếp đọc bản CŨ trong `notes` và chữ vừa gõ
+    // biến mất — đúng lúc nó là thứ duy nhất còn sót lại.
+    vi.useFakeTimers();
+    const { store } = storeVoiKho({ banDau: banGhiMau(), tuChoi: { put: MA_LOI.QUOTA } });
+    await store.khoiDong();
+    store.vaoCheDoSua('a');
+    store.tuLuuNoiDung('a', 'phở bò');
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
+    expect(store.state.banner).toBe(MA_LOI.QUOTA);
+
+    store.roiCheDoSua();
+    store.vaoCheDoSua('a');
+    expect(store.state.editing.text).toBe('phở bò');
+  });
+
+  it('xoaGhiChu dọn CẢ chữ đang chờ lẫn số đếm của mẩu đó — hai bảng khóa theo id', async () => {
+    // Cùng lý do với `expandedIds`: một `id` không còn bản ghi nào mang sẽ ở lại tới hết phiên,
+    // và hai bảng phình dần theo số lần xóa trong một tab mở lâu.
+    vi.useFakeTimers();
+    const { store } = storeVoiKho({ banDau: banGhiMau() });
+    await store.khoiDong();
+    store.tuLuuNoiDung('a', 'phở');
+    expect(store.state.editing.seq).toEqual({ a: 1 });
+
+    await store.xoaGhiChu('a');
+    expect(store.state.editing.seq).toEqual({});
+    // Và chữ đang chờ cũng đi: mở chế độ sửa trên một `id` đã xóa ra ô RỖNG, không ra bóng ma
+    // của chữ cũ.
+    store.vaoCheDoSua('a');
+    expect(store.state.editing.text).toBe('');
+  });
+
+  it('lời hứa của nhánh vượt trần chốt NGAY — dải băng không đợi hết AUTOSAVE_MS', async () => {
+    // Nửa vỡ trong im lặng: `app/main.js` treo lượt vẽ vào lời hứa này, nên một lời hứa chỉ
+    // chốt sau `AUTOSAVE_MS` (hay không bao giờ chốt) là một dải băng không bao giờ hiện ra.
+    vi.useFakeTimers();
+    const { store } = storeVoiKho({ banDau: banGhiMau() });
+    await store.khoiDong();
+    let daChot = false;
+    store.tuLuuNoiDung('a', 'x'.repeat(MAX_NOTE_CHARS + 1)).then(() => {
+      daChot = true;
+    });
+    await Promise.resolve();
+    expect(daChot).toBe(true);
+  });
+
+  it('lời hứa chốt SAU khi put xong — đó là chỗ duy nhất biết notes vừa đổi', async () => {
+    // Không có cơ chế subscribe trong dự án này, nên `notes` đổi mà không ai vẽ lại thì chữ vừa
+    // sửa biến khỏi lưới cho tới lần tương tác sau (review vòng 1, lỗi `high`).
+    vi.useFakeTimers();
+    const { store } = storeVoiKho({ banDau: banGhiMau() });
+    await store.khoiDong();
+    let chuLucChot = null;
+    const hua = store.tuLuuNoiDung('a', 'phở').then(() => {
+      chuLucChot = store.state.notes.find((mau) => mau.id === 'a').text;
+    });
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
+    await hua;
+    expect(chuLucChot).toBe('phở');
+  });
+
+  it('lời hứa cũng chốt khi put HỎNG — dải băng phải hiện ra được', async () => {
+    vi.useFakeTimers();
+    const { store } = storeVoiKho({ banDau: banGhiMau(), tuChoi: { put: MA_LOI.QUOTA } });
+    await store.khoiDong();
+    let banLucChot = null;
+    const hua = store.tuLuuNoiDung('a', 'phở').then(() => {
+      banLucChot = store.state.banner;
+    });
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
+    await hua;
+    expect(banLucChot).toBe(MA_LOI.QUOTA);
+  });
+
+  it('seq theo TỪNG id: gõ vào B rồi chờ, và hẹn của A VẪN ghi', async () => {
+    // Đây là lỗi mất chữ đã ĐO ở vòng review 1, không một ca giả định: với một số đếm dùng
+    // chung thì hẹn của A thấy `seq` đã nhảy (vì B gõ) và tự bỏ mình — `nhatKy = ["put:b"]`
+    // trong khi kho của A còn chữ cũ, và không một triệu chứng nào ngoài "đôi khi mất chữ".
+    vi.useFakeTimers();
+    const { store, kho } = storeVoiKho({ banDau: banGhiMau() });
+    await store.khoiDong();
+    kho.nhatKy.length = 0;
+
+    store.vaoCheDoSua('a');
+    store.tuLuuNoiDung('a', 'chữ của A');
+    store.roiCheDoSua();
+    store.vaoCheDoSua('b');
+    store.tuLuuNoiDung('b', 'chữ của B');
+
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS * 3);
+    expect(kho.nhatKy.sort()).toEqual(['put:a', 'put:b']);
+    expect(kho.banGhi.get('a').text).toBe('chữ của A');
+    expect(kho.banGhi.get('b').text).toBe('chữ của B');
+    // Và mỗi mẩu có số đếm RIÊNG của mình, không một con số dùng chung.
+    expect(store.state.editing.seq).toEqual({ a: 1, b: 1 });
+  });
+
+  it('hẹn quá hạn của CÙNG một mẩu vẫn bị bỏ — cơ chế seq không đổi, chỉ hình dạng đổi', async () => {
+    vi.useFakeTimers();
+    const { store, kho } = storeVoiKho({ banDau: banGhiMau() });
+    await store.khoiDong();
+    kho.nhatKy.length = 0;
+    store.tuLuuNoiDung('a', 'cũ');
+    await vi.advanceTimersByTimeAsync(1);
+    store.tuLuuNoiDung('a', 'mới');
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS * 2);
+    // Đúng MỘT lần chạm cổng: hẹn thứ nhất nổ ra, thấy `seq` của `a` đã nhảy, và tự bỏ mình.
+    expect(kho.nhatKy).toEqual(['put:a']);
+    expect(kho.banGhi.get('a').text).toBe('mới');
   });
 
   it('một lần tự lưu THÀNH CÔNG tắt dải băng của lần hỏng trước (AD-8)', async () => {
@@ -1121,15 +1272,141 @@ describe('tuLuuNoiDung — state đổi ngay, phép ghi đi sau với debounce +
     expect(store.state.notes.find((mau) => mau.id === 'a').text).toBe('xong');
   });
 
-  it('trả về đồng bộ và sai kiểu đối số thì ném TypeError nêu tên tham số', () => {
+  it('trả về một LỜI HỨA, và sai kiểu đối số thì ném TypeError nêu tên tham số', () => {
     // Hẹn thật sẽ nổ 400 ms SAU khi ca test kết thúc, nên hẹn giả cũng là cách dọn dẹp.
+    //
+    // Giá trị trả về đổi từ `undefined` sang một lời hứa ở Story 5.1, có chủ ý: dự án không có
+    // cơ chế subscribe, nên đây là đường DUY NHẤT để `app/main.js` biết rằng phép ghi đã xong
+    // (hay đã hỏng) và gọi một lượt vẽ. Phần ĐỒNG BỘ không đổi một chữ: `editing` đã mang chữ
+    // mới trước khi hàm trả về, nên chỗ gọi không phải đợi gì để gõ tiếp.
     vi.useFakeTimers();
     const { store } = storeVoiKho({ banDau: banGhiMau() });
-    expect(store.tuLuuNoiDung('a', 'x')).toBeUndefined();
+    const hua = store.tuLuuNoiDung('a', 'x');
+    expect(hua).toBeInstanceOf(Promise);
+    expect(store.state.editing.text).toBe('x');
     expect(() => store.tuLuuNoiDung(7, 'x')).toThrow(/id/);
     expect(() => store.tuLuuNoiDung('a', 7)).toThrow(/text/);
     expect(() => store.tuLuuNoiDung(null, null)).toThrow(TypeError);
   });
+});
+
+describe('vaoCheDoSua / roiCheDoSua — tư cách "đang sửa" sống trong state', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('vaoCheDoSua đặt id và lấy chữ từ notes; roiCheDoSua đưa id về null', async () => {
+    const { store } = storeVoiKho({ banDau: banGhiMau() });
+    await store.khoiDong();
+    expect(store.state.editing.id).toBeNull();
+
+    store.vaoCheDoSua('a');
+    expect(store.state.editing.id).toBe('a');
+    expect(store.state.editing.text).toBe('a');
+
+    store.roiCheDoSua();
+    expect(store.state.editing.id).toBeNull();
+  });
+
+  it('roiCheDoSua GỠ id đó khỏi expandedIds, trong cùng một lần đổi state', async () => {
+    // Quyết định đã chốt của story: lưới không tích tụ mẩu mở rộng sau mỗi lần sửa. Cái giá —
+    // muốn soát lại toàn văn thì phải click lại hai nhịp.
+    const { store } = storeVoiKho({ banDau: banGhiMau() });
+    await store.khoiDong();
+    store.batTatMoRong('a');
+    store.batTatMoRong('khac');
+    store.vaoCheDoSua('a');
+    store.roiCheDoSua();
+    expect(store.state.editing.id).toBeNull();
+    // Chỉ mẩu vừa rời bị gỡ — mẩu khác đang mở rộng không liên quan gì tới chuyện này.
+    expect(store.state.expandedIds).toEqual(['khac']);
+  });
+
+  it('mở lại ĐÚNG mẩu vừa sửa trong AUTOSAVE_MS: ô sửa mang chữ VỪA GÕ, không chữ cũ', async () => {
+    // `notes` chỉ đổi khi `put` chốt, nên đọc thẳng `notes` ở đây là mở ô sửa bằng chữ CŨ — chữ
+    // vừa gõ biến mất trước mắt Nam dù nó vẫn đang trên đường xuống kho (đo được ở vòng 1).
+    vi.useFakeTimers();
+    const { store } = storeVoiKho({ banDau: banGhiMau() });
+    await store.khoiDong();
+    store.vaoCheDoSua('a');
+    store.tuLuuNoiDung('a', 'phở bò');
+    store.roiCheDoSua();
+    store.vaoCheDoSua('a');
+    expect(store.state.editing.text).toBe('phở bò');
+    // Và kho vẫn chưa nhận nó — tức ca này thật sự chạy TRONG cửa sổ `AUTOSAVE_MS`.
+    expect(store.state.notes.find((mau) => mau.id === 'a').text).toBe('a');
+  });
+
+  it('chữ đang chờ theo TỪNG mẩu: rời A, gõ B, rồi mở lại A vẫn ra chữ của A', async () => {
+    // `editing.text` một mình không trả lời được câu này: lúc mở lại A thì nó đang mang chữ của
+    // B. Đây là ca mà một phép đọc `editing.text` trần làm sai trong im lặng.
+    vi.useFakeTimers();
+    const { store } = storeVoiKho({ banDau: banGhiMau() });
+    await store.khoiDong();
+    store.vaoCheDoSua('a');
+    store.tuLuuNoiDung('a', 'chữ của A');
+    store.roiCheDoSua();
+    store.vaoCheDoSua('b');
+    store.tuLuuNoiDung('b', 'chữ của B');
+    store.roiCheDoSua();
+    store.vaoCheDoSua('a');
+    expect(store.state.editing.text).toBe('chữ của A');
+  });
+
+  it('sau khi put xong thì mở lại đọc từ notes — chữ đang chờ đã hết là chữ đang chờ', async () => {
+    vi.useFakeTimers();
+    const { store } = storeVoiKho({ banDau: banGhiMau() });
+    await store.khoiDong();
+    store.tuLuuNoiDung('a', 'phở');
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
+    store.vaoCheDoSua('a');
+    expect(store.state.editing.text).toBe('phở');
+  });
+
+  it('vaoCheDoSua / roiCheDoSua KHÔNG tăng seq — hẹn đang treo của mẩu vừa rời vẫn ghi', async () => {
+    // Hai action này không phải lệnh hủy. Tăng `seq` ở đó BỎ hẹn tự lưu đang treo của mẩu vừa
+    // rời, tức mất những ký tự cuối vừa gõ — và mất trong im lặng.
+    vi.useFakeTimers();
+    const { store, kho } = storeVoiKho({ banDau: banGhiMau() });
+    await store.khoiDong();
+    kho.nhatKy.length = 0;
+    store.vaoCheDoSua('a');
+    store.tuLuuNoiDung('a', 'phở');
+    const seqSauKhiGo = store.state.editing.seq;
+    store.roiCheDoSua();
+    store.vaoCheDoSua('a');
+    expect(store.state.editing.seq).toEqual(seqSauKhiGo);
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
+    expect(kho.nhatKy).toEqual(['put:a']);
+    expect(kho.banGhi.get('a').text).toBe('phở');
+  });
+
+  it('roiCheDoSua khi không sửa gì thì không đổi state và không ném', async () => {
+    // `blur` nổ cả khi một phần tử bị GỠ khỏi DOM, nên cửa này bị gõ ở những lúc không có gì
+    // để rời.
+    const { store } = storeVoiKho({ banDau: banGhiMau() });
+    await store.khoiDong();
+    const truoc = store.state;
+    expect(() => store.roiCheDoSua()).not.toThrow();
+    expect(store.state).toBe(truoc);
+  });
+
+  it('vaoCheDoSua với id lạ: ô sửa rỗng, không ném — tập này là một cái nhớ phù du', async () => {
+    const { store } = storeVoiKho({ banDau: banGhiMau() });
+    await store.khoiDong();
+    store.vaoCheDoSua('khong-co');
+    expect(store.state.editing.id).toBe('khong-co');
+    expect(store.state.editing.text).toBe('');
+  });
+
+  it('sai kiểu id thì ném TypeError nêu tên tham số', () => {
+    const { store } = storeVoiKho();
+    for (const xau of [null, undefined, 7, '', {}]) {
+      expect(() => store.vaoCheDoSua(xau)).toThrow(TypeError);
+    }
+    expect(() => store.vaoCheDoSua(7)).toThrow(/id/);
+  });
+
 });
 
 describe('batTatMoRong — trạng thái mở rộng, tầng C, chỉ RAM', () => {
@@ -1221,6 +1498,10 @@ describe('action của luồng ghi chuẩn đều nằm trên store, và tập k
       'chotGhiChu',
       'xoaGhiChu',
       'tuLuuNoiDung',
+      // Hai action của chế độ sửa (Story 5.1): view cần một chỗ HỢP LỆ để khai báo tư cách
+      // "đang sửa" mà không tự đổi state.
+      'vaoCheDoSua',
+      'roiCheDoSua',
       'khoiDongBanNhap',
       'datBanNhap',
       'nhipTimBanNhap',
@@ -1392,7 +1673,9 @@ describe('datBanNhap — state đổi ngay, phép ghi đi sau với debounce + s
     // đúng cách hai mục tiêu tự lưu giết hẹn của nhau.
     store.tuLuuNoiDung('a', 'mẩu đang sửa');
     expect(store.state.draft.seq).toBe(1);
-    expect(store.state.editing.seq).toBe(1);
+    // `editing.seq` là một BẢNG theo `id` từ Story 5.1 — nhưng vế đang được hỏi ở đây không
+    // đổi: số đếm của bản nháp và số đếm của mẩu đang sửa là hai thứ độc lập.
+    expect(store.state.editing.seq).toEqual({ a: 1 });
 
     await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
     expect(kho.nhatKy.sort()).toEqual(['put:a', 'putDraft:tab-cu']);

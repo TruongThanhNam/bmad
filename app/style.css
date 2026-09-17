@@ -195,6 +195,7 @@ body {
 .dai-bang-dong:focus-visible,
 .o-nhap:focus-visible,
 .o-luoi:focus-visible,
+.mau-sua:focus-visible,
 .mau-xoa:focus-visible,
 .chan-link:focus-visible,
 .nut-theme:focus-visible {
@@ -553,6 +554,42 @@ body {
 
 .mau-than-mo {
   max-block-size: none;
+}
+
+/* ── Chế độ sửa tại chỗ (Story 5.1) ─────────────────────────────────────────────────────
+ *
+ * Ô sửa THAY thân mẩu, nên nó phải chiếm đúng chỗ của thân mẩu và đọc ra bằng đúng vai chữ đó
+ * (`--font-note`) — nếu không thì mẩu nhảy cỡ ngay lúc vào chế độ sửa, và con mắt mất chỗ.
+ *
+ * Vật liệu mượn nguyên của `.o-soan`: nền `--surface` sáng hơn nền giấy, bóng LÕM, bo góc
+ * `--radius-input`. Đó là ngôn ngữ của "chỗ đang gõ" trong sản phẩm này, và một chỗ gõ thứ hai
+ * trông khác chỗ gõ thứ nhất là một thứ phải học lại. Không một token mới nào.
+ *
+ * `overflow: hidden` cộng chiều cao do JS ghim (`caoTheoNoiDungSua`) chứ KHÔNG `overflow: auto`:
+ * `test/bo-cuc-bon-tang.test.js` ghim rằng cả trang có đúng hai vùng cuộn (`.tang-luoi` và
+ * `.o-soan`), và một vùng cuộn thứ ba bên trong một ô lưới là hai thanh cuộn lồng nhau.
+ *
+ * `resize: none` phải viết ra, cùng lý do với `.o-soan`: mặc định của `<textarea>` là kéo được,
+ * và một ô bị kéo phá luôn hình học của cả hàng lưới.
+ *
+ * TĨNH tuyệt đối: không `transition`, không `:hover`, không hoạt ảnh. Vòng sáng bàn phím đến từ
+ * khối `:focus-visible` chung ở đầu tệp, nơi `.mau-sua` đã có tên. */
+
+.mau-sua {
+  display: block;
+  inline-size: 100%;
+  box-sizing: border-box;
+  resize: none;
+  overflow: hidden;
+  /* Đệm nhỏ nhất của bậc thang: ô sửa nằm TRONG một mẩu đã có đệm riêng, nên một bậc lớn hơn
+   * đẩy chữ lệch hẳn khỏi chỗ nó vừa đứng ở thân mẩu. */
+  padding: var(--space-1);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-input);
+  background: var(--surface);
+  color: var(--ink);
+  font: var(--font-note);
+  box-shadow: var(--shadow-inset);
 }
 
 /* Dòng gấp — chỉ có mặt khi số dòng LOGIC vượt ngưỡng thu gọn. Nó là dấu hiệu duy nhất ngoài

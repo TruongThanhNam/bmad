@@ -416,8 +416,9 @@ export function focusableDoViewDung(maNguon) {
  */
 const FOCUS_DO_VIEW_DUNG = [
   { lop: 'dai-bang-dong', file: 'app/view/banner.js', vi: 'nút ✕ của dải băng' },
-  { lop: 'o-luoi', file: 'app/view/mau-giay.js', vi: 'mẩu giấy BỊ CẮT (tabindex="0")' },
+  { lop: 'o-luoi', file: 'app/view/mau-giay.js', vi: 'mẩu giấy (tabindex="0" — Story 5.1: MỌI mẩu)' },
   { lop: 'mau-xoa', file: 'app/view/mau-giay.js', vi: 'nút xóa (tabindex="-1" cho tới Epic 5)' },
+  { lop: 'mau-sua', file: 'app/view/mau-giay.js', vi: 'ô sửa tại chỗ (<textarea>, Story 5.1)' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -575,18 +576,27 @@ describe('(d) hai quyết định của story, ghim thành bất biến chứ kh
     expect(maMau).toMatch(/LOP_XOA\s*=\s*'mau-xoa'/);
   });
 
-  it('QĐ-2: chỉ mẩu BỊ CẮT mang `tabindex` — mẩu ngắn không có hành vi nào', () => {
-    // Chỉ phần tử CÓ hành vi mới là một điểm dừng. Một lưới toàn mẩu ngắn thì `Tab` đi thẳng từ
-    // ô ngày xuống chân trang, và đó là ĐÚNG. `tools/thu-bo-cuc.mjs` đo lại điều này trên lưới
-    // thật; ở đây chỉ ghim rằng đúng hai chỗ đặt `tabindex` tồn tại trong tệp — nút xóa (`-1`)
-    // và mẩu bị cắt (`0`) — nên một mẩu ngắn không có đường nào nhận được một cái thứ ba.
+  it('QĐ-2 đã RENEGOTIATE ở Story 5.1: MỌI mẩu mang `tabindex`, trừ mẩu đang sửa', () => {
+    // Nguyên văn QĐ-2 của Story 3.2: "chỉ mẩu BỊ CẮT mang `tabindex` — mẩu ngắn không có hành
+    // vi nào". Nó ghim đúng trạng thái lúc đó, không ghim một bất biến: mẩu ngắn THẬT SỰ không
+    // có hành vi nào cho tới Story 5.1. Nay click một mẩu ngắn vào chế độ sửa, nên nó CÓ một
+    // hành vi — và một hành vi chỉ mở được bằng chuột là một hành vi không tồn tại với bàn
+    // phím. Vế không đổi một chữ: đúng HAI chỗ đặt `tabindex` trong tệp, `-1` cho nút xóa và
+    // `0` cho mẩu, nên không có đường nào cho một giá trị thứ ba.
     const dat = datTabindexTrongFile('app/view/mau-giay.js', maMau);
     expect(dat.map((d) => d.giaTri).sort()).toEqual(['-1', '0']);
-    // `setAttribute(THUOC_TINH_TAB, TAB_CO)` nằm TRONG nhánh `duDaiDeCat`, cùng chỗ với dòng
-    // gấp và bộ nghe click — ba thứ đi cùng nhau vì chúng là cùng một câu.
-    const nhanh = /if\s*\(duDaiDeCat\)\s*\{([\s\S]*?)\n  \}/.exec(maMau);
+    // Phép đặt `TAB_CO` nay nằm trong nhánh `!dangSua`, KHÔNG trong `duDaiDeCat`: mẩu ĐANG sửa
+    // là ngoại lệ duy nhất, vì ô sửa là một `<textarea>` và nó tự là điểm dừng — để `tabindex`
+    // trên mẩu bọc thì `Tab` đi qua hai điểm dừng cho một thứ, và để bộ nghe `keydown` ở đó thì
+    // `Enter` cùng phím cách bị ăn mất ngay trong ô đang gõ.
+    const nhanh = /if\s*\(!dangSua\)\s*\{([\s\S]*?)\n  \}/.exec(maMau);
     expect(nhanh).not.toBeNull();
     expect(nhanh[1]).toContain('TAB_CO');
+    expect(nhanh[1]).toContain('keydown');
+    // Và nhánh `duDaiDeCat` chỉ còn dòng gấp — không còn `tabindex` lẫn bộ nghe nào.
+    const catBot = /if\s*\(duDaiDeCat\)\s*\{([\s\S]*?)\n  \}/.exec(maMau);
+    expect(catBot).not.toBeNull();
+    expect(catBot[1]).not.toContain('TAB_CO');
   });
 
   it('ca `outline` bị tắt vẫn sống ở token-style.test.js — dẫn chiếu, không nhân bản', () => {

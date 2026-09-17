@@ -27,7 +27,12 @@ import { taoStore } from './core/state.js';
 import { PORT_METHODS } from './ports/index.js';
 import { noiBanner } from './view/banner.js';
 import { noiChanTrang } from './view/chan-trang.js';
-import { noiLuoi } from './view/luoi.js';
+import { CHON_LUOI, noiLuoi } from './view/luoi.js';
+// Mệnh đề chọn ô sửa và tên thuộc tính chở `id` của mẩu đi VÀO từ `view/mau-giay.js` — nơi
+// chúng được ĐẶT — chứ không khai lại ở đây. Đây là ngoại lệ đã có tiền lệ với `CHON_LUOI`:
+// `main.js` không dựng DOM của mẩu, nó chỉ tìm lại đúng phần tử mà view vừa dựng, và một bản
+// chép tay của cái tên là chỗ tiêu điểm lặng lẽ rơi về `<body>` vào ngày ai đó đổi tên.
+import { CHON_SUA, THUOC_TINH_MAU } from './view/mau-giay.js';
 import { noiNutTheme } from './view/nut-theme.js';
 import { noiOSoan } from './view/o-soan.js';
 import { noiTieuDe } from './view/tieu-de.js';
@@ -84,7 +89,80 @@ export const store = taoStore(congThat());
 if (typeof document !== 'undefined') {
   // `khoiDong` không bao giờ bị từ chối: nạp hỏng đi ra bằng dải băng, không bằng một lời hứa
   // treo lại. Nên không có `.catch` ở đây, và không có lời hứa nào không ai bắt.
-  const luoi = noiLuoi(store);
+  // ── Chế độ sửa tại chỗ (Story 5.1) ─────────────────────────────────────────────────────
+  //
+  // Ba móc nối lưới vào ba action của lõi, và cả ba làm một việc THỨ HAI mà chỉ file này biết
+  // cách làm: gọi một lượt vẽ. Dự án không có cơ chế subscribe (xem chú thích ở
+  // `view/luoi.js`), nên mọi phép đổi state xảy ra SAU một lời hứa chỉ hiện ra được nếu một
+  // chỗ nối ở đây kéo theo một lượt vẽ.
+  /**
+   * Lượt vẽ GIỮ TIÊU ĐIỂM — cùng lớp lỗi với `dongRoiVe`, cùng cách chữa.
+   *
+   * `Tab` ra khỏi ô sửa đưa tiêu điểm tới điểm dừng kế tiếp, và điểm dừng đó nay nằm TRONG lưới
+   * (mọi mẩu mang `tabindex="0"` từ story này). Lượt vẽ sau đó `replaceChildren` cả lưới, tức
+   * gỡ đúng phần tử vừa nhận tiêu điểm — và tiêu điểm rơi về `<body>`, nơi `Tab` tiếp theo bắt
+   * đầu lại từ đầu trang. Sản phẩm cố ý không có phím tắt, nên bàn phím là đường duy nhất.
+   *
+   * Neo vào `id` của MẨU đang nhận tiêu điểm, không vào vị trí của nó trong danh sách con: lượt
+   * vẽ này chạy `locGhiChu` lại với một mốc "hôm nay" mới và khối điều kiện đang bật, nên nó có
+   * thể dựng một tập mẩu KHÁC — và lúc đó ô thứ `i` là một ghi chú khác hẳn. Mẩu biến mất khỏi
+   * lưới thì KHÔNG làm gì: đẩy tiêu điểm sang một ghi chú không ai chọn còn tệ hơn để nó rơi.
+   *
+   * Tiêu điểm ở ngoài lưới thì cũng không phải làm gì — `replaceChildren` không chạm tới nó.
+   */
+  const veGiuTieuDiem = () => {
+    const dangDung = document.activeElement;
+    const mauDangDung = dangDung === null ? null : dangDung.closest(`[${THUOC_TINH_MAU}]`);
+    const idGiu = mauDangDung === null ? null : mauDangDung.getAttribute(THUOC_TINH_MAU);
+    veTatCa();
+    if (idGiu === null) return;
+    const vungLuoi = document.querySelector(CHON_LUOI);
+    if (vungLuoi === null) return;
+    const thay = [...vungLuoi.children].find(
+      (moc) => moc.getAttribute(THUOC_TINH_MAU) === idGiu,
+    );
+    if (thay !== undefined) thay.focus();
+  };
+  const vaoSuaRoiVe = (id, viTri) => {
+    store.vaoCheDoSua(id);
+    veTatCa();
+    // Ô sửa chỉ tồn tại SAU lượt vẽ, nên tiêu điểm và con trỏ đặt ở đây chứ không trong view.
+    const oSua = document.querySelector(CHON_SUA);
+    if (oSua === null) return;
+    oSua.focus();
+    // Đường lui là CUỐI chữ: bàn phím không có điểm bấm, và `caretPositionFromPoint` trả `null`
+    // ở khá nhiều tình huống hợp lệ. Cuối chữ là chỗ một người viết tiếp.
+    const cuoi = oSua.value.length;
+    const dat = typeof viTri === 'number' && viTri >= 0 && viTri <= cuoi ? viTri : cuoi;
+    oSua.setSelectionRange(dat, dat);
+  };
+  const roiSuaRoiVe = (id) => {
+    // `blur` nổ cả khi phần tử bị GỠ khỏi DOM: lượt vẽ đưa mẩu B vào chế độ sửa xoá ô sửa của
+    // mẩu A, và trình duyệt phát `blur` của A ngay giữa lượt vẽ đó. Một `blur` của mẩu khác là
+    // tiếng vọng của một lượt vẽ, không phải một lần rời — bỏ nó.
+    if (store.state.editing.id !== id) return;
+    store.roiCheDoSua();
+    // Lượt vẽ HOÃN một nhịp, và `setTimeout` chứ không `requestAnimationFrame` (bộ quét của
+    // `test/chuyen-dong-va-tin-hieu.test.js` chặn): `blur` chạy cùng nhịp với `mousedown`,
+    // TRƯỚC `mouseup` và `click`. Vẽ ngay thì phần tử chuột vừa bấm xuống bị thay ra trước khi
+    // nhả chuột, trình duyệt phát `click` lên tổ tiên chung thay vì lên mẩu — cú bấm từ mẩu A
+    // sang mẩu B bị mất, và Nam phải bấm hai lần.
+    setTimeout(veGiuTieuDiem);
+  };
+  const mocSua = {
+    vao: vaoSuaRoiVe,
+    roi: roiSuaRoiVe,
+    // Đúng MỘT lời gọi action cho mỗi phím — không vẽ lại ở phím gõ. Lượt vẽ treo vào lời hứa
+    // của action, tức nó chạy khi phép ghi ĐÃ XONG hoặc ĐÃ HỎNG: đó là lúc `notes` mang chữ mới
+    // (lưới phải hiện nó) hay `banner` mang một mã lỗi (dải băng phải hiện ra). `luoi.ve` tự
+    // gác để `<textarea>` đang gõ không bị thay ra bởi lượt vẽ này.
+    go: (id, text) => {
+      store.tuLuuNoiDung(id, text).then(veTatCa);
+    },
+  };
+  // `undefined` cho tham số thứ ba: nguồn mốc hiện tại giữ mặc định `nowIso` của
+  // `core/time.js` — chỉ test bố cục mới truyền một mốc cố định vào đó.
+  const luoi = noiLuoi(store, document, undefined, mocSua);
   // Tiêu đề tab là view THỨ HAI, không phải một nhánh của lưới: con số nó hiện là số ghi chú
   // của hôm nay bất kể điều kiện đang bật, còn lưới thì vẽ đúng tập ĐANG hiển thị. Hai câu
   // hỏi khác nhau, nên hai tệp — và chúng không import nhau, chỉ file này biết cả hai.
