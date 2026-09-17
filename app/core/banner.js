@@ -25,14 +25,21 @@ import { MA_LOI, MICROCOPY, microcopyLoi } from './errors.js';
 /**
  * Tập giá trị hợp lệ của `state.banner` — một CHUỖI, và chỉ một trong những giá trị dưới đây.
  *
- * Sáu mã lỗi của AD-18 cộng hai sentinel KHÔNG-PHẢI-LỖI (hàng 6 và hàng 7 của bảng AD-17).
- * Tám giá trị cho BẢY hàng, và số lệch đó là đúng: hàng 4 ("nạp file thất bại") chở hai mã
- * cùng nghĩa với người dùng (`BAD_FILE` · `BAD_VERSION` — `errors.js` đã cho chúng chung một
- * câu), còn `TOO_LONG` chiếm ĐÚNG MỘT ô — hàng 5. Phân biệt "ưu tiên 4 khi đến từ file nạp ·
- * 5 khi đến từ bàn phím" của AD-17/AD-18 bị BỎ có chủ đích: hai ca đó không bao giờ cùng tồn
- * tại (nạp file là một thao tác chặn, không ai gõ giữa lúc nó chạy), và giữ nó lại buộc
- * `banner` phải mang một object thay vì một chuỗi — tức 14 chỗ đặt `banner` trong `state.js`
- * và mọi assertion của `test/core-state.test.js` phải viết lại. Cái giá đã cân và chọn.
+ * Sáu mã lỗi của AD-18 cộng BA sentinel KHÔNG-PHẢI-LỖI-CỦA-AD-18 (hàng 6 và hàng 7 của bảng
+ * AD-17, cộng `TOO_LONG_TU_FILE` chia sẻ hàng 4). Chín giá trị cho BẢY hàng: hàng 4 ("nạp file
+ * thất bại") giờ chở BA mã cùng nghĩa với người dùng — `BAD_FILE` · `BAD_VERSION` (đã chung câu
+ * từ trước) cộng `TOO_LONG_TU_FILE` (Story 4.3/4.4 review — epic-4-context.md đòi ưu tiên 4 cho
+ * ca này, ngang với lỗi nạp file, cao hơn hẳn `TOO_LONG` của bàn phím ở hàng 5).
+ *
+ * `TOO_LONG_TU_FILE` là sentinel RIÊNG của bảng này, KHÔNG một mã của `core/errors.js`'s
+ * `MA_LOI` (tập đó vẫn đóng, đúng sáu giá trị — AD-18 không nới): một ghi chú vượt trần được
+ * PHÁT HIỆN trong lúc đọc file nạp vẫn ném với `MA_LOI.TOO_LONG` y hệt ca bàn phím (một mã cho
+ * một điều kiện lỗi ở tầng dữ liệu); tầng ACTION (`state.js` → `napSaoLuu`) mới là chỗ biết
+ * NGUỒN của cái ném đó, và nó chọn sentinel này thay vì `TOO_LONG` trần khi nguồn là file — cùng
+ * khuôn với cách `NAP_FILE_XONG`/`DUNG_LUONG_SAP_HET` đã là sentinel riêng của bảng, không phải
+ * mã lỗi. `banner` vẫn là một CHUỖI thuần, không một chỗ nào trong 14 lần đặt `banner` ở
+ * `state.js` phải đổi hình dạng — chỉ đúng một chỗ (nhánh bắt lỗi đọc file của `napSaoLuu`)
+ * chọn sentinel này thay vì gọi thẳng `maBanner(loi)`.
  */
 export const LOAI_BANG = Object.freeze({
   ...MA_LOI,
@@ -40,6 +47,8 @@ export const LOAI_BANG = Object.freeze({
   NAP_FILE_XONG: 'NAP_FILE_XONG',
   /** Hàng 7 — cảnh báo TRƯỚC khi kho chật (AD-10), khác hẳn `QUOTA` là "đã hỏng rồi". */
   DUNG_LUONG_SAP_HET: 'DUNG_LUONG_SAP_HET',
+  /** Hàng 4 — `TOO_LONG` phát hiện lúc ĐỌC FILE NẠP, không phải lúc gõ. Xem docstring ở trên. */
+  TOO_LONG_TU_FILE: 'TOO_LONG_TU_FILE',
 });
 
 /**
@@ -59,7 +68,7 @@ export const BANG_UU_TIEN = Object.freeze([
   Object.freeze({ loai: Object.freeze([LOAI_BANG.QUOTA]), dongDuoc: false }),
   Object.freeze({ loai: Object.freeze([LOAI_BANG.DB]), dongDuoc: false }),
   Object.freeze({
-    loai: Object.freeze([LOAI_BANG.BAD_FILE, LOAI_BANG.BAD_VERSION]),
+    loai: Object.freeze([LOAI_BANG.BAD_FILE, LOAI_BANG.BAD_VERSION, LOAI_BANG.TOO_LONG_TU_FILE]),
     dongDuoc: true,
   }),
   Object.freeze({ loai: Object.freeze([LOAI_BANG.TOO_LONG]), dongDuoc: true }),
@@ -68,11 +77,15 @@ export const BANG_UU_TIEN = Object.freeze([
 ]);
 
 /**
- * Câu chữ của hai hàng KHÔNG-PHẢI-LỖI.
+ * Câu chữ của BA hàng KHÔNG-PHẢI-MÃ-CỦA-`MICROCOPY`.
  *
  * `microcopyLoi` NÉM với một giá trị ngoài `MICROCOPY` (`errors.js:47`), và đó là luật đúng —
- * không được nới. Nên hai sentinel có bảng riêng ở đây, và `microcopyBanner` phân nhánh theo
+ * không được nới. Nên ba sentinel có bảng riêng ở đây, và `microcopyBanner` phân nhánh theo
  * bảng thay vì gọi thẳng `microcopyLoi` cho mọi hàng.
+ *
+ * `TOO_LONG_TU_FILE` dùng LẠI nguyên văn của `BAD_FILE` (`MICROCOPY[MA_LOI.BAD_FILE]`), không
+ * chép tay: cùng một câu "Không nạp được file này..." phải đứng sau cả ba mã của hàng 4, và tra
+ * qua bảng có sẵn là cách một bản chép tay không thể trôi khỏi bản kia.
  *
  * Hàng 6 là `null`, có chủ đích: nguyên văn của nó là `Đã nạp N ghi chú, bỏ qua M ghi chú đã
  * có.` — nó MANG HAI CON SỐ THẬT, nên một chuỗi loại trần không chở được dữ liệu đó. Story
@@ -85,6 +98,8 @@ export const MICROCOPY_BANG = Object.freeze({
   [LOAI_BANG.NAP_FILE_XONG]: null,
   // Nguyên văn `EXPERIENCE.md` (bảng "Dải băng thông báo", dòng 1b) — từng ký tự.
   [LOAI_BANG.DUNG_LUONG_SAP_HET]: 'Dung lượng sắp hết. Xuất sao lưu trước khi nó hết.',
+  // Câu của `BAD_FILE`/`BAD_VERSION`, tra lại chứ không chép — xem docstring ở trên.
+  [LOAI_BANG.TOO_LONG_TU_FILE]: MICROCOPY[MA_LOI.BAD_FILE],
 });
 
 /** Vị trí của một loại trong bảng, tức ƯU TIÊN của nó. Loại ngoài bảng → `TypeError`, cùng
@@ -156,7 +171,7 @@ function cauNapFileXong(so) {
 /**
  * Nguyên văn microcopy của một loại dải băng — hoặc `null` khi hàng chưa có chữ.
  *
- * Phân nhánh theo BẢNG, không gọi thẳng `microcopyLoi` cho mọi hàng: hai sentinel không nằm
+ * Phân nhánh theo BẢNG, không gọi thẳng `microcopyLoi` cho mọi hàng: ba sentinel không nằm
  * trong `MICROCOPY` của `errors.js`, và gọi `microcopyLoi` với chúng là một `TypeError` giữa
  * một lượt vẽ.
  *

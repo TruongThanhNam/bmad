@@ -130,7 +130,9 @@ const THU_TU_AD_17 = [
   { loai: ['VERSION_SKEW'], dongDuoc: false },
   { loai: ['QUOTA'], dongDuoc: false },
   { loai: ['DB'], dongDuoc: false },
-  { loai: ['BAD_FILE', 'BAD_VERSION'], dongDuoc: true },
+  // `TOO_LONG_TU_FILE` gia nhập hàng 4 ở review Epic 4 (Story 4.3): ghi chú vượt trần PHÁT HIỆN
+  // lúc đọc file nạp đứng ngang ưu tiên với lỗi nạp file, không phải `TOO_LONG` trần của hàng 5.
+  { loai: ['BAD_FILE', 'BAD_VERSION', 'TOO_LONG_TU_FILE'], dongDuoc: true },
   { loai: ['TOO_LONG'], dongDuoc: true },
   { loai: ['NAP_FILE_XONG'], dongDuoc: true },
   { loai: ['DUNG_LUONG_SAP_HET'], dongDuoc: true },
@@ -153,11 +155,11 @@ describe('core/banner.js — bảng bảy nguồn của AD-17', () => {
     }
   });
 
-  it('bảng phủ ĐÚNG tập LOAI_BANG: sáu mã lỗi cộng hai sentinel, mỗi giá trị đúng một hàng', () => {
+  it('bảng phủ ĐÚNG tập LOAI_BANG: sáu mã lỗi cộng ba sentinel, mỗi giá trị đúng một hàng', () => {
     const trongBang = BANG_UU_TIEN.flatMap((hang) => [...hang.loai]);
     expect([...trongBang].sort()).toEqual([...new Set(trongBang)].sort());
     expect([...trongBang].sort()).toEqual([...Object.values(LOAI_BANG)].sort());
-    // Sáu mã của AD-18 có mặt nguyên vẹn — `LOAI_BANG` là tập đó CỘNG hai sentinel, không
+    // Sáu mã của AD-18 có mặt nguyên vẹn — `LOAI_BANG` là tập đó CỘNG ba sentinel, không
     // phải một tập khác trùng một phần.
     for (const ma of Object.values(MA_LOI)) expect(trongBang).toContain(ma);
     expect(Object.values(LOAI_BANG)).toHaveLength(
@@ -201,6 +203,18 @@ describe('core/banner.js — chữ luôn đến từ ánh xạ có sẵn', () =>
     expect(microcopyBanner(LOAI_BANG.NAP_FILE_XONG, { added: 1 })).toBeNull();
     // Và bảng vẫn giữ `null` ở hàng đó: câu chữ chỉ dựng được khi CÓ hai con số.
     expect(MICROCOPY_BANG[LOAI_BANG.NAP_FILE_XONG]).toBeNull();
+  });
+
+  it('TOO_LONG_TU_FILE (Story 4.3 — vượt trần đọc từ file) dùng LẠI câu của BAD_FILE, ưu tiên hàng 4', () => {
+    expect(microcopyBanner(LOAI_BANG.TOO_LONG_TU_FILE)).toBe(microcopyBanner(LOAI_BANG.BAD_FILE));
+    expect(microcopyBanner(LOAI_BANG.TOO_LONG_TU_FILE)).toBe(microcopyLoi(MA_LOI.BAD_FILE));
+    expect(dongDuoc(LOAI_BANG.TOO_LONG_TU_FILE)).toBe(true);
+    // Cùng hàng 4 với `BAD_FILE`/`BAD_VERSION`: thay được nhau cả hai chiều, và cao hơn
+    // `TOO_LONG` trần (hàng 5, ca của bàn phím).
+    expect(thayDuoc(LOAI_BANG.BAD_FILE, LOAI_BANG.TOO_LONG_TU_FILE)).toBe(true);
+    expect(thayDuoc(LOAI_BANG.TOO_LONG_TU_FILE, LOAI_BANG.BAD_FILE)).toBe(true);
+    expect(thayDuoc(LOAI_BANG.TOO_LONG, LOAI_BANG.TOO_LONG_TU_FILE)).toBe(true);
+    expect(thayDuoc(LOAI_BANG.TOO_LONG_TU_FILE, LOAI_BANG.TOO_LONG)).toBe(false);
   });
 
   it('hàng 6 CÓ tham số: nguyên văn từng ký tự, hai con số viết bằng CHỮ SỐ', () => {

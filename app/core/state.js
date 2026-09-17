@@ -229,8 +229,9 @@ function stateRong() {
     // Một trường cạnh `banner` chứ không phải một `banner` kiểu object: `core/banner.js:30-35`
     // đã cân và từ chối phép đổi đó (14 chỗ đặt `banner` trong tệp này phải viết lại, cùng mọi
     // assertion của `test/core-state.test.js`). Đổi lại, `datLai` xoá trường này ở MỌI lần đặt
-    // dải băng không nói gì về nó — nên không có đường nào để hai con số lệch khỏi loại đang
-    // hiện, kể cả đường viết ở Epic sau.
+    // dải băng không nói gì về nó, VÀ ném nếu ai đưa `bannerSo` vào mà không kèm `banner` trong
+    // cùng lời gọi (review Epic 4) — nên không có đường nào để hai con số lệch khỏi loại đang
+    // hiện, kể cả đường viết ở Epic sau: nó bị CHẶN, không chỉ chưa ai đi qua.
     bannerSo: null,
     // Tầng C — tab đã thấy mã lệch phiên bản thì mọi action có ghi bị từ chối (AD-21).
     readOnly: false,
@@ -381,8 +382,22 @@ export function taoStore(ports) {
    *
    * Loại bỏ ĐÚNG khóa `banner` chứ không bỏ cả phép đổi, và chỉ khi khóa đó CÓ MẶT: một
    * `datLai` không nói gì về dải băng thì không được vô tình chạm tới nó.
+   *
+   * `bannerSo` KHÔNG được đi một mình (review Epic 4): nó chỉ có nghĩa cạnh câu chữ của ĐÚNG
+   * một `banner` vừa đặt trong CÙNG lời gọi (hàng 6 — xem khối `if` ngay dưới). Một
+   * `datLai({ bannerSo })` thiếu `banner` sẽ để `bannerSo` gắn vào bất kỳ banner nào đang hiện
+   * từ TRƯỚC — đúng cảnh "một cặp số sống sót qua một lần đổi loại là cặp số của một chuyện
+   * khác đứng cạnh một câu chữ không phải của nó" mà khối `if` dưới đây tồn tại để chặn. Ném ở
+   * đây thay vì đoán ý: một chỗ gọi thứ hai nào đó (kể cả một Epic sau) đưa hình dạng này vào
+   * là lỗi lập trình, cùng khuôn `datDieuKien` ném với một khóa lạ.
    */
   function datLai(nhanhMoi) {
+    if (
+      Object.prototype.hasOwnProperty.call(nhanhMoi, 'bannerSo') &&
+      !Object.prototype.hasOwnProperty.call(nhanhMoi, 'banner')
+    ) {
+      throw new TypeError('datLai nhận `bannerSo` mà không có `banner` trong cùng lời gọi');
+    }
     let nhanh = nhanhMoi;
     if (Object.prototype.hasOwnProperty.call(nhanhMoi, 'banner')) {
       if (thayDuoc(noiBo.banner, nhanhMoi.banner)) {
@@ -846,7 +861,14 @@ export function taoStore(ports) {
         try {
           tuFile = docFileSaoLuu(daChon.text);
         } catch (loi) {
-          datLai({ banner: maBanner(loi) });
+          // `TOO_LONG` phát hiện ở ĐÂY (pha 1, đọc file) đứng ngang ưu tiên với lỗi nạp file —
+          // ngang `BAD_FILE`/`BAD_VERSION`, hàng 4 — và mượn nguyên câu "Không nạp được file
+          // này..." của chúng: người vừa CHỌN MỘT FILE, không phải người vừa gõ, và câu "chốt
+          // bằng Ctrl+Enter" của hàng 5 (`TOO_LONG` trần) nói sai hoàn toàn về chuyện vừa xảy
+          // ra (epic-4-context.md, review Epic 4). `core/banner.js` giữ sentinel riêng cho ca
+          // này — xem docstring `LOAI_BANG.TOO_LONG_TU_FILE`.
+          const ma = maBanner(loi);
+          datLai({ banner: ma === MA_LOI.TOO_LONG ? LOAI_BANG.TOO_LONG_TU_FILE : ma });
           return undefined;
         }
         const moc = mocXuatSaoLuu(daChon.text);

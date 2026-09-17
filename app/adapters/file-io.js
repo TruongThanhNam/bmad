@@ -40,8 +40,12 @@ export function taoFileIo() {
       // bị từ chối — cửa mà nhánh im lặng của `xuatSaoLuu` đang chờ.
       return new Promise((xong) => {
         const url = URL.createObjectURL(new Blob([text], { type: KIEU_JSON }));
-        const the = document.createElement('a');
+        // `the` khai NGOÀI try và bắt đầu `undefined`: nếu `createElement` tự nó ném (review
+        // Epic 4 — trường hợp cực hiếm, tài liệu bị hỏng), `url` vẫn phải được thu hồi ở
+        // `finally` dưới đây, và `finally` khi đó không có gì để `.remove()`.
+        let the;
         try {
+          the = document.createElement('a');
           the.href = url;
           the.download = name;
           // Gắn vào tài liệu rồi mới bấm: một thẻ rời cây DOM không kích hoạt được phép tải ở
@@ -50,8 +54,8 @@ export function taoFileIo() {
           the.click();
         } finally {
           // Gỡ thẻ ở MỌI đường ra, kể cả khi `click()` ném: một `<a>` sót lại trong `<body>` là
-          // một điểm dừng bàn phím vô hình mọc thêm vào trang.
-          the.remove();
+          // một điểm dừng bàn phím vô hình mọc thêm vào trang. Nhưng chỉ khi nó đã được dựng.
+          if (the !== undefined) the.remove();
           // Thu hồi URL tạm cũng ở mọi đường ra — một Blob không thu hồi sống tới hết đời trang,
           // và xuất nhiều lần trong một phiên thì rò đúng bằng kích thước kho mỗi lần. Nhưng
           // LÙI một lượt: thu hồi ngay trong cùng nhịp đồng bộ với `click()` đã từng làm chính
@@ -135,8 +139,17 @@ export function taoFileIo() {
 
         // Gắn vào tài liệu rồi mới bấm, cùng lý do với thẻ `<a download>`: một phần tử rời cây
         // DOM không mở được hộp thoại ở mọi trình duyệt.
-        document.body.appendChild(o);
-        o.click();
+        try {
+          document.body.appendChild(o);
+          o.click();
+        } catch (loi) {
+          // Cùng khuôn `exportFile`: gỡ ở MỌI đường ra, kể cả khi chính hai lời gọi này ném
+          // (review Epic 4) — một `<input>` mồ côi sót lại là một điểm dừng bàn phím vô hình,
+          // dù `hidden` khiến nó không thấy được. Ném lại nguyên `loi`: đây không phải cửa thứ
+          // ba, và lời hứa vẫn phải bị từ chối như trước khi có `try` này.
+          don();
+          throw loi;
+        }
       });
     },
   };

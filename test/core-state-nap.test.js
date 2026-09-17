@@ -319,7 +319,10 @@ describe('napSaoLuu — pha 1 từ chối thì kho KHÔNG bị chạm một lầ
           { id: 'y', createdAt: MOC_XUAT, text: 'a'.repeat(20001) },
         ],
       }),
-      MA_LOI.TOO_LONG,
+      // Vượt trần PHÁT HIỆN lúc đọc file, không phải lúc gõ: đứng ngang ưu tiên với lỗi nạp
+      // file và mượn câu chữ của nó (review Epic 4) — không phải `MA_LOI.TOO_LONG` trần, đó là
+      // câu "Ctrl+Enter" của bàn phím. Xem `core/banner.js` → `LOAI_BANG.TOO_LONG_TU_FILE`.
+      LOAI_BANG.TOO_LONG_TU_FILE,
     ],
   };
 
