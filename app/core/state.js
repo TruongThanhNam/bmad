@@ -1200,15 +1200,27 @@ export function taoStore(ports) {
    * Không đang sửa gì thì không làm gì cả: `blur` nổ cả khi một phần tử bị GỠ khỏi DOM, nên
    * hàm này bị gọi ở những lúc không có gì để rời.
    *
-   * @returns {void}
+   * Chữ đang sửa rỗng (hoặc chỉ toàn khoảng trắng) thì rời mẩu = xóa mẩu, im lặng tuyệt đối
+   * (Story 5.2): sau `datLai` thường ở trên, gọi thêm `xoaGhiChu` đã có sẵn — nó tự dọn
+   * `chuDangCho`/`seq`/`notes` của mẩu đó, nên hẹn tự lưu cũ (nếu có) nổ ra sẽ lệch `seq` và bị
+   * bỏ, đúng kỷ luật `seq` đã ghim. `editing.id` về `null` xảy ra LUÔN, kể cả khi lệnh xóa thất
+   * bại. Đọc `noiBo.editing.text`, KHÔNG đọc `notes`: đó là chữ mới nhất, `notes` có thể chưa
+   * `put` xong.
+   *
+   * @returns {Promise<void>} Hoàn tất khi state đã phản ánh kết quả của lệnh xóa (nếu có) — chỗ
+   *   gọi (`app/main.js`) treo lượt vẽ vào đây để không vẽ lại bằng dữ liệu cũ.
    */
   function roiCheDoSua() {
     const dangSua = noiBo.editing.id;
-    if (dangSua === null) return;
+    if (dangSua === null) return Promise.resolve();
+    const rong = noiBo.editing.text.trim() === '';
     datLai({
       editing: { id: null, text: noiBo.editing.text, seq: noiBo.editing.seq },
       expandedIds: noiBo.expandedIds.filter((khac) => khac !== dangSua),
     });
+    // `editing.id` về `null` xảy ra LUÔN, kể cả khi lệnh xóa dưới đây thất bại (I/O Matrix của
+    // Story 5.2) — đúng luồng rời sửa bình thường. Xóa chỉ là một hệ quả CHẠY THÊM khi rỗng.
+    return rong ? xoaGhiChu(dangSua) : Promise.resolve();
   }
 
   /**

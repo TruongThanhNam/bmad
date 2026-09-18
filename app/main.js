@@ -141,13 +141,16 @@ if (typeof document !== 'undefined') {
     // mẩu A, và trình duyệt phát `blur` của A ngay giữa lượt vẽ đó. Một `blur` của mẩu khác là
     // tiếng vọng của một lượt vẽ, không phải một lần rời — bỏ nó.
     if (store.state.editing.id !== id) return;
-    store.roiCheDoSua();
-    // Lượt vẽ HOÃN một nhịp, và `setTimeout` chứ không `requestAnimationFrame` (bộ quét của
-    // `test/chuyen-dong-va-tin-hieu.test.js` chặn): `blur` chạy cùng nhịp với `mousedown`,
-    // TRƯỚC `mouseup` và `click`. Vẽ ngay thì phần tử chuột vừa bấm xuống bị thay ra trước khi
-    // nhả chuột, trình duyệt phát `click` lên tổ tiên chung thay vì lên mẩu — cú bấm từ mẩu A
-    // sang mẩu B bị mất, và Nam phải bấm hai lần.
-    setTimeout(veGiuTieuDiem);
+    // `roiCheDoSua()` có thể xóa mẩu (chữ rỗng — Story 5.2), một phép ghi bất đồng bộ: đợi nó
+    // xong trước khi vẽ lại, nếu không lưới vẽ lại bằng dữ liệu cũ (mẩu rỗng còn hiện một khắc).
+    store.roiCheDoSua().then(() => {
+      // Lượt vẽ HOÃN một nhịp, và `setTimeout` chứ không `requestAnimationFrame` (bộ quét của
+      // `test/chuyen-dong-va-tin-hieu.test.js` chặn): `blur` chạy cùng nhịp với `mousedown`,
+      // TRƯỚC `mouseup` và `click`. Vẽ ngay thì phần tử chuột vừa bấm xuống bị thay ra trước khi
+      // nhả chuột, trình duyệt phát `click` lên tổ tiên chung thay vì lên mẩu — cú bấm từ mẩu A
+      // sang mẩu B bị mất, và Nam phải bấm hai lần.
+      setTimeout(veGiuTieuDiem);
+    });
   };
   const mocSua = {
     vao: vaoSuaRoiVe,

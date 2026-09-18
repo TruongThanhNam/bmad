@@ -1407,6 +1407,82 @@ describe('vaoCheDoSua / roiCheDoSua — tư cách "đang sửa" sống trong sta
     expect(() => store.vaoCheDoSua(7)).toThrow(/id/);
   });
 
+  it('rời mẩu với chữ đã xóa sạch (rỗng) thì XÓA mẩu, im lặng, không hỏi gì (Story 5.2)', async () => {
+    const { store } = storeVoiKho({ banDau: banGhiMau() });
+    await store.khoiDong();
+    store.vaoCheDoSua('a');
+    store.tuLuuNoiDung('a', '');
+    await store.roiCheDoSua();
+    expect(store.state.editing.id).toBeNull();
+    expect(store.state.notes.map((mau) => mau.id)).toEqual(['c', 'b']);
+    expect(store.state.banner).toBeNull();
+  });
+
+  it('chữ chỉ toàn khoảng trắng thì bị xử lý y hệt chuỗi rỗng — mẩu biến mất', async () => {
+    const { store } = storeVoiKho({ banDau: banGhiMau() });
+    await store.khoiDong();
+    store.vaoCheDoSua('a');
+    store.tuLuuNoiDung('a', '   ');
+    await store.roiCheDoSua();
+    expect(store.state.notes.map((mau) => mau.id)).toEqual(['c', 'b']);
+  });
+
+  it('rời mẩu còn chữ (không rỗng) thì KHÔNG xóa gì — hành vi y hệt Story 5.1', async () => {
+    const { store } = storeVoiKho({ banDau: banGhiMau() });
+    await store.khoiDong();
+    store.vaoCheDoSua('a');
+    store.tuLuuNoiDung('a', 'a');
+    await store.roiCheDoSua();
+    expect(store.state.editing.id).toBeNull();
+    expect(store.state.notes.map((mau) => mau.id)).toEqual(['c', 'a', 'b']);
+  });
+
+  it('rời mẩu rỗng nhưng lệnh xóa thất bại: mẩu và state giữ nguyên, dải băng lên theo mã lỗi', async () => {
+    const { store } = storeVoiKho({ banDau: banGhiMau(), tuChoi: { remove: MA_LOI.QUOTA } });
+    await store.khoiDong();
+    store.vaoCheDoSua('a');
+    store.tuLuuNoiDung('a', '');
+    await store.roiCheDoSua();
+    expect(store.state.editing.id).toBeNull();
+    expect(store.state.notes.map((mau) => mau.id)).toEqual(['c', 'a', 'b']);
+    expect(store.state.banner).toBe(MA_LOI.QUOTA);
+  });
+
+  it('rời mẩu rỗng: xóa dọn seq/chuDangCho, nên hẹn tự lưu cũ đang treo bị bỏ, không hồi sinh mẩu', async () => {
+    vi.useFakeTimers();
+    const { store, kho } = storeVoiKho({ banDau: banGhiMau() });
+    await store.khoiDong();
+    store.vaoCheDoSua('a');
+    // Gõ chữ trước để đặt một hẹn tự lưu đang treo, rồi xóa sạch nó và rời ngay — hẹn cũ (nếu
+    // có nổ ra) phải bị bỏ vì `seq` đã bị xóa cùng mẩu, không phải nhờ `clearTimeout`.
+    store.tuLuuNoiDung('a', 'phở');
+    store.tuLuuNoiDung('a', '');
+    kho.nhatKy.length = 0;
+    await store.roiCheDoSua();
+    expect(kho.nhatKy).toEqual(['remove:a']);
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
+    // Hẹn cũ (đặt bởi 'phở') không hồi sinh mẩu bằng một `put:a` muộn.
+    expect(kho.nhatKy).toEqual(['remove:a']);
+    expect(store.state.notes.map((mau) => mau.id)).toEqual(['c', 'b']);
+  });
+
+  it('gõ tới rỗng nhưng CHƯA rời mẩu thì không xóa gì — autosave vẫn ghi bình thường', async () => {
+    vi.useFakeTimers();
+    const { store, kho } = storeVoiKho({ banDau: banGhiMau() });
+    await store.khoiDong();
+    store.vaoCheDoSua('a');
+    kho.nhatKy.length = 0;
+    const chot = store.tuLuuNoiDung('a', '');
+    expect(store.state.editing.id).toBe('a');
+    expect(store.state.notes.map((mau) => mau.id)).toEqual(['c', 'a', 'b']);
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
+    await chot;
+    // Vẫn chưa rời mẩu: autosave ghi chuỗi rỗng như bình thường, không gọi xóa.
+    expect(kho.nhatKy).toEqual(['put:a']);
+    expect(store.state.editing.id).toBe('a');
+    expect(store.state.notes.map((mau) => mau.id)).toEqual(['c', 'a', 'b']);
+  });
+
 });
 
 describe('batTatMoRong — trạng thái mở rộng, tầng C, chỉ RAM', () => {

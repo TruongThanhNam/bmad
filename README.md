@@ -541,3 +541,21 @@ Còn lại là thứ không con số nào nói: lần tải lại có **nháy m�
     màu `--focus` — nhìn rõ trên nền tối. Lật lại `light` và soi đúng ba thứ đó. Bóng lõm đổi
     theo theme (`--shadow-inset`), nên ở bản dark nó phải là một vệt **tối**, không phải một
     vệt xám nổi lên trên nền sẫm.
+
+30. **Xóa sạch chữ rồi rời mẩu — mẩu biến mất, không hỏi gì.** Mở một mẩu ở chế độ sửa, chọn hết
+    chữ trong ô (`Ctrl+A`) và xóa sạch (ô sửa rỗng hoàn toàn). Bấm ra chỗ trống ngoài mẩu (hoặc
+    `Tab` ra khỏi ô): mẩu **biến khỏi lưới ngay**, không nhấp nháy, không hộp thoại xác nhận,
+    không dải băng "đã xóa" — im lặng tuyệt đối. Tải lại trang: mẩu đó **không còn** trong danh
+    sách.
+
+    *Chỉ khoảng trắng:* lặp lại nhưng thay vì xóa hết, gõ vài dấu cách vào ô rồi rời mẩu — kết quả
+    phải **y hệt**: mẩu biến mất.
+
+    *Rời mẩu còn chữ:* mở một mẩu khác, xóa bớt (không xóa hết, còn ít nhất một ký tự) rồi rời —
+    mẩu phải **còn nguyên** trên lưới, thu gọn về ba dòng như mục 29, không bị xóa.
+
+    *Xóa thất bại (`QUOTA`/`DB`):* như mục 5, DevTools → Application → Storage → đặt hạn mức
+    xuống mức rất thấp để ép hết dung lượng. Mở một mẩu đã có, xóa sạch chữ trong ô rồi rời mẩu:
+    vì xóa không ghi được, mẩu đó phải **còn nguyên trên lưới** (không biến mất), và phải thấy
+    dải băng lỗi đã có (câu "Không lưu được — trình duyệt hết dung lượng…"). Hoàn tác hạn mức sau
+    khi thử.
