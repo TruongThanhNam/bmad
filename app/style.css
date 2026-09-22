@@ -56,6 +56,13 @@
   --danger: #97392C;
   --chip-bg: #E4DAC2;
   --hl: #F2DD8F;
+  /* Màn phủ của hộp thoại xác nhận (Story 5.3). Nó là một token MÀU dù không phải một hex —
+   * `rgba()` trong một luật CSS là đúng cái "màu viết thẳng" mà AD-20 mục 4 cấm, nên nó phải
+   * sống trong hai khối này như `--shadow-inset` đã sống.
+   *
+   * Nó KHÔNG bao giờ là `color`: nó là nền của một lớp phủ, không có chữ nào đứng trên nó, nên
+   * bảng tương phản không có cặp nào cho nó. Chữ của hộp thoại nằm trên `--surface`. */
+  --overlay: rgba(0, 0, 0, 0.32);
   --font-note: 400 14.5px/1.55 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
   --font-composer: 400 15px/1.55 "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
   --font-time: 600 11.5px Consolas, "Cascadia Mono", monospace;
@@ -98,6 +105,11 @@
    * token vì cùng lý do — `rgba()` trong một luật CSS là một màu viết thẳng. Bản dark có giá
    * trị riêng: bóng nâu trên nền tối không đọc được. */
   --shadow-paper: 0 1px 0 rgba(60, 48, 28, 0.1), 0 3px 8px rgba(60, 48, 28, 0.1);
+  /* Bóng SÂU của hộp thoại xác nhận (Story 5.3) — bóng sâu DUY NHẤT trong sản phẩm
+   * (`DESIGN.md`, *Elevation & Depth*). Độ sâu ở đây chỉ có đúng một nghĩa: "phần tử này nổi
+   * lên trên mọi thứ khác", và nó chỉ được dùng ở đúng một chỗ. Bản dark có giá trị riêng, đúng
+   * lệ của `--shadow-paper`: bóng nâu trên nền tối không đọc được. */
+  --shadow-dialog: 0 12px 32px rgba(60, 48, 28, 0.24);
   --radius-paper: 3px;
   --radius-input: 6px;
   --radius-tray: 8px;
@@ -124,8 +136,14 @@
   --danger: #D4816F;
   --chip-bg: #332F26;
   --hl: #4E4322;
+  /* Nền dark đã tối sẵn, nên một màn phủ `.32` gần như không thấy — lớp phủ mất đúng việc duy
+   * nhất của nó là nói "phần dưới đang không bấm được". Quyết định đã chốt của Story 5.3. */
+  --overlay: rgba(0, 0, 0, 0.55);
   --shadow-inset: inset 0 1px 2px rgba(0, 0, 0, 0.35);
   --shadow-paper: 0 1px 0 rgba(0, 0, 0, 0.45), 0 4px 12px rgba(0, 0, 0, 0.35);
+  /* Bóng đen đậm, đúng lệ `--shadow-paper` bản dark: một bóng nâu trên nền tối không đọc được,
+   * và một hộp thoại không tách khỏi nền là một hộp thoại không nổi lên. */
+  --shadow-dialog: 0 12px 32px rgba(0, 0, 0, 0.55);
 }
 
 html {
@@ -197,6 +215,8 @@ body {
 .o-luoi:focus-visible,
 .mau-sua:focus-visible,
 .mau-xoa:focus-visible,
+.hop-thoai-chon:focus-visible,
+.hop-thoai-xoa:focus-visible,
 .chan-link:focus-visible,
 .nut-theme:focus-visible {
   outline: 2px solid var(--focus);
@@ -600,6 +620,100 @@ body {
   color: var(--ink-2);
   font: var(--font-foot);
   white-space: normal;
+}
+
+/* ── Hộp thoại xác nhận xóa (Story 5.3) ─────────────────────────────────────────────────
+ *
+ * Modal DUY NHẤT của sản phẩm, sâu đúng một tầng, và nó CHỈ có trong DOM khi đang mở
+ * (`app/view/hop-thoai.js`) — nên không có luật `:empty` nào ở đây: chỗ gắn rỗng là một `<div>`
+ * không luật nào chạm tới, và nó không chiếm một điểm ảnh nào.
+ *
+ * `position: fixed` cộng `inset: 0` là toàn bộ phép phủ: `body` là `overflow: hidden` nên khung
+ * nhìn LÀ cả trang, và lớp phủ không cần biết trang cao bao nhiêu. Căn giữa theo CẢ HAI chiều
+ * bằng flex, đúng `DESIGN.md` (*Hộp thoại xác nhận xóa*).
+ *
+ * TĨNH tuyệt đối, y như năm view kia: không `transition`, không `:hover`, không hoạt ảnh. Hộp
+ * hiện ra và biến đi trong một khung hình — mẩu giấy cũng vậy.
+ */
+
+.hop-thoai-nen {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: var(--overlay);
+}
+
+/* Hộp: nền `--surface` (sáng hơn nền bàn ở cả hai bảng màu), bo góc cấp VẬT CHỨA, và bóng sâu
+ * DUY NHẤT của sản phẩm. `flex-wrap` là thứ đưa hai lựa chọn xuống một hàng riêng bên dưới hai
+ * dòng chữ mà không cần một phần tử bọc — tiêu đề và thân đều chiếm trọn một hàng. */
+
+.hop-thoai {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  box-sizing: border-box;
+  /* Trần bề rộng lấy lại token cột của lưới: hộp không được kéo dài hết màn hình rộng, vì một
+   * dòng chữ dài cả nghìn điểm ảnh không đọc được bằng một liếc mắt. */
+  max-inline-size: calc(var(--note-min-col) * 2);
+  padding: var(--space-5);
+  border-radius: var(--radius-tray);
+  background: var(--surface);
+  box-shadow: var(--shadow-dialog);
+}
+
+/* Tiêu đề và thân chiếm trọn một hàng của phép `flex-wrap` ở trên. `margin: 0` vì cả hai là
+ * `<p>` và lề mặc định của trình duyệt sẽ chồng lên bậc `gap` đã chọn. */
+
+.hop-thoai-tieu-de {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--ink);
+  font: var(--font-composer);
+}
+
+.hop-thoai-than {
+  flex-basis: 100%;
+  margin: 0;
+  color: var(--ink-2);
+  font: var(--font-ui);
+}
+
+/* Hai lựa chọn ở DẠNG CHỮ, không nút màu đầy (`DESIGN.md`): chúng cởi bỏ toàn bộ trang phục
+ * mặc định của `<button>`, đúng khuôn `.chan-link` và `.dai-bang-dong`. Vòng sáng bàn phím thì
+ * KHÔNG cởi — khối `:focus-visible` chung ở đầu tệp vẽ lại nó bằng `--focus`, và cả hai class
+ * đã có tên trong đó.
+ *
+ * Vùng bấm bằng token khoảng cách, không bằng một con số: một mục tiêu đúng bằng ba con chữ là
+ * một mục tiêu trượt tay, và đây là chỗ trượt tay tốn nhiều nhất trong cả sản phẩm.
+ *
+ * Vai `ui` chứ không vai `foot`: `--danger` trên vai chữ nhỏ nhất là đúng cặp mà
+ * `test/theme.test.js` cấm, và một lựa chọn phá hủy không phải một dòng chú thích. */
+
+.hop-thoai-chon,
+.hop-thoai-xoa {
+  flex: none;
+  padding: var(--space-1) var(--space-3);
+  cursor: pointer;
+  border: 0;
+  background: none;
+  font: var(--font-ui);
+}
+
+.hop-thoai-chon {
+  color: var(--ink);
+}
+
+/* Lựa chọn phá hủy. Màu KHÔNG đứng một mình (AD-20 mục 6): chữ `xóa` nói ra việc nó làm, và
+ * dòng `Không có thùng rác và không hoàn tác được.` ngay trên nói ra hậu quả — người không
+ * phân biệt được màu đọc đủ cả hai mà không cần thấy `--danger`. */
+
+.hop-thoai-xoa {
+  color: var(--danger);
 }
 
 /* ── Tầng 4 — chân trang ───────────────────────────────────────────────────────────────── */

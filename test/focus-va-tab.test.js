@@ -17,8 +17,10 @@
 //     một điều kiểm được thay vì một lời hứa trong chú thích.
 // (c) Mọi phần tử tương tác trong `index.html`, cộng mọi phần tử focusable do `app/view/` dựng,
 //     đều có một selector `:focus-visible` phủ nó trong `app/style.css`.
-// (d) Hai quyết định của story được ghim thành bất biến CÓ CHÚ THÍCH, không im lặng bỏ qua:
-//     `.mau-xoa` còn `tabindex="-1"` cho tới Epic 5, và chỉ mẩu BỊ CẮT mới mang `tabindex`.
+// (d) Các quyết định của story được ghim thành bất biến CÓ CHÚ THÍCH, không im lặng bỏ qua.
+//     Hai quyết định gốc của Story 3.2 — `.mau-xoa` còn `tabindex="-1"` cho tới Epic 5, và chỉ
+//     mẩu BỊ CẮT mới mang `tabindex` — đều đã được ĐÀM PHÁN LẠI có ghi chép (5.1 rồi 5.3), và
+//     ca của chúng ghim vế mới cùng lý do đổi. Story 5.3 thêm phần giam tiêu điểm của hộp thoại.
 //
 // Cái KHÔNG có ở đây, có chủ ý: ca "không một `.css` nào dưới `app/` tắt focus ring" đã sống ở
 // `test/token-style.test.js` (hằng `TAT_FOCUS_RING`), và nó quét bản THÔ nên kể cả một mẫu đã
@@ -44,8 +46,13 @@ const FILE_HTML = 'index.html';
 /** File DUY NHẤT được phép nhắc tới `ctrlKey` — nó giữ tổ hợp chốt `Ctrl+Enter`. */
 const FILE_CHOT = 'app/view/o-soan.js';
 
-/** Hai file DUY NHẤT được phép gắn một bộ nghe bàn phím, và cả hai gắn vào PHẦN TỬ của mình. */
-const FILE_NGHE_PHIM = [FILE_CHOT, 'app/view/mau-giay.js'];
+/** Ba file DUY NHẤT được phép gắn một bộ nghe bàn phím, và cả ba gắn vào PHẦN TỬ của mình.
+ *
+ *  `hop-thoai.js` gia nhập ở Story 5.3: hộp thoại xác nhận phải nghe `Esc` (hủy) và `Tab` (giam
+ *  tiêu điểm giữa đúng hai nút). Nó gắn bộ nghe lên chính HỘP, không lên tài liệu — nên khi
+ *  không có hộp thì không có ai nghe, và `Esc` không có tác dụng gì ở phần còn lại của sản
+ *  phẩm. Tập vẫn ghim ĐÚNG ba tệp, không nới thành "có chứa". */
+const FILE_NGHE_PHIM = [FILE_CHOT, 'app/view/mau-giay.js', 'app/view/hop-thoai.js'];
 
 function duongDanTuongDoi(duongDanTuyetDoi) {
   return relative(repoRoot, duongDanTuyetDoi).split('\\').join('/');
@@ -417,8 +424,10 @@ export function focusableDoViewDung(maNguon) {
 const FOCUS_DO_VIEW_DUNG = [
   { lop: 'dai-bang-dong', file: 'app/view/banner.js', vi: 'nút ✕ của dải băng' },
   { lop: 'o-luoi', file: 'app/view/mau-giay.js', vi: 'mẩu giấy (tabindex="0" — Story 5.1: MỌI mẩu)' },
-  { lop: 'mau-xoa', file: 'app/view/mau-giay.js', vi: 'nút xóa (tabindex="-1" cho tới Epic 5)' },
+  { lop: 'mau-xoa', file: 'app/view/mau-giay.js', vi: 'nút xóa (Story 5.3: đã vào thứ tự Tab)' },
   { lop: 'mau-sua', file: 'app/view/mau-giay.js', vi: 'ô sửa tại chỗ (<textarea>, Story 5.1)' },
+  { lop: 'hop-thoai-chon', file: 'app/view/hop-thoai.js', vi: 'lựa chọn `hủy` (Story 5.3)' },
+  { lop: 'hop-thoai-xoa', file: 'app/view/hop-thoai.js', vi: 'lựa chọn `xóa` (Story 5.3)' },
 ];
 
 // ---------------------------------------------------------------------------
@@ -469,7 +478,7 @@ describe('(b) chỉ bốn phím — không listener bàn phím cấp document/wi
     expect(viPham).toEqual([]);
   });
 
-  it('đúng hai tệp gắn bộ nghe bàn phím, và không tệp nào khác', () => {
+  it('đúng ba tệp gắn bộ nghe bàn phím, và không tệp nào khác', () => {
     const co = [];
     for (const { ten, ma } of file) {
       if (ngheBanPhimTrongFile(ten, ma).length > 0) co.push(ten);
@@ -538,7 +547,7 @@ describe('(c) mọi điều khiển đều có một vòng sáng lấy màu từ
     expect(thay).toBeGreaterThanOrEqual(FOCUS_DO_VIEW_DUNG.length);
   });
 
-  it('bộ quét view vẫn thấy đủ ba điều khiển ĐÃ BIẾT — bảng ngoại lệ canh chính bộ quét', () => {
+  it('bộ quét view vẫn thấy đủ các điều khiển ĐÃ BIẾT — bảng ngoại lệ canh chính bộ quét', () => {
     const thay = new Set();
     for (const duongDan of danhSachNguon(join(appDir, 'view'))) {
       for (const pt of focusableDoViewDung(readFileSync(duongDan, 'utf8'))) thay.add(pt.lop);
@@ -566,14 +575,52 @@ describe('(c) mọi điều khiển đều có một vòng sáng lấy màu từ
 describe('(d) hai quyết định của story, ghim thành bất biến chứ không bỏ qua trong im lặng', () => {
   const maMau = readFileSync(join(repoRoot, 'app', 'view', 'mau-giay.js'), 'utf8');
 
-  it('QĐ-1: `.mau-xoa` còn `tabindex="-1"` — vế "nút xóa" của AC HOÃN sang Epic 5', () => {
-    // AC của story liệt kê "thân rồi nút xóa" trong thứ tự Tab, nhưng nút xóa chưa có hành vi
-    // nào (hộp thoại xác nhận và phép xóa thật là Epic 5). Một điểm dừng bàn phím dẫn tới một
-    // nút không làm gì là đúng thứ "điều khiển ma" mà sàn a11y dựng ra để tránh. Epic 5 gỡ
-    // `-1` khi nối hành vi thật, và ca này đỏ ngay lúc đó — đúng lúc để đọc lại dòng này.
+  it('QĐ-1 đã ĐỔI CHIỀU ở Story 5.3: `.mau-xoa` KHÔNG còn `tabindex="-1"`', () => {
+    // Nguyên văn QĐ-1 của Story 3.2: "`.mau-xoa` còn `tabindex="-1"` cho tới Epic 5", vì nút
+    // xóa lúc đó chưa có hành vi nào và một điểm dừng bàn phím dẫn tới một nút không làm gì là
+    // đúng thứ "điều khiển ma" mà sàn a11y dựng ra để tránh. Chính chú thích của nó đã hẹn
+    // ngày này: "Epic 5 gỡ `-1` khi nối hành vi thật, và ca này đỏ ngay lúc đó".
+    //
+    // Nay nút MỞ HỘP THOẠI XÁC NHẬN, và đó là đường xóa DUY NHẤT của sản phẩm — một hành vi chỉ
+    // bấm được bằng chuột là một hành vi không tồn tại với bàn phím. Nên vế đổi chiều hẳn: KHÔNG
+    // còn một `-1` nào trong tệp, và thứ tự Tab của mỗi mẩu là THÂN rồi NÚT XÓA, đúng thứ tự DOM.
     const dat = datTabindexTrongFile('app/view/mau-giay.js', maMau);
-    expect(dat.filter((d) => d.giaTri === '-1')).toHaveLength(1);
+    expect(dat.filter((d) => d.giaTri === '-1')).toEqual([]);
     expect(maMau).toMatch(/LOP_XOA\s*=\s*'mau-xoa'/);
+    // Và nút đó CÓ hành vi: nó phát móc `khiXoa` của chính mẩu, không chỉ chặn nổi bọt.
+    expect(maMau).toMatch(/khiXoa\s*\?\.\s*\(\s*note\.id\s*\)/);
+  });
+
+  it('thứ tự Tab trong một mẩu là THÂN rồi NÚT XÓA — đúng thứ tự DOM, không `tabindex` nào nắn', () => {
+    // Cả hai vế vỡ trong im lặng. Nếu nút xóa được `append` TRƯỚC thân mẩu thì bàn phím đi qua
+    // "xóa" trước khi đi qua nội dung nó sắp xóa; nếu một `tabindex` dương mọc ra thì thứ tự
+    // Tab của CẢ TRANG bị nắn lại (cửa (a) ở trên bắt vế đó).
+    //
+    // Đọc theo thứ tự `append` trong nguồn: `mau.append(dau, than)` đặt ĐẦU MẨU (chứa nút xóa)
+    // trước thân. Đó KHÔNG phải một mâu thuẫn — `.mau-xoa` là một `<button>` nên nó tự là điểm
+    // dừng, còn cả MẨU mang `tabindex="0"` và mẩu là tổ tiên của cả hai. `Tab` vào mẩu trước
+    // (thân của nó là nội dung), rồi tới nút bên trong. Vế ghim được ở tầng văn bản: nút xóa
+    // nằm TRONG mẩu, và mẩu có `tabindex`.
+    expect(maMau).toMatch(/mau\.append\s*\(\s*dau\s*,\s*than\s*\)/);
+    expect(maMau).toMatch(/dau\.append\s*\(\s*gio\s*,\s*xoa\s*\)/);
+    const dat = datTabindexTrongFile('app/view/mau-giay.js', maMau);
+    expect(dat.map((d) => d.giaTri)).toEqual(['0']);
+  });
+
+  it('hộp thoại giam tiêu điểm giữa ĐÚNG hai nút, và `Esc` chỉ sống trên chính hộp', () => {
+    // Ba nửa, và cả ba vỡ trong im lặng: một `Tab` không bị chặn đưa tiêu điểm ra NỀN (nơi một
+    // cú `Enter` bấm vào một điều khiển người dùng không nhìn thấy); một bộ nghe `Esc` gắn cấp
+    // tài liệu làm `Esc` có nghĩa ở khắp nơi (cửa (b) ở trên bắt vế đó, ca này ghim vế còn lại:
+    // nó gắn trên `hop`); và một `focus()` gọi TRƯỚC khi hộp vào DOM thì không làm gì cả.
+    const ma = readFileSync(join(appDir, 'view', 'hop-thoai.js'), 'utf8');
+    const nghe = ngheBanPhimTrongFile('app/view/hop-thoai.js', ma);
+    expect(nghe.map((v) => `${v.noiGan}:${v.su}`)).toEqual(['hop:keydown']);
+    expect(nghe[0].toanCuc).toBe(false);
+    expect(ma).toMatch(/preventDefault/);
+    // `focus()` đặt SAU `replaceChildren` — thứ tự đó là điều kiện, không phải thẩm mỹ.
+    expect(ma.search(/replaceChildren\s*\(\s*nen\s*\)/)).toBeLessThan(
+      ma.search(/huy\.focus\s*\?\.\s*\(\s*\)/),
+    );
   });
 
   it('QĐ-2 đã RENEGOTIATE ở Story 5.1: MỌI mẩu mang `tabindex`, trừ mẩu đang sửa', () => {
@@ -583,8 +630,10 @@ describe('(d) hai quyết định của story, ghim thành bất biến chứ kh
     // hành vi — và một hành vi chỉ mở được bằng chuột là một hành vi không tồn tại với bàn
     // phím. Vế không đổi một chữ: đúng HAI chỗ đặt `tabindex` trong tệp, `-1` cho nút xóa và
     // `0` cho mẩu, nên không có đường nào cho một giá trị thứ ba.
+    // Story 5.3 gỡ `-1` của nút xóa (QĐ-1 đổi chiều, ca ngay trên), nên nay đúng MỘT chỗ đặt
+    // `tabindex` trong tệp — và vẫn không có đường nào cho một giá trị thứ ba.
     const dat = datTabindexTrongFile('app/view/mau-giay.js', maMau);
-    expect(dat.map((d) => d.giaTri).sort()).toEqual(['-1', '0']);
+    expect(dat.map((d) => d.giaTri).sort()).toEqual(['0']);
     // Phép đặt `TAB_CO` nay nằm trong nhánh `!dangSua`, KHÔNG trong `duDaiDeCat`: mẩu ĐANG sửa
     // là ngoại lệ duy nhất, vì ô sửa là một `<textarea>` và nó tự là điểm dừng — để `tabindex`
     // trên mẩu bọc thì `Tab` đi qua hai điểm dừng cho một thứ, và để bộ nghe `keydown` ở đó thì

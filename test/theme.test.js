@@ -130,6 +130,15 @@ const NEN_CUA = Object.freeze({
   '.mau-gio': '--paper',
   '.mau-xoa': '--paper',
   '.mau-gap': '--paper',
+  // Hộp thoại xác nhận xóa (Story 5.3): cả ba chỗ có chữ nằm trên nền `--surface` của chính
+  // hộp, không trên màn phủ — màn phủ ở DƯỚI hộp, và không một chữ nào đứng trên nó.
+  '.hop-thoai-tieu-de': '--surface',
+  '.hop-thoai-than': '--surface',
+  '.hop-thoai-chon': '--surface',
+  // Cặp `--danger` trên `--surface`: đây là cặp phải đạt ngưỡng ở CẢ HAI bảng màu, và nó khác
+  // hẳn cặp `--danger` trên `--chip-bg` đang có biên 0.05 (dải băng) — hộp thoại không dùng
+  // `--chip-bg`, nên nó không thừa hưởng khoản nợ đó.
+  '.hop-thoai-xoa': '--surface',
   '.chan-link': '--bg',
   '.chan-cham': '--bg',
   '.chan-nhac': '--bg',
@@ -147,10 +156,15 @@ const CAP_THUA_HUONG = Object.freeze([
 // ---------------------------------------------------------------------------
 
 describe('tương phản — đo từ chính hai khối token, không từ một bảng chép lại', () => {
-  it('có đọc được hai bảng màu, và bản dark ghi đè đúng 12 token màu', () => {
+  it('có đọc được hai bảng màu, và bản dark ghi đè đúng 13 token màu', () => {
     // Cửa chặn của chính bộ đo: nếu phép cắt khối hỏng thì mọi ca dưới đây xanh vì rỗng.
-    expect(TOKEN_LIGHT.size).toBeGreaterThan(12);
-    expect([...TOKEN_DARK_GHI_DE.keys()].filter((t) => !t.startsWith('--shadow'))).toHaveLength(12);
+    //
+    // 13 chứ không 12 từ Story 5.3: `--overlay` (màn phủ của hộp thoại xác nhận) là một token
+    // MÀU dù giá trị của nó là `rgba()` — một `rgba()` trong một luật CSS là đúng cái AD-20 mục
+    // 4 cấm, nên nó không có chỗ nào khác để sống. Nó KHÔNG vào bảng tương phản bên dưới, và đó
+    // là đúng: không một chữ nào đứng trên nó, nó là nền của một lớp phủ.
+    expect(TOKEN_LIGHT.size).toBeGreaterThan(13);
+    expect([...TOKEN_DARK_GHI_DE.keys()].filter((t) => !t.startsWith('--shadow'))).toHaveLength(13);
   });
 
   it('mọi luật có `color: var(--…)` đều được khai chỗ đứng — không luật nào lọt khỏi phép đo', () => {

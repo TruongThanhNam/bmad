@@ -183,10 +183,11 @@ describe('Hình dạng tĩnh của tầng 2 và tầng 4', () => {
   });
 });
 
-/** Đúng những token bóng tồn tại trong sản phẩm: lõm cho chỗ gõ, nhị cho thứ đã ghi. */
-const TOKEN_BONG = /var\(--shadow-(?:inset|paper)\)/;
+/** Đúng những token bóng tồn tại trong sản phẩm: lõm cho chỗ gõ, nhị cho thứ đã ghi, SÂU cho
+ *  hộp thoại xác nhận (Story 5.3) — và cái thứ ba dùng ở đúng một chỗ. */
+const TOKEN_BONG = /var\(--shadow-(?:inset|paper|dialog)\)/;
 
-describe('Bóng: đúng hai cái, và cả hai là token', () => {
+describe('Bóng: đúng ba cái, và cả ba là token', () => {
   // Story 2.1 chặn MỌI cái bóng vì cả hai cái bóng của DESIGN.md đều cần token mới. Story 2.2
   // mở đúng một cái — bóng lõm ô soạn thảo. Story 2.5 mở cái thứ hai — bóng nhị mẩu giấy — và
   // đây là một lần RENEGOTIATE có ghi chép, không phải một lần lách: hai cửa chặn dưới đây
@@ -205,7 +206,7 @@ describe('Bóng: đúng hai cái, và cả hai là token', () => {
     }
   });
 
-  it('chỉ .o-soan và mẩu giấy mang bóng — khay thì không (DESIGN.md)', () => {
+  it('chỉ .o-soan, mẩu giấy và hộp thoại mang bóng — khay thì không (DESIGN.md)', () => {
     const chon = [...css.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
       .filter(([, , than]) => /box-shadow\s*:/.test(than))
       .map(([, s]) => s.trim());
@@ -215,8 +216,14 @@ describe('Bóng: đúng hai cái, và cả hai là token', () => {
     // một cái bóng thứ ba — nó DÙNG LẠI `--shadow-inset`, đúng cái bóng lõm của `.o-soan`, vì
     // nó là chỗ đang gõ thứ hai của sản phẩm và chỗ gõ thì lún xuống. Tập token bóng vẫn đúng
     // hai (ca ngay trên ghim điều đó); chỉ số selector mang bóng tăng một.
+    // `.hop-thoai` gia nhập ở Story 5.3, và đây là lần RENEGOTIATE thứ hai, cũng có ghi chép:
+    // nó THÊM cái bóng thứ ba (`--shadow-dialog`), và đó là lần duy nhất tập token bóng nới ra
+    // kể từ Story 2.5. Lý do không phải thẩm mỹ: `DESIGN.md` (*Elevation & Depth*) gọi nó là
+    // "bóng sâu DUY NHẤT trong app" và dành nó cho đúng một phần tử — thứ nổi lên trên mọi thứ
+    // khác. Cái bất biến THẬT không đổi một chữ: mỗi cái bóng đến từ một token, và tập selector
+    // mang bóng vẫn bị ghim ĐÚNG chứ không nới thành "có chứa".
     expect(chon.sort()).toEqual(
-      ['.o-luoi', '.o-soan', '.o-soan:focus-visible', '.mau-sua'].sort(),
+      ['.o-luoi', '.o-soan', '.o-soan:focus-visible', '.mau-sua', '.hop-thoai'].sort(),
     );
   });
 

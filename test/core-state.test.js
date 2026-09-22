@@ -64,6 +64,9 @@ const KHOA_STATE = [
   'editing',
   'banner',
   'bannerSo',
+  // Tầng C (Story 5.3): `id` của mẩu đang chờ xác nhận xóa, hay `null`. Một trường cho modal
+  // duy nhất của sản phẩm — nó sâu một tầng, nên một ô nhớ đơn là đủ.
+  'xacNhanXoa',
   'readOnly',
 ].sort();
 
@@ -88,6 +91,9 @@ describe('taoStore — khởi tạo', () => {
       banner: null,
       // Hai con số của hàng 6 — `null` là "không có dải băng nào đang mang số" (Story 4.3).
       bannerSo: null,
+      // Tầng C (Story 5.3): `null` là "không ai đang hỏi gì". Nó KHÔNG bền, nên tải lại trang
+      // là câu hỏi biến mất và không gì bị xóa — đúng chiều an toàn.
+      xacNhanXoa: null,
       readOnly: false,
     });
   });
@@ -1561,6 +1567,90 @@ describe('batTatMoRong — trạng thái mở rộng, tầng C, chỉ RAM', () =
   });
 });
 
+describe('moXacNhanXoa / dongXacNhanXoa — câu hỏi "có chắc không" sống trong state (Story 5.3)', () => {
+  it('mặc định không ai đang hỏi gì', () => {
+    expect(taoStore(portsDay()).state.xacNhanXoa).toBeNull();
+  });
+
+  it('mở rồi đóng — đúng một nhịp bấm `xóa`, đúng một nhịp `hủy`', () => {
+    const store = taoStore(portsDay());
+    store.moXacNhanXoa('a');
+    expect(store.state.xacNhanXoa).toBe('a');
+    store.dongXacNhanXoa();
+    expect(store.state.xacNhanXoa).toBeNull();
+  });
+
+  it('SÂU MỘT TẦNG: mở cho mẩu thứ hai THAY mẩu thứ nhất, không xếp chồng', () => {
+    // Một ô nhớ đơn chứ không một ngăn xếp, và đó là quyết định của story: hộp thoại sâu một
+    // tầng. Ca này ghim rằng không có đường nào để hai câu hỏi cùng treo.
+    const store = taoStore(portsDay());
+    store.moXacNhanXoa('a');
+    store.moXacNhanXoa('b');
+    expect(store.state.xacNhanXoa).toBe('b');
+    store.dongXacNhanXoa();
+    expect(store.state.xacNhanXoa).toBeNull();
+  });
+
+  it('đóng khi không có gì đang mở không ném và không đổi gì', () => {
+    // `Esc` và click overlay chỉ tới được đây khi hộp đang mở (bộ nghe sống trên chính hộp),
+    // nhưng một action phải đứng vững cả khi không ai gõ đúng cửa.
+    const store = taoStore(portsDay());
+    expect(() => store.dongXacNhanXoa()).not.toThrow();
+    expect(store.state.xacNhanXoa).toBeNull();
+  });
+
+  it('id lạ KHÔNG ném — view tự đóng ở lượt vẽ kế khi notes không còn mẩu đó', () => {
+    // Cùng lý lẽ với `batTatMoRong`: đây là một cái nhớ phù du. Và `xoaGhiChu` cũng đã không
+    // chạm cổng cho một `id` không có trong RAM, nên không có đường nào để một `id` bịa gây hại.
+    const store = taoStore(portsDay());
+    expect(() => store.moXacNhanXoa('khong-co-mau-nao-mang-id-nay')).not.toThrow();
+    expect(store.state.xacNhanXoa).toBe('khong-co-mau-nao-mang-id-nay');
+  });
+
+  it('id không phải chuỗi thì ném TypeError nêu tên tham số — khuôn xoaGhiChu', () => {
+    const store = taoStore(portsDay());
+    for (const xau of [undefined, null, 7, {}, []]) {
+      expect(() => store.moXacNhanXoa(xau)).toThrow(TypeError);
+    }
+    expect(() => store.moXacNhanXoa(null)).toThrow(/id/);
+  });
+
+  it('KHÔNG chạm một cổng nào — mở và đóng một câu hỏi không phải một phép ghi', () => {
+    // `portsDay()` ném ở MỌI phương thức, nên một lời gọi cổng lén lút ném ngay đây.
+    const store = taoStore(portsDay());
+    expect(() => {
+      store.moXacNhanXoa('a');
+      store.dongXacNhanXoa();
+    }).not.toThrow();
+  });
+
+  it('chọn `xóa` với ghi hỏng: hộp đóng, mẩu CÒN NGUYÊN, dải băng mang mã lỗi', async () => {
+    // Ca phối hợp của I/O Matrix, và nó là ca duy nhất chứng minh được rằng hai nửa ĐỘC LẬP:
+    // hộp thoại đóng vì `dongXacNhanXoa` đã chạy, không vì phép xóa thành công. `app/main.js`
+    // gọi hai thứ đó theo đúng thứ tự này.
+    const { store } = storeVoiKho({ banDau: banGhiMau(), tuChoi: { remove: MA_LOI.QUOTA } });
+    await store.khoiDong();
+    store.moXacNhanXoa('a');
+    store.dongXacNhanXoa();
+    await store.xoaGhiChu('a');
+    expect(store.state.xacNhanXoa).toBeNull();
+    expect(store.state.notes.map((mau) => mau.id)).toEqual(['c', 'a', 'b']);
+    expect(store.state.banner).toBe(MA_LOI.QUOTA);
+  });
+
+  it('chọn `xóa` với ghi được: hộp đóng và mẩu rời khỏi notes, không dải băng nào', async () => {
+    const { store } = storeVoiKho({ banDau: banGhiMau() });
+    await store.khoiDong();
+    store.moXacNhanXoa('a');
+    store.dongXacNhanXoa();
+    await store.xoaGhiChu('a');
+    expect(store.state.xacNhanXoa).toBeNull();
+    expect(store.state.notes.map((mau) => mau.id)).toEqual(['c', 'b']);
+    // Xóa thành công thì giao diện IM LẶNG tuyệt đối — không dải băng "đã xóa" nào.
+    expect(store.state.banner).toBeNull();
+  });
+});
+
 describe('action của luồng ghi chuẩn đều nằm trên store, và tập khóa state KHÔNG nới ra', () => {
   afterEach(() => {
     vi.useRealTimers();
@@ -1582,6 +1672,10 @@ describe('action của luồng ghi chuẩn đều nằm trên store, và tập k
       'datBanNhap',
       'nhipTimBanNhap',
       'batTatMoRong',
+      // Hai action của hộp thoại xác nhận xóa (Story 5.3): trạng thái "đang hỏi" là state, nên
+      // view có một chỗ HỢP LỆ để mở và đóng nó mà không tự giữ một ô nhớ riêng.
+      'moXacNhanXoa',
+      'dongXacNhanXoa',
     ]) {
       expect(typeof store[ten]).toBe('function');
     }

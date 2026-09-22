@@ -78,7 +78,10 @@ function nodePhanTu() {
  * giờ thấy được sự khác nhau giữa có và không có `stopPropagation`.
  */
 function phat(phanTu, ten, them = {}) {
-  const suKien = { ...them, daChanNoiBot: false, daChanMacDinh: false };
+  // `target` là phần tử PHÁT sự kiện và nó KHÔNG đổi khi sự kiện nổi bọt lên — đúng như DOM
+  // thật. Thiếu nó thì một bộ nghe lọc theo `target` (`mau-giay.js` lọc, để phím gõ trên nút
+  // `xóa` không chạy cả việc của mẩu) đọc `undefined` ở mọi ca, và cửa chặn thành mã chết.
+  const suKien = { target: phanTu, ...them, daChanNoiBot: false, daChanMacDinh: false };
   suKien.stopPropagation = () => {
     suKien.daChanNoiBot = true;
   };
@@ -305,9 +308,8 @@ describe('veMau — nhịp click mở rộng', () => {
   });
 
   it('click vào nút xóa KHÔNG mở/thu mẩu — nó chặn nổi bọt ngay tại chính nó', () => {
-    // Nút xóa chưa có hành vi ở story này (Epic 5), nhưng "chưa có hành vi" phải đúng cả từ
-    // phía người dùng: một cú bấm `xóa` làm mẩu bung ra là một hiệu ứng quan sát được, và là
-    // hiệu ứng không ai chờ đợi từ một nút xóa.
+    // Từ Story 5.3 nút CÓ hành vi (nó mở hộp thoại xác nhận), nên phép chặn nổi bọt càng cần:
+    // một cú bấm `xóa` vừa mở hộp thoại vừa làm mẩu bung ra là hai chuyện cho một cú bấm.
     let dem = 0;
     const mau = veMau(ban(DAI), docGia, false, () => {
       dem += 1;
@@ -320,12 +322,47 @@ describe('veMau — nhịp click mở rộng', () => {
     expect(dem).toBe(1);
   });
 
-  it('nút xóa tồn tại về mặt HÌNH DẠNG: là <button> và ở ngoài thứ tự Tab', () => {
-    // Hộp thoại xác nhận và phép xóa thật là Epic 5. Một nút chưa có hành vi mà vẫn chiếm một
-    // điểm dừng bàn phím là một điểm dừng dẫn tới không đâu, nhân với số mẩu trên lưới.
-    const xoa = theoLop(veMau(ban(NGAN), docGia, false, () => {}), 'mau-xoa');
+  it('nút xóa là <button>, ĐÃ vào thứ tự Tab, và phát `khiXoa` kèm id của mẩu (Story 5.3)', () => {
+    // `tabindex="-1"` của Story 3.2 đã được gỡ: nút nay mở hộp thoại xác nhận, và đó là đường
+    // xóa DUY NHẤT của sản phẩm — một hành vi chỉ bấm được bằng chuột là một hành vi không tồn
+    // tại với bàn phím. Không `tabindex` nào ở đây cả: `<button>` tự là một điểm dừng.
+    const nhatKy = [];
+    const banGhi = ban(NGAN);
+    const mau = veMau(banGhi, docGia, false, () => {}, null, undefined, (id) => nhatKy.push(id));
+    const xoa = theoLop(mau, 'mau-xoa');
     expect(xoa.type).toBe('button');
-    expect(xoa.thuocTinh.tabindex).toBe('-1');
+    expect(xoa.thuocTinh.tabindex).toBeUndefined();
+    phat(xoa, 'click');
+    expect(nhatKy).toEqual([banGhi.id]);
+  });
+
+  it('`Enter`/phím cách trên nút `xóa` KHÔNG vào chế độ sửa và KHÔNG bị nuốt mất', () => {
+    // Hai nửa, và cả hai là đường bàn phím mà Story 5.3 vừa mở ra:
+    //
+    //   (1) Phím trên nút nổi bọt lên thẻ mẩu. Không lọc `target` thì một phím làm HAI việc —
+    //       mở hộp thoại VÀ đưa mẩu vào chế độ sửa.
+    //   (2) Tệ hơn: bộ nghe của mẩu gọi `preventDefault` cho đúng hai phím này, và đó chính là
+    //       phép kích hoạt mặc định của một `<button>`. Nuốt nó là phím cách KHÔNG mở được hộp
+    //       thoại nữa — nút vào được thứ tự Tab nhưng bấm bằng bàn phím thì không làm gì.
+    //
+    // Vế `khiXoa` thật sự chạy là việc của trình duyệt (nó dựng `click` từ phím), nên ở đây chỉ
+    // ghim hai điều kiện để nó chạy được: không ai đòi mở chế độ sửa, và không ai chặn mặc định.
+    for (const phim of ['Enter', ' ']) {
+      let dem = 0;
+      const mau = veMau(ban(DAI), docGia, false, () => {
+        dem += 1;
+      });
+      const suKien = phat(theoLop(mau, 'mau-xoa'), 'keydown', { key: phim });
+      expect(dem).toBe(0);
+      expect(suKien.daChanMacDinh).toBe(false);
+    }
+  });
+
+  it('vắng `khiXoa` thì nút vẫn vẽ ra và vẫn chặn nổi bọt — đường của test bố cục', () => {
+    // `luoi.js` truyền `mocSua.xoa` xuống, và `mocSua` vắng mặt hẳn ở test bố cục. Một `khiXoa`
+    // vắng mặt phải là "không phát gì", không phải một `TypeError` giữa lượt vẽ.
+    const mau = veMau(ban(NGAN), docGia, false, () => {});
+    expect(() => phat(theoLop(mau, 'mau-xoa'), 'click')).not.toThrow();
   });
 });
 
@@ -346,6 +383,25 @@ describe('veMau — chế độ sửa tại chỗ', () => {
       },
     };
   }
+
+  it('mẩu ĐANG SỬA vẫn vẽ nút `xóa`, và nút đó vẫn phát `khiXoa` (Story 5.3)', () => {
+    // Mẩu đang sửa là ngoại lệ của `tabindex` và của hai bộ nghe click/keydown — nhưng KHÔNG
+    // phải ngoại lệ của nút xóa: đầu mẩu (giờ tạo + nút) không đổi gì cả, chỉ THÂN mẩu bị thay.
+    // Nếu nút biến mất ở chế độ sửa thì hàng I/O Matrix "click `xóa` trên mẩu ĐANG sửa" không
+    // có đường nào đi tới, và cách duy nhất xóa một mẩu đang mở sẽ là xóa sạch chữ rồi rời.
+    const { sua } = mocSua('chữ đang gõ');
+    const nhatKy = [];
+    const banGhi = ban(NGAN);
+    const mau = veMau(banGhi, docGia, false, () => {}, sua, undefined, (id) => nhatKy.push(id));
+    const xoa = theoLop(mau, 'mau-xoa');
+    expect(xoa).not.toBeNull();
+    expect(xoa.type).toBe('button');
+    expect(xoa.thuocTinh.tabindex).toBeUndefined();
+    // Và cú bấm vẫn bị chặn nổi bọt: mẩu đang sửa không nghe click, nhưng phép chặn nằm NGAY
+    // TẠI NÚT, nên nó không phụ thuộc vào việc tổ tiên có nghe hay không.
+    expect(phat(xoa, 'click').daChanNoiBot).toBe(true);
+    expect(nhatKy).toEqual([banGhi.id]);
+  });
 
   it('thân mẩu THAY bằng <textarea class="mau-sua" data-sua=id>, chữ vào qua value', () => {
     const { sua } = mocSua('chữ đang gõ');

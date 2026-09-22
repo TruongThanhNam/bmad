@@ -44,9 +44,10 @@ export const CHON_LUOI = '.luoi';
  * @param {() => string} [mocHienTai] Nguồn mốc hiện tại, mặc định `nowIso` của `core/time.js`.
  *   Là HÀM chứ không phải một chuỗi: nó phải được hỏi lại ở mỗi lượt vẽ.
  * @param {{ vao?: (id: string, viTri: number|null) => void, roi?: (id: string) => void,
- *   go?: (id: string, text: string) => void }} [mocSua] Ba móc của chế độ sửa, do `app/main.js`
- *   nối vào — chúng gọi action của lõi VÀ gọi lượt vẽ, hai việc mà một view không được tự làm
- *   cả hai. Vắng mặt thì lưới vẫn vẽ được, chỉ không sửa được (đường của test bố cục).
+ *   go?: (id: string, text: string) => void, xoa?: (id: string) => void }} [mocSua] Ba móc của
+ *   chế độ sửa cộng móc `xoa` của Story 5.3, do `app/main.js` nối vào — chúng gọi action của
+ *   lõi VÀ gọi lượt vẽ, hai việc mà một view không được tự làm cả hai. Vắng mặt thì lưới vẫn vẽ
+ *   được, chỉ không sửa và không xóa được (đường của test bố cục).
  * @returns {{ ve: () => void }} `ve` dựng lại toàn bộ ô của lưới từ state.
  */
 export function noiLuoi(store, goc = document, mocHienTai = nowIso, mocSua = {}) {
@@ -130,6 +131,10 @@ export function noiLuoi(store, goc = document, mocHienTai = nowIso, mocSua = {})
             }
           : null,
         khiGap,
+        // Nút `xóa` chỉ MỞ một câu hỏi; phép xóa thật và lượt vẽ theo sau là việc của
+        // `app/main.js`. Lưới không biết hộp thoại tồn tại, đúng như nó không biết ô sửa được
+        // đặt tiêu điểm ở đâu.
+        mocSua.xoa,
       );
     });
     // Danh sách rỗng cũng đi qua đúng lời gọi này: lưới sạch trơn, KHÔNG một chữ nào. Story

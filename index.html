@@ -179,6 +179,21 @@
     </div>
   </footer>
 
+  <!--
+    Chỗ gắn hộp thoại xác nhận xóa (Story 5.3). Nó ở NGOÀI `<main>` và SAU `<footer>`, có lý
+    do: nó không phải nội dung chính, nó phủ LÊN cả trang (overlay `position: fixed`), và bốn
+    tầng dọc của Story 2.1 vẫn là bốn — thứ tự DOM của chúng không đổi một dòng.
+
+    Rỗng nguyên ở dạng TĨNH, y như `.luoi` và `.dai-bang`: `app/view/hop-thoai.js` là nơi DUY
+    NHẤT ghi vào DOM của nó, và hộp thoại CHỈ có trong DOM khi đang mở. Không có nó thì một
+    overlay vô hình vẫn phủ cả trang và ăn mọi cú bấm.
+
+    KHÔNG `aria-live` và KHÔNG `role` ở đây: chỗ gắn là một cái hộp rỗng, còn ngữ nghĩa
+    (`role="dialog"`, `aria-modal`) nằm trên chính hộp thoại do view dựng — một vùng sống bọc
+    ngoài sẽ làm trình đọc màn hình đọc cả hộp lên hai lần.
+  -->
+  <div class="hop-thoai-goc"></div>
+
   <script type="module" src="app/main.js"></script>
 </body>
 </html>

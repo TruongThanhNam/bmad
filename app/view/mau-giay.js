@@ -74,6 +74,11 @@ const NHAN_SUA = 'nội dung ghi chú';
 /** Nhãn của nút xóa — nguyên văn microcopy đã chốt, chữ thường, không dấu chấm. */
 const NHAN_XOA = 'xóa';
 
+/** Nút xóa ở dạng mệnh đề chọn. EXPORT để `app/main.js` tìm lại đúng nút vừa bấm mà TRẢ TIÊU
+ *  ĐIỂM sau khi hộp thoại đóng (Story 5.3) — tiền lệ `CHON_SUA` ngay trên, và cùng lý do: một
+ *  bản chép tay của cái tên là chỗ tiêu điểm lặng lẽ rơi về `<body>` vào ngày ai đó đổi tên. */
+export const CHON_XOA = `.${LOP_XOA}`;
+
 /** Hai nửa của dòng gấp. `N` chèn vào giữa `còn` và `dòng`; mũi tên cho biết chiều sắp xảy ra. */
 const GAP_TRUOC = 'còn ';
 const GAP_SAU = ' dòng ▾';
@@ -97,10 +102,6 @@ const XUONG_DONG = '\n';
  *  dừng. Để `tabindex` trên mẩu bọc thì `Tab` phải đi qua hai điểm dừng cho một thứ; và để bộ
  *  nghe `keydown` ở đó thì `Enter` cùng phím cách bị ăn mất ngay trong ô đang gõ. */
 const TAB_CO = '0';
-
-/** `tabindex` của nút xóa: nó tồn tại về mặt HÌNH DẠNG ở story này (hộp thoại xác nhận và phép
- *  xóa thật là Epic 5), nên nó không được chiếm một điểm dừng bàn phím dẫn tới không đâu. */
-const TAB_KHONG = '-1';
 
 const THUOC_TINH_TAB = 'tabindex';
 
@@ -268,9 +269,21 @@ function veThanSua(note, ownerDocument, sua) {
  * @param {() => void} [khiGap] Gọi khi người dùng click DÒNG GẤP. Mặc định là `khiClick` để chỗ
  *   gọi cũ không phải đổi; `luoi.js` truyền một móc riêng vì nhãn `thu lại ▴` phải THU mẩu lại,
  *   không vào chế độ sửa.
+ * @param {(id: string) => void} [khiXoa] Gọi khi người dùng bấm nút `xóa` (Story 5.3). Vắng mặt
+ *   thì nút vẫn vẽ ra và vẫn chặn nổi bọt, chỉ không phát gì — đường của test bố cục, cùng
+ *   khuôn `mocSua` vắng mặt ở `luoi.js`. Nó KHÔNG xóa gì: nó mở hộp thoại xác nhận, và chỗ nối
+ *   quyết định điều đó.
  * @returns {Element} Phần tử mẩu giấy, sẵn sàng cho `replaceChildren`.
  */
-export function veMau(note, ownerDocument, dangMoRong, khiClick, sua = null, khiGap = khiClick) {
+export function veMau(
+  note,
+  ownerDocument,
+  dangMoRong,
+  khiClick,
+  sua = null,
+  khiGap = khiClick,
+  khiXoa = undefined,
+) {
   const mau = ownerDocument.createElement(THE_MAU);
   mau.className = LOP_MAU;
   mau.setAttribute(THUOC_TINH_MAU, note.id);
@@ -287,13 +300,18 @@ export function veMau(note, ownerDocument, dangMoRong, khiClick, sua = null, khi
   const xoa = ownerDocument.createElement(THE_XOA);
   xoa.className = LOP_XOA;
   xoa.type = KIEU_NUT;
-  xoa.setAttribute(THUOC_TINH_TAB, TAB_KHONG);
+  // KHÔNG `tabindex="-1"` nữa (Story 5.3): nút nay có hành vi thật — nó mở hộp thoại xác nhận —
+  // và đây là đường xóa DUY NHẤT của sản phẩm. Một hành vi chỉ bấm được bằng chuột là một hành
+  // vi không tồn tại với bàn phím. Thứ tự Tab trong mỗi mẩu vì thế là THÂN rồi NÚT XÓA, đúng
+  // thứ tự DOM và không một `tabindex` dương nào.
   xoa.textContent = NHAN_XOA;
-  // Chặn nổi bọt NGAY TẠI NÚT. Không có dòng này thì một cú click vào `xóa` chạy tiếp lên thẻ
-  // mẩu và bật/tắt mở rộng — tức nút "chỉ có hình dạng" lại có một hiệu ứng quan sát được, và
-  // là một hiệu ứng không ai chờ đợi từ một nút xóa. Đây KHÔNG phải nối hành vi cho nút: nó
-  // vẫn không làm gì cả, nó chỉ không làm việc của thứ khác.
-  xoa.addEventListener('click', (suKien) => suKien.stopPropagation());
+  // Chặn nổi bọt NGAY TẠI NÚT, rồi mới phát móc của nó. Không có vế đầu thì một cú click vào
+  // `xóa` chạy tiếp lên thẻ mẩu và vừa mở hộp thoại vừa bật/tắt mở rộng (hay vào chế độ sửa) —
+  // hai chuyện cho một cú bấm.
+  xoa.addEventListener('click', (suKien) => {
+    suKien?.stopPropagation?.();
+    khiXoa?.(note.id);
+  });
 
   dau.append(gio, xoa);
 
@@ -337,6 +355,14 @@ export function veMau(note, ownerDocument, dangMoRong, khiClick, sua = null, khi
     // phím cách mặc định cuộn trang, và cuộn lưới đi một màn hình mỗi lần mở một mẩu là hỏng
     // đúng lời hứa "mở TẠI CHỖ". Bàn phím không có điểm bấm, nên con trỏ về CUỐI chữ (`null`).
     mau.addEventListener('keydown', (suKien) => {
+      // CHỈ phím gõ trên CHÍNH thẻ mẩu, không phím nổi bọt lên từ một điều khiển bên trong.
+      //
+      // Từ Story 5.3 nút `xóa` là một điểm dừng bàn phím NẰM TRONG mẩu, nên `Enter` và phím
+      // cách bấm trên nút cũng nổi bọt tới đây. Không có dòng này thì một phím trên nút làm HAI
+      // việc (mở hộp thoại VÀ đưa mẩu vào chế độ sửa) — và tệ hơn: `preventDefault` ngay dưới
+      // nuốt luôn phép kích hoạt mặc định của `<button>`, nên phím cách KHÔNG mở được hộp thoại
+      // nữa. Đường bàn phím mà story này vừa mở ra sẽ hỏng ngay ở nước đi đầu tiên.
+      if (suKien.target !== mau) return;
       if (!PHIM_MO.includes(suKien.key)) return;
       suKien.preventDefault();
       khiClick(null);

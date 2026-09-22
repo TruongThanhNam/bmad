@@ -55,6 +55,11 @@ const MAU_LIGHT = Object.freeze({
   '--danger': '#97392C',
   '--chip-bg': '#E4DAC2',
   '--hl': '#F2DD8F',
+  // Màn phủ của hộp thoại xác nhận (Story 5.3). Nó là một token MÀU dù giá trị không phải một
+  // hex: `rgba()` trong một luật CSS là đúng cái "màu viết thẳng" mà AD-20 mục 4 cấm, nên nó
+  // phải sống trong hai khối token — và một khi đã ở đó thì nó phải bị ghim, y như hai token
+  // bóng bị ghim, vì hai khối token là chỗ mù duy nhất của bộ quét màu.
+  '--overlay': 'rgba(0, 0, 0, 0.32)',
 });
 
 const MAU_DARK = Object.freeze({
@@ -70,6 +75,8 @@ const MAU_DARK = Object.freeze({
   '--danger': '#D4816F',
   '--chip-bg': '#332F26',
   '--hl': '#4E4322',
+  // Nền dark đã tối sẵn, nên `.32` gần như không thấy — lớp phủ mất đúng việc duy nhất của nó.
+  '--overlay': 'rgba(0, 0, 0, 0.55)',
 });
 
 // `--font-ui` và `--font-foot` mang `/1.55` mà `DESIGN.md` không nói: `font` shorthand không có
@@ -116,7 +123,7 @@ const SPACING = Object.freeze({
 // Nó cũng là token KHÔNG-MÀU DUY NHẤT đổi theo theme, và đó là một ngoại lệ có ý thức chứ
 // không phải một chỗ lọt: bóng đen trên nền đen không đọc được, nên bản dark cần một giá trị
 // khác. Ca "khối dark ghi đè đúng tập tên" bên dưới vì thế ghim `TOKEN_DOI_THEO_THEME` —
-// 12 màu CỘNG đúng hai token bóng — chứ không nới ra thành "có chứa".
+// 13 màu CỘNG đúng ba token bóng — chứ không nới ra thành "có chứa".
 const BONG = Object.freeze({
   '--shadow-inset': 'inset 0 1px 2px rgba(60, 48, 28, 0.07)',
   // Bóng NHỊ của mẩu giấy (Story 2.5), nguồn: `DESIGN.md` frontmatter `note-paper.shadow` và
@@ -124,11 +131,16 @@ const BONG = Object.freeze({
   // tán làm nó rời khỏi mặt bàn. Ghim ở đây vì một `rgba()` gõ sai vẫn ra một cái bóng trông
   // giống, và không ca nào khác trong repo phân biệt được.
   '--shadow-paper': '0 1px 0 rgba(60, 48, 28, 0.1), 0 3px 8px rgba(60, 48, 28, 0.1)',
+  // Bóng SÂU của hộp thoại xác nhận (Story 5.3), nguồn: `DESIGN.md` frontmatter
+  // `confirm-dialog.shadow` và mục *Elevation & Depth* ("bóng sâu duy nhất trong app"). Một
+  // lớp, không hai: nó không giả làm giấy, nó chỉ nói "phần tử này nổi lên trên mọi thứ khác".
+  '--shadow-dialog': '0 12px 32px rgba(60, 48, 28, 0.24)',
 });
 
 const BONG_DARK = Object.freeze({
   '--shadow-inset': 'inset 0 1px 2px rgba(0, 0, 0, 0.35)',
   '--shadow-paper': '0 1px 0 rgba(0, 0, 0, 0.45), 0 4px 12px rgba(0, 0, 0, 0.35)',
+  '--shadow-dialog': '0 12px 32px rgba(0, 0, 0, 0.55)',
 });
 
 const BO_GOC = Object.freeze({
@@ -147,7 +159,14 @@ const TOKEN_CUA_ROOT = Object.freeze([
   ...Object.keys(BONG),
 ]);
 
-/** Đúng những token mà khối dark được phép ghi đè: 12 màu cộng HAI token bóng. */
+/** Đúng những token mà khối dark được phép ghi đè: 13 màu cộng BA token bóng.
+ *
+ *  Tập này nới ở Story 5.3, và đó là một lần RENEGOTIATE có ghi chép chứ không một lần lách:
+ *  `--overlay` và `--shadow-dialog` là hai giá trị `rgba()` mà hộp thoại xác nhận cần, và một
+ *  `rgba()` trong một luật CSS là đúng cái AD-20 mục 4 cấm — nên chúng KHÔNG có chỗ nào khác
+ *  để sống. Cả hai đổi theo theme vì cùng một lý do đã ghi cho `--shadow-paper`: nền dark tối
+ *  sẵn, nên một màn phủ `.32` gần như không thấy và một bóng nâu không đọc được. Cái bất biến
+ *  THẬT không đổi một chữ: tập bị ghim ĐÚNG, không nới thành "có chứa". */
 const TOKEN_DOI_THEO_THEME = Object.freeze([...Object.keys(MAU_DARK), ...Object.keys(BONG_DARK)]);
 
 /** Khai báo KHÔNG phải custom property duy nhất được phép trong hai khối token.
@@ -258,22 +277,22 @@ describe('style.css — hai bảng màu ghim theo DESIGN.md', () => {
     expect(khoiDark).not.toBeNull();
   });
 
-  it(':root mang 12 token màu bản light với đúng hex của DESIGN.md', () => {
+  it(':root mang 13 token màu bản light với đúng giá trị của DESIGN.md', () => {
     expect(lechSoVoiBang(khaiBaoLight, MAU_LIGHT, ':root')).toEqual([]);
   });
 
-  it(':root[data-theme="dark"] ghi đè 12 token màu bản dark với đúng hex của DESIGN.md', () => {
+  it(':root[data-theme="dark"] ghi đè 13 token màu bản dark với đúng giá trị của DESIGN.md', () => {
     expect(lechSoVoiBang(khaiBaoDark, MAU_DARK, 'khối dark')).toEqual([]);
   });
 
-  it('khối dark ghi đè ĐÚNG 12 màu cộng hai token bóng, không thừa không thiếu', () => {
+  it('khối dark ghi đè ĐÚNG 13 màu cộng ba token bóng, không thừa không thiếu', () => {
     // Thừa một token typography/spacing ở đây nghĩa là một giá trị bố cục đổi theo theme —
     // thứ DESIGN.md không nói, và thứ không ai sẽ nhớ là đã xảy ra. `--shadow-inset` nằm
     // trong tập này vì bóng đen trên nền đen không đọc được, không vì nó "cũng nên đổi".
     expect([...khaiBaoDark.keys()].sort()).toEqual([...TOKEN_DOI_THEO_THEME].sort());
   });
 
-  it('hai token bóng mang đúng giá trị của DESIGN.md ở CẢ HAI theme', () => {
+  it('ba token bóng mang đúng giá trị của DESIGN.md ở CẢ HAI theme', () => {
     // Ghim cả hai bên vì hai khối token là chỗ mù duy nhất của bộ quét màu: một `rgba()` gõ
     // sai trong đó vẫn là CSS hợp lệ, vẫn ra một cái bóng trông giống, và không ca nào khác
     // phân biệt được.

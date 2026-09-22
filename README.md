@@ -559,3 +559,48 @@ Còn lại là thứ không con số nào nói: lần tải lại có **nháy m�
     vì xóa không ghi được, mẩu đó phải **còn nguyên trên lưới** (không biến mất), và phải thấy
     dải băng lỗi đã có (câu "Không lưu được — trình duyệt hết dung lượng…"). Hoàn tác hạn mức sau
     khi thử.
+
+### Xóa qua hộp thoại xác nhận — một mục phải làm bằng mắt (Story 5.3)
+
+31. **Xóa một ghi chú: hỏi một lần, rồi mất hẳn.** Mở trang qua HTTP localhost (mục 1) với ít
+    nhất hai ghi chú đã chốt.
+
+    *Nút `xóa` luôn có mặt.* Nhìn một mẩu bất kỳ: chữ `xóa` hiện sẵn ở góc phải đầu mẩu, không
+    phải chờ rê chuột qua. `Tab` vào lưới: thứ tự là **thân mẩu rồi nút `xóa`** của chính mẩu
+    đó, và vòng sáng quanh nút nhìn rõ.
+
+    *Mở hộp thoại.* Bấm `xóa` (chuột, hay `Enter` khi nút đang nhận tiêu điểm). Nền mờ đi, hộp
+    thoại **căn giữa cả chiều dọc lẫn chiều ngang**, đọc đúng ba dòng: `Xóa ghi chú này?`,
+    `Không có thùng rác và không hoàn tác được.`, rồi hai lựa chọn `hủy` · `xóa`. Mẩu bên dưới
+    **không** mở rộng, **không** vào chế độ sửa. Hộp hiện ra trong **một khung hình** — không
+    mờ dần, không trượt vào.
+
+    *Tiêu điểm mở ở `hủy`.* Bấm `Enter` ngay: hộp đóng, **không mất gì cả**. Mở lại rồi bấm
+    `Tab` năm, sáu lần: vòng sáng chỉ đi lại giữa hai nút, **không bao giờ** thoát ra nền —
+    thử cả `Shift+Tab`.
+
+    *Ba đường hủy đều trả tiêu điểm về đúng chỗ.* Mở hộp cho mẩu thứ hai trên lưới rồi lần lượt:
+    bấm `hủy`; bấm `Esc`; bấm vào **vùng mờ** ngoài hộp. Sau mỗi lần, hộp đóng, không ghi chú
+    nào mất, và vòng sáng phải nằm lại đúng **nút `xóa` của mẩu vừa hỏi** — không rơi về đầu
+    trang. (`Esc` khi không có hộp nào mở: không có gì xảy ra.)
+
+    *Chọn `xóa`.* Mở hộp rồi bấm `xóa`: hộp đóng và mẩu **biến khỏi lưới ngay**, không nhấp
+    nháy, không dải băng "đã xóa" — im lặng tuyệt đối, đúng như mục 30. Tải lại trang: mẩu đó
+    **không còn**.
+
+    *Mẩu đang sửa.* Mở một mẩu ở chế độ sửa rồi bấm thẳng nút `xóa` của chính nó: ô sửa đóng
+    (`blur` chạy trước) và hộp thoại mở cho đúng mẩu đó. Lặp lại nhưng **xóa sạch chữ** trong ô
+    trước khi bấm `xóa`: mẩu tự biến mất theo mục 30, và hộp thoại **không** mở ra — không hỏi
+    về một thứ không còn tồn tại.
+
+    *Xóa thất bại (`QUOTA`/`DB`).* Như mục 5, DevTools → Application → Storage → đặt hạn mức
+    xuống mức rất thấp để ép hết dung lượng. Mở hộp thoại cho một mẩu rồi chọn `xóa`: hộp
+    **vẫn đóng**, nhưng mẩu phải **còn nguyên trên lưới**, và dải băng lỗi đã có hiện ra
+    ("Không lưu được — trình duyệt hết dung lượng…"). Không có mã lỗi mới và không có loại dải
+    băng mới cho việc này. Hoàn tác hạn mức sau khi thử.
+
+    *Cả hai theme.* Lặp toàn bộ mục này ở bản dark (mục 14). Ba thứ phải đọc được ngay bằng
+    mắt: **vùng mờ thấy rõ** là một lớp phủ (ở bản dark nó đậm hơn — `--overlay` có giá trị
+    riêng, vì nền dark đã tối sẵn); **bóng của hộp** tách nó khỏi nền (bóng đen đậm ở dark, bóng
+    nâu ở light) và nó là **bóng sâu duy nhất** trong cả sản phẩm; và chữ `xóa` màu `--danger`
+    **đọc rõ** trên nền `--surface` của hộp.

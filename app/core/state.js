@@ -240,6 +240,13 @@ function stateRong() {
     // cùng lời gọi (review Epic 4) — nên không có đường nào để hai con số lệch khỏi loại đang
     // hiện, kể cả đường viết ở Epic sau: nó bị CHẶN, không chỉ chưa ai đi qua.
     bannerSo: null,
+    // Tầng C — `id` của mẩu đang chờ XÁC NHẬN XÓA, hay `null` khi không có hộp thoại nào mở
+    // (Story 5.3). Đúng MỘT trường cho modal duy nhất của sản phẩm: hộp thoại sâu một tầng,
+    // nên một ô nhớ đơn là đủ và một ngăn xếp là thứ phải chặn chứ không phải thứ phải dựng.
+    //
+    // Nó ở tầng C và KHÔNG vào sao lưu: một câu hỏi đang treo không phải dữ liệu của Nam, nên
+    // tải lại trang là hộp thoại biến mất và không gì bị xóa — đúng chiều an toàn.
+    xacNhanXoa: null,
     // Tầng C — tab đã thấy mã lệch phiên bản thì mọi action có ghi bị từ chối (AD-21).
     readOnly: false,
   };
@@ -548,6 +555,40 @@ export function taoStore(ports) {
         ? noiBo.expandedIds.filter((khac) => khac !== id)
         : [...noiBo.expandedIds, id],
     });
+  }
+
+  /**
+   * Mở hộp thoại xác nhận xóa cho một mẩu (Story 5.3).
+   *
+   * Đúng khuôn `batTatMoRong` ngay trên: một trường tầng C, một `datLai`, KHÔNG chạm cổng nào.
+   * Trạng thái "đang hỏi" phải sống ở đây chứ không trong closure của `view/hop-thoai.js` —
+   * một ô nhớ thứ hai ở tầng view là đúng đường đổi state mà AD-1 cấm, và `ve()` của view thì
+   * dựng lại toàn bộ từ state ở mỗi lượt.
+   *
+   * `id` lạ (mẩu vừa bị xóa ở tab khác, hay một chuỗi bịa) KHÔNG ném, cùng lý do với
+   * `batTatMoRong`: đây là một cái nhớ phù du. `view/hop-thoai.js` tự đóng ở lượt vẽ kế khi
+   * `notes` không còn mẩu đó, và `xoaGhiChu` cũng đã không chạm cổng cho một `id` không có.
+   *
+   * @param {string} id `id` của mẩu cần hỏi trước khi xóa.
+   * @returns {void}
+   */
+  function moXacNhanXoa(id) {
+    if (typeof id !== 'string') {
+      throw new TypeError(`moXacNhanXoa nhận id là chuỗi, nhận được ${moTa(id)}`);
+    }
+    datLai({ xacNhanXoa: id });
+  }
+
+  /**
+   * Đóng hộp thoại xác nhận xóa — đường của `hủy`, `Esc`, click overlay, VÀ của lượt chọn `xóa`.
+   *
+   * Không đang hỏi gì thì `datLai` vẫn chạy và vẫn ra `null`: không có trạng thái nào để bảo
+   * toàn, và một phép gác ở đây chỉ là một nhánh không ai đi qua.
+   *
+   * @returns {void}
+   */
+  function dongXacNhanXoa() {
+    datLai({ xacNhanXoa: null });
   }
 
   /**
@@ -1366,6 +1407,8 @@ export function taoStore(ports) {
     xoaHetDieuKien,
     dongDaiBang,
     batTatMoRong,
+    moXacNhanXoa,
+    dongXacNhanXoa,
     khoiDong,
     datTheme,
     xuatSaoLuu,

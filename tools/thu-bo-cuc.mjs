@@ -98,7 +98,7 @@ const HAM_TEN = `
   // Khóa DUY NHẤT của một điều khiển: tên cộng vị trí của nó trong danh sách điều khiển theo
   // thứ tự DOM. Tên một mình không phân biệt được hai button.chan-link hay ba div.o-luoi.
   const CHON_DIEU_KHIEN =
-    '.dai-bang-dong, .o-soan, .o-nhap, .o-luoi[tabindex], .chan-link, .nut-theme';
+    '.dai-bang-dong, .o-soan, .o-nhap, .o-luoi[tabindex], .mau-xoa, .chan-link, .nut-theme';
   const khoa = (el) => {
     const ds = [...document.querySelectorAll(CHON_DIEU_KHIEN)];
     const i = ds.indexOf(el);
@@ -1556,14 +1556,21 @@ try {
 
     const DAT_TIEU_DIEM_O_SOAN = `document.querySelector('.o-soan').focus(); return true;`;
 
-    // Dãy nghiệm thu, và nó CHỈ gồm những phần tử đã tồn tại hôm nay. `về hôm nay` (Epic 6),
-    // nút xóa có hành vi (Epic 5) và hai link sao lưu có hành vi (Epic 4) chưa tính.
+    // Dãy nghiệm thu, và nó CHỈ gồm những phần tử đã tồn tại hôm nay. `về hôm nay` (Epic 6)
+    // chưa tính.
+    //
+    // Nút `xóa` gia nhập ở Story 5.3, và với nó thứ tự trong MỖI mẩu là THÂN rồi NÚT XÓA — đúng
+    // thứ tự DOM, không một `tabindex` nào nắn lại. Trước đó nó mang `tabindex="-1"` vì nó chưa
+    // có hành vi nào; nay nó mở hộp thoại xác nhận, và đó là đường xóa DUY NHẤT của sản phẩm.
     const THU_TU = [
       'input.o-nhap.o-tim',
       'input.o-nhap.o-ngay',
       'div.o-luoi',
+      'button.mau-xoa',
       'div.o-luoi',
+      'button.mau-xoa',
       'div.o-luoi',
+      'button.mau-xoa',
       'button.chan-link',
       'button.chan-link',
       'button.nut-theme',

@@ -579,18 +579,21 @@ describe('app/view/luoi.js — luật của tầng view, cưỡng chế được
 
     const than = new RegExp(`\\b${treo[1]}\\s*=\\s*\\(\\s*\\)\\s*=>\\s*\\{([^}]*)\\}`).exec(main);
     expect(than).not.toBeNull();
-    // Đúng NĂM lượt vẽ trong callback chung, và một trong năm là của lưới. Tập này nới ba lần,
+    // Đúng SÁU lượt vẽ trong callback chung, và một trong sáu là của lưới. Tập này nới bốn lần,
     // mỗi lần một view và mỗi lần có lý do: `['luoi', 'tieuDe']` ở Story 2.6, cộng dải băng ở
     // Story 3.1 (không vẽ lại thì mọi lỗi kho chết im lặng), cộng nút theme ở Story 3.3 (không
     // vẽ lại thì nhãn nút đứng yên ở chiều cũ sau một cú lật), cộng chân trang ở Story 4.4
-    // (`ve()` của nó không còn rỗng: nó đổ dòng nhắc từ `lastBackupAt`). Vẫn ghim ĐÚNG tập,
-    // không nới thành "có chứa": một view thứ sáu thêm vào ngày mai vẫn phải đọc lại chú thích.
+    // (`ve()` của nó không còn rỗng: nó đổ dòng nhắc từ `lastBackupAt`), cộng hộp thoại xác
+    // nhận xóa ở Story 5.3 (không vẽ lại thì hộp không bao giờ mở ra, và cũng không bao giờ tự
+    // đóng khi mẩu nó đang hỏi biến khỏi `notes`). Vẫn ghim ĐÚNG tập, không nới thành "có
+    // chứa": một view thứ bảy thêm vào ngày mai vẫn phải đọc lại chú thích này.
     expect([...than[1].matchAll(/([\w$]+)\s*\.\s*ve\s*\(\s*\)/g)].map((k) => k[1])).toEqual([
       'luoi',
       'tieuDe',
       'banner',
       'nutTheme',
       'chanTrang',
+      'hopThoai',
     ]);
     // Lưới nối TRƯỚC khi kho được hỏi — `luoi.ve` phải tồn tại trước khi có chỗ treo nó vào.
     expect(main.search(/noiLuoi\s*\(/)).toBeLessThan(main.search(/store\s*\.\s*khoiDong\s*\(/));

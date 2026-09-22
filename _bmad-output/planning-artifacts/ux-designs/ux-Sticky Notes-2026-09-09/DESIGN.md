@@ -144,7 +144,9 @@ components:
     borderRadius: '{rounded.tray}'
     padding: '{spacing.5}'
     shadow: '0 12px 32px rgba(60,48,28,.24) — bóng sâu DUY NHẤT trong sản phẩm'
+    shadowDark: '0 12px 32px rgba(0,0,0,.55) — bóng nâu trên nền tối không đọc được'
     placement: 'overlay rgba(0,0,0,.32), căn giữa theo chiều dọc và chiều ngang, sâu một tầng'
+    overlayDark: 'rgba(0,0,0,.55) — nền dark đã tối sẵn, .32 gần như không thấy'
     destructiveColor: '{colors.danger}'
   footer-link:
     font: '{typography.foot}'
@@ -267,7 +269,8 @@ Không breakpoint mobile. Sản phẩm là desktop-only (NFR-7, §8 "không mobi
 - **Mẩu giấy** — bóng nhị: `0 1px 0 rgba(60,48,28,.10)` (lớp sát mép, làm giấy có bề dày) + `0 3px 8px rgba(60,48,28,.10)` (lớp tán, làm giấy rời khỏi bàn). Hover: lớp tán sâu lên `0 8px 18px rgba(60,48,28,.16)` — mẩu giấy nhấc lên.
 - **Dark** — bóng đổi sang `rgba(0,0,0,.45)` / `0 4px 12px rgba(0,0,0,.35)`; lớp sát mép thay bằng một hairline sáng phía trên (highlight) vì bóng đen trên nền đen không đọc được.
 - **Ô soạn thảo** — bóng **lõm** `inset 0 1px 2px`, ngược chiều với mẩu giấy. Chỗ gõ lún xuống, chỗ đã ghi nhô lên.
-- **Hộp thoại xác nhận xóa** — bóng sâu duy nhất trong app (`0 12px 32px`). Đây là phần tử duy nhất được phép nổi lên trên mọi thứ khác.
+- **Hộp thoại xác nhận xóa** — bóng sâu duy nhất trong app (`0 12px 32px rgba(60,48,28,.24)`). Đây là phần tử duy nhất được phép nổi lên trên mọi thứ khác. **Dark** — bóng đổi sang `0 12px 32px rgba(0,0,0,.55)`, đúng lệ của mẩu giấy: bóng nâu trên nền tối không đọc được, và một hộp thoại không tách khỏi nền là một hộp thoại không nổi lên.
+- **Màn phủ của hộp thoại** — `rgba(0,0,0,.32)` ở bản light. **Dark** — `rgba(0,0,0,.55)`: nền dark đã tối sẵn, nên `.32` gần như không thấy và lớp phủ mất đúng việc duy nhất của nó là nói "phần dưới đang không bấm được".
 
 Không dùng bóng cho dải băng thông báo, chip, hay khay tìm kiếm — chúng phân biệt bằng tông màu (`{colors.chip-bg}`), không bằng độ cao.
 

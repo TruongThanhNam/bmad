@@ -27,12 +27,13 @@ import { taoStore } from './core/state.js';
 import { PORT_METHODS } from './ports/index.js';
 import { noiBanner } from './view/banner.js';
 import { noiChanTrang } from './view/chan-trang.js';
+import { noiHopThoai } from './view/hop-thoai.js';
 import { CHON_LUOI, noiLuoi } from './view/luoi.js';
 // Mệnh đề chọn ô sửa và tên thuộc tính chở `id` của mẩu đi VÀO từ `view/mau-giay.js` — nơi
 // chúng được ĐẶT — chứ không khai lại ở đây. Đây là ngoại lệ đã có tiền lệ với `CHON_LUOI`:
 // `main.js` không dựng DOM của mẩu, nó chỉ tìm lại đúng phần tử mà view vừa dựng, và một bản
 // chép tay của cái tên là chỗ tiêu điểm lặng lẽ rơi về `<body>` vào ngày ai đó đổi tên.
-import { CHON_SUA, THUOC_TINH_MAU } from './view/mau-giay.js';
+import { CHON_SUA, CHON_XOA, THUOC_TINH_MAU } from './view/mau-giay.js';
 import { noiNutTheme } from './view/nut-theme.js';
 import { noiOSoan } from './view/o-soan.js';
 import { noiTieuDe } from './view/tieu-de.js';
@@ -136,6 +137,18 @@ if (typeof document !== 'undefined') {
     const dat = typeof viTri === 'number' && viTri >= 0 && viTri <= cuoi ? viTri : cuoi;
     oSua.setSelectionRange(dat, dat);
   };
+  /**
+   * Lượt RỜI CHẾ ĐỘ SỬA gần nhất, ở dạng lời hứa — `Promise.resolve()` khi chưa có lượt nào.
+   *
+   * Nó tồn tại vì một lý do và chỉ một: `blur` chạy TRƯỚC `click`, nhưng `roiCheDoSua()` là bất
+   * đồng bộ. Nên lúc cú bấm vào nút `xóa` tới nơi, lượt rời mới chỉ KHỞI ĐỘNG — và nếu ô sửa
+   * rỗng thì mẩu đang trên đường bị xóa (Story 5.2) mà `notes` vẫn còn nó. Mở hộp thoại ngay
+   * lúc đó là hỏi "Xóa ghi chú này?" về một mẩu vừa chết: hộp NHÁY MỞ rồi tự đóng ở lượt vẽ sau.
+   *
+   * Đây KHÔNG phải state thứ hai: nó không mang một thông tin nào mà state không có, nó chỉ là
+   * cái móc để đợi một phép ghi đang bay — cùng loại với `.then` mà `mocSua.go` treo lượt vẽ vào.
+   */
+  let luotRoiSua = Promise.resolve();
   const roiSuaRoiVe = (id) => {
     // `blur` nổ cả khi phần tử bị GỠ khỏi DOM: lượt vẽ đưa mẩu B vào chế độ sửa xoá ô sửa của
     // mẩu A, và trình duyệt phát `blur` của A ngay giữa lượt vẽ đó. Một `blur` của mẩu khác là
@@ -143,7 +156,7 @@ if (typeof document !== 'undefined') {
     if (store.state.editing.id !== id) return;
     // `roiCheDoSua()` có thể xóa mẩu (chữ rỗng — Story 5.2), một phép ghi bất đồng bộ: đợi nó
     // xong trước khi vẽ lại, nếu không lưới vẽ lại bằng dữ liệu cũ (mẩu rỗng còn hiện một khắc).
-    store.roiCheDoSua().then(() => {
+    luotRoiSua = store.roiCheDoSua().then(() => {
       // Lượt vẽ HOÃN một nhịp, và `setTimeout` chứ không `requestAnimationFrame` (bộ quét của
       // `test/chuyen-dong-va-tin-hieu.test.js` chặn): `blur` chạy cùng nhịp với `mousedown`,
       // TRƯỚC `mouseup` và `click`. Vẽ ngay thì phần tử chuột vừa bấm xuống bị thay ra trước khi
@@ -162,6 +175,68 @@ if (typeof document !== 'undefined') {
     go: (id, text) => {
       store.tuLuuNoiDung(id, text).then(veTatCa);
     },
+    // Nút `xóa` của mỗi mẩu (Story 5.3). Nó KHÔNG xóa: nó mở một câu hỏi, và câu hỏi đó là một
+    // trường state như mọi thứ khác. Sản phẩm không có hoàn tác và không có thùng rác, nên
+    // đường xóa thật phải đi qua đúng một bước xác nhận.
+    // Và nó ĐỢI lượt rời chế độ sửa đang treo (nếu có) xong trước: `blur` đi trước `click`
+    // nhưng `roiCheDoSua()` là bất đồng bộ, nên mở hộp ngay là hỏi về một mẩu có thể đang trên
+    // đường bị xóa. Chưa có lượt nào thì `luotRoiSua` là một lời hứa đã chốt, và `.then` của nó
+    // chạy ở microtask kế — không có khung hình nào nhìn thấy sự chậm đó.
+    xoa: (id) => {
+      luotRoiSua.then(() => {
+        store.moXacNhanXoa(id);
+        veTatCa();
+      });
+    },
+  };
+  // ── Xóa qua hộp thoại xác nhận (Story 5.3) ─────────────────────────────────────────────
+  //
+  // Ba hàm, và cả ba làm một việc THỨ HAI mà chỉ file này biết cách làm — gọi một lượt vẽ, và
+  // với hai hàm đóng thì còn trả TIÊU ĐIỂM về đúng chỗ. `view/hop-thoai.js` không biết lưới
+  // tồn tại, đúng như `view/banner.js` không biết ô soạn thảo tồn tại.
+  /**
+   * Trả tiêu điểm về nút `xóa` của mẩu vừa được hỏi, đường lui là ô soạn thảo.
+   *
+   * Cùng lớp lỗi với `dongRoiVe` và `veGiuTieuDiem`, cùng cách chữa: hộp thoại tự gỡ mình khỏi
+   * DOM ở đúng lượt vẽ do nó gây ra, và một phần tử đang focus bị gỡ đi thì focus rơi về
+   * `<body>` — `Tab` tiếp theo bắt đầu lại từ đầu trang. Sản phẩm cố ý không có phím tắt, nên
+   * bàn phím là đường duy nhất và nó không được đứt.
+   *
+   * Neo vào `id` chứ không vào vị trí, cùng lý do với `veGiuTieuDiem`: lượt vẽ vừa chạy có thể
+   * dựng một tập mẩu KHÁC. Mẩu không còn trên lưới (vừa bị xóa thật, hay trôi khỏi khung nhìn)
+   * thì về ô soạn thảo — đẩy tiêu điểm sang một ghi chú không ai chọn còn tệ hơn.
+   */
+  const traTieuDiemVeNutXoa = (id) => {
+    const vungLuoi = document.querySelector(CHON_LUOI);
+    const mau =
+      vungLuoi === null
+        ? undefined
+        : [...vungLuoi.children].find((moc) => moc.getAttribute(THUOC_TINH_MAU) === id);
+    const nut = mau === undefined ? null : mau.querySelector(CHON_XOA);
+    if (nut !== null && nut !== undefined) {
+      nut.focus();
+      return;
+    }
+    const o = document.getElementById(ID_O_SOAN);
+    if (o !== null) o.focus();
+  };
+  /** HỦY — `hủy`, `Esc` và click overlay đi chung một đường: đóng, vẽ lại, trả tiêu điểm.
+   *  Không một phép ghi nào, nên không có gì để đợi và lượt vẽ chạy ngay. */
+  const dongHopThoaiRoiVe = (id) => {
+    store.dongXacNhanXoa();
+    veTatCa();
+    traTieuDiemVeNutXoa(id);
+  };
+  /** XÓA — đóng hộp TRƯỚC, rồi xóa. Lượt vẽ treo vào LỜI HỨA của `xoaGhiChu` (khuôn `mocSua.go`
+   *  ngay trên): dự án không có subscribe, nên `notes` mất một mẩu — hay dải băng mang một mã
+   *  lỗi vì kho từ chối — chỉ hiện ra được ở đó. Ghi hỏng thì mẩu còn nguyên trên lưới, và tiêu
+   *  điểm về lại đúng nút `xóa` của nó. */
+  const xoaRoiVe = (id) => {
+    store.dongXacNhanXoa();
+    store.xoaGhiChu(id).then(() => {
+      veTatCa();
+      traTieuDiemVeNutXoa(id);
+    });
   };
   // `undefined` cho tham số thứ ba: nguồn mốc hiện tại giữ mặc định `nowIso` của
   // `core/time.js` — chỉ test bố cục mới truyền một mốc cố định vào đó.
@@ -212,8 +287,15 @@ if (typeof document !== 'undefined') {
   // trường state nào. Một lớp bọc lười vì `veTatCa` khai ngay bên dưới, cùng khuôn `latRoiVe`.
   const napRoiVe = () => veTatCa();
   const chanTrang = noiChanTrang(store, document, napRoiVe);
-  // Một callback vẽ chung cho cả NĂM view: đây là chỗ DUY NHẤT biết rằng "vẽ lại" nghĩa là
-  // vẽ lại cả năm. Treo riêng từng cái vào từng điểm nối là cách một view mới bị quên ở một
+  // Hộp thoại xác nhận xóa là view THỨ SÁU (Story 5.3), và nó nối SAU năm view trên: thứ tự
+  // nối của chúng không đổi một dòng. Nó vẽ từ `xacNhanXoa` cộng một phép đọc `notes` (mẩu được
+  // hỏi có còn sống không) — nên nó không biết gì về lưới, và lưới không biết gì về nó.
+  //
+  // Hai móc đi vào qua THAM SỐ, cùng khuôn `sauKhiDong` của dải băng: chỉ file này biết chỗ
+  // trả tiêu điểm về, và chỉ file này được phép vừa gọi action vừa gọi một lượt vẽ.
+  const hopThoai = noiHopThoai(store, document, dongHopThoaiRoiVe, xoaRoiVe);
+  // Một callback vẽ chung cho cả SÁU view: đây là chỗ DUY NHẤT biết rằng "vẽ lại" nghĩa là
+  // vẽ lại cả sáu. Treo riêng từng cái vào từng điểm nối là cách một view mới bị quên ở một
   // trong hai chỗ, và tiêu đề sẽ đứng yên sau lần chốt mà không làm gì đỏ cả.
   const veTatCa = () => {
     luoi.ve();
@@ -221,6 +303,7 @@ if (typeof document !== 'undefined') {
     banner.ve();
     nutTheme.ve();
     chanTrang.ve();
+    hopThoai.ve();
   };
   // `notes` nạp BẤT ĐỒNG BỘ, nên lượt vẽ đầu tiên phải chờ kho trả lời — vẽ ngay ở đây chỉ
   // dựng lại một mảng rỗng và nháy một con số sai lên thanh tab. Không có cơ chế subscribe

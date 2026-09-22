@@ -164,15 +164,22 @@ function hoverTrongHtml(ma) {
 // ── (c) Màu không phải tín hiệu duy nhất ────────────────────────────────────────────────
 
 /**
- * Selector được phép dùng `var(--danger)`, mỗi mục KÈM chỗ đứng của CHỮ đi cùng. Hôm nay RỖNG,
- * và đó là trạng thái ca này ghim: `--danger` khai ở cả hai bảng token (`style.css:56`, `:124`)
- * mà chưa áp vào selector nào.
+ * Selector được phép dùng `var(--danger)`, mỗi mục KÈM chỗ đứng của CHỮ đi cùng.
  *
- * Epic 6 thêm viền lỗi ô ngày SẼ làm ca này đỏ, và ĐÓ LÀ MỤC ĐÍCH: người thêm màu lỗi phải
- * dừng lại một nhịp, khai selector vào đây, và viết ra chữ nào đi cùng nó. Một ô viền đỏ không
- * có chữ là một ô mà người không phân biệt được màu đọc thành ô bình thường.
+ * Danh sách RỖNG cho tới Story 5.3, và mục đầu tiên đi vào đúng như ca này đã báo trước: người
+ * thêm màu lỗi phải dừng lại một nhịp, khai selector vào đây, và viết ra chữ nào đi cùng nó.
+ * Một điều khiển đỏ không có chữ là một điều khiển mà người không phân biệt được màu đọc thành
+ * một điều khiển bình thường — và ở đây nó là nút XÓA VĨNH VIỄN.
+ *
+ * Epic 6 thêm viền lỗi ô ngày sẽ đi qua đúng cửa này.
  */
 const DUNG_DANGER = [
+  {
+    chon: '.hop-thoai-xoa',
+    chu:
+      'chính nhãn `xóa` của nút nói ra việc nó làm, và dòng `Không có thùng rác và không hoàn ' +
+      'tác được.` ở `.hop-thoai-than` ngay trên nói ra hậu quả',
+  },
   // { chon: '.o-ngay-loi', chu: 'thông báo lỗi ở `.o-ngay-loi-chu`, ngay dưới ô ngày' },
 ];
 
@@ -290,8 +297,10 @@ describe('AD-20 mục 5 và 6 — tĩnh tuyệt đối, và màu không bao gi�
   });
 
   it('(c) mỗi mục DUNG_DANGER nêu được chỗ đứng của chữ — một mục rỗng là một lỗ', () => {
-    // Danh sách hôm nay rỗng; ca này là cái bẫy đón mục ĐẦU TIÊN: khai một selector vào đây
-    // mà bỏ trống `chu` là đổi một lệnh cấm lấy một chữ ký khống.
+    // Cái bẫy này đón mục ĐẦU TIÊN (`.hop-thoai-xoa`, Story 5.3) và mọi mục sau: khai một
+    // selector vào đây mà bỏ trống `chu` là đổi một lệnh cấm lấy một chữ ký khống. Danh sách
+    // phải KHÁC RỖNG — một danh sách rỗng làm ca này xanh mà không chứng minh gì.
+    expect(DUNG_DANGER.length).toBeGreaterThan(0);
     const thieu = DUNG_DANGER.filter(
       (m) => typeof m.chon !== 'string' || typeof m.chu !== 'string' || m.chu.trim() === '',
     ).map((m) => JSON.stringify(m));
