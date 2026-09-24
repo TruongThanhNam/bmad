@@ -797,9 +797,17 @@ describe('noiLuongXoa — lượt vẽ, phép xóa và chỗ trả tiêu điểm
     expect(tieuDiem).toBe(luoi.nutXoaCua('a'));
   });
 
-  it('traTieuDiem: mẩu không còn trên lưới thì về ô soạn thảo, không sang một mẩu khác', async () => {
+  it('huy cho một mẩu không còn trên lưới: về ô soạn thảo, không sang một mẩu khác', async () => {
+    // Story 7.0: `traTieuDiem` riêng đã biến mất — `huy`/`xoa` gọi `veGiuTieuDiem` của
+    // `main.js` (mọi hàng tiêu điểm của nó chạy ở `test/giu-tieu-diem.test.js`). Ca này giữ lại
+    // câu hỏi cũ ở đúng chỗ nối: luồng xóa có ĐI QUA đường lui đó không.
     const { luoi, luong } = await dungLuong();
-    luong.traTieuDiem('khong-co');
+    luong.huy('khong-co');
     expect(tieuDiem).toBe(luoi.oSoan);
+  });
+
+  it('không còn bề mặt `traTieuDiem` — luồng xóa chỉ có ba móc', async () => {
+    const { luong } = await dungLuong();
+    expect(Object.keys(luong).sort()).toEqual(['huy', 'moHoi', 'xoa']);
   });
 });

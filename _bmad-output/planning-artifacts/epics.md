@@ -1168,7 +1168,7 @@ So that tôi không phát hiện ra mình quên vào đúng lúc máy đã hỏn
 
 **Given** đã quá `BACKUP_NUDGE_DAYS` ngày kể từ `ghichu.lastBackupAt`
 **When** Nam mở app
-**Then** chân trang hiện một dòng nhỏ: `Lần sao lưu gần nhất cách đây tám ngày.` — chữ số viết theo **số ngày thật** *(FR-17, UX-DR-28)*
+**Then** chân trang hiện một dòng nhỏ: `Lần sao lưu gần nhất cách đây 8 ngày.` — chữ số viết theo **số ngày thật** *(FR-17, UX-DR-28)*
 **And** số ngày tính bằng `daysBetween()` của `core/time.js` *(AD-4)*
 
 **Given** dòng nhắc đang hiện
@@ -1486,6 +1486,47 @@ So that gõ một chữ phổ biến không dựng lại đúng màn hình "xem 
 Hai tab không ghi đè nhau, không ăn bản nháp của nhau, và mã cũ hỏng ồn ào chứ không hỏng im lặng.
 **Nửa cứng đã xong ở Epic 1** — epic này mua sự tươi mới của màn hình.
 
+### Story 7.0: Dọn action item retro Epic 4–6
+
+As a Nam,
+I want mọi action item retro còn `open` được làm hoặc quyết dứt trước khi đồng bộ tab bắt đầu,
+So that 7.1 không xây trên hai lỗi đã biết về tiêu điểm và điều kiện tra cứu.
+
+*Nguồn: `sprint-change-proposal-2026-09-24-story-7-0.md`; retro Epic 4, 5, 6. Mã không đổi hành vi nhìn thấy được, trừ lỗi Shift+Tab (E5#11).*
+
+**Acceptance Criteria:**
+
+**Given** ba hàm trả tiêu điểm `traTieuDiem`, `veGiuTieuDiem`, `dongRoiVe` trong `app/main.js`
+**When** lưới vẽ lại lúc một phần tử trong mẩu đang có tiêu điểm
+**Then** chỉ còn **một** hàm export nhận `goc`, giữ tiêu điểm theo **id mẩu và vai trò phần tử** (thân / nút `xóa` / ô sửa), và lui về `#o-soan` khi mẩu đã mất *(E5#11, B2+A2)*
+**And** Shift+Tab từ ô sửa sang nút `xóa` của chính mẩu đó giữ tiêu điểm trên nút; `Enter` kế tiếp mở hộp xóa
+**And** test regex vào mã nguồn `main.js` (`test/luoi.test.js`, `test/hop-thoai.test.js`) được thay bằng test chạy thật
+
+**Given** hai đường xóa điều kiện `veHomNay` và `veSauChot`
+**When** đọc `app/main.js`
+**Then** cả hai gọi **một** hàm duy nhất làm cả `xoaHetDieuKien()` lẫn `khayTim.xoaNhap()`; bẫy trong AGENTS.md trỏ về hàm đó *(E6#21)*
+
+**Given** các khoảng trống test của retro Epic 4
+**When** chạy `npm test`
+**Then** có ca "đúng một người phát" cho `TOO_LONG_TU_FILE` (E4#3), ca quét "không import `adapters/`" cho `app/view/chan-trang.js` (E4#4), và ca mang đúng tên "ghi chú đã xóa sống lại khi nạp" (E4#6)
+**And** `laObjectThuan` ở `app/core/backup.js` được đổi tên cho khớp ngữ nghĩa thật, khác bản ở `state.js` (E4#5)
+**And** hai chú thích lạc hậu về "adapter không có test tự động" (`app/adapters/file-io.js`, `test/core-backup.test.js`) được sửa (E4#7)
+
+**Given** `tools/thu-bo-cuc.mjs`
+**When** chạy `npm run thu-bo-cuc`
+**Then** nó lái thật luồng hộp thoại 5.3 (mở / hủy / xóa / trả tiêu điểm), Shift+Tab sang `xóa`, rời ô sửa rỗng (E5#12), và sửa một mẩu trong kết quả tìm tới khi hết khớp rồi rời ô sửa — mẩu biến mất, tiêu điểm rơi đúng chỗ (E6#22, README thêm mục tương ứng)
+**And** chỉ ca đỏ đã biết trong AGENTS.md được phép đỏ
+
+**Given** bốn quyết định còn treo
+**When** story xong
+**Then** mỗi quyết định được ghi và làm theo: microcopy dòng nhắc giữ chữ số `8 ngày`, sửa bốn nguồn spec (E4#2); chặn lưu chữ rỗng ở `tuLuuNoiDung` (E5#14); hợp thức hóa `luoi → mau-giay` trong ARCHITECTURE-SPINE và AGENTS.md (E5#15); đóng có chủ đích retro Epic 1–3 (E4#9) — *mặc định theo khuyến nghị; namtt ghi đè trong spec 7.0*
+**And** spec 5.3 ghi hành vi "nút xóa chờ lượt rời chế độ sửa" (`choRoiSua`) (E5#16)
+
+**Given** story xong
+**When** đọc `sprint-status.yaml`
+**Then** không còn action item `epic-4/5/6-retro-*` nào `open`, trừ item được hoãn **có ghi lý do**
+**And** `APP_VERSION` được bump, một commit cho cả story
+
 ### Story 7.1: Đồng bộ ghi chú giữa các tab
 
 As a Nam,
@@ -1520,6 +1561,10 @@ So that để app mở hai chỗ cả ngày không làm tôi nhìn phải dữ l
 **When** nó xử lý
 **Then** nó **đọc lại IndexedDB** rồi render — đây là **chỗ thứ hai và cuối cùng** đọc IndexedDB *(AD-6)*
 **And** nó **không đụng tới bản nháp** của chính nó *(AD-7, AD-3 tầng B)*
+
+**Given** Nam đang sửa một mẩu ở tab A và tab B xóa đúng mẩu đó
+**When** tab A nhận `notes-changed`
+**Then** chữ đang gõ **không mất im lặng** — tab A nói ra bằng dải băng, không phải lưới lặng lẽ bỏ mẩu *(retro Epic 5 B4)*
 
 **Given** bản nháp
 **When** bất kỳ tab nào thao tác

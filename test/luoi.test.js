@@ -620,13 +620,19 @@ describe('app/view/luoi.js — luật của tầng view, cưỡng chế được
       'hangChip',
       'oSoan',
     ]);
-    // Story 6.3: nút `về hôm nay` xóa điều kiện, xóa ngày gõ dở, vẽ lại, rồi trả tiêu điểm.
+    // Story 6.3: nút `về hôm nay` xóa điều kiện (kèm ngày gõ dở), rồi vẽ lại và trả tiêu điểm
+    // về ô soạn thảo. Story 7.0 đổi thân nó thành hai lời gọi: đường xóa DUY NHẤT, rồi lượt vẽ
+    // giữ tiêu điểm với neo `null`. Hành vi của nửa sau CHẠY thật ở `test/giu-tieu-diem.test.js`;
+    // ở đây chỉ còn phần CẮM, thứ không chạy được dưới Vitest.
     expect(main).toMatch(
       /noiHangChip\s*\(\s*store\s*,\s*document\s*,\s*undefined\s*,\s*veHomNay\s*\)/,
     );
     const veHomNay = /\bveHomNay\s*=\s*\(\s*\)\s*=>\s*\{([^}]*)\}/.exec(main);
     expect(veHomNay).not.toBeNull();
-    const buoc = ['xoaHetDieuKien\\s*\\(', 'xoaNhap\\s*\\(', 'veTatCa\\s*\\(', 'ID_O_SOAN', 'focus\\s*\\('];
+    const buoc = [
+      'xoaHetDieuKienVaNhap\\s*\\(\\s*\\)',
+      'veGiuTieuDiem\\s*\\(\\s*document\\s*,\\s*veTatCa\\s*,\\s*null\\s*\\)',
+    ];
     const viTri = buoc.map((b) => veHomNay[1].search(new RegExp(b)));
     expect(viTri.every((v) => v >= 0)).toBe(true);
     expect([...viTri].sort((a, b) => a - b)).toEqual(viTri);
@@ -659,6 +665,11 @@ describe('app/view/luoi.js — luật của tầng view, cưỡng chế được
     expect(moc[1]).toMatch(/\bvao\s*:/);
     expect(moc[1]).toMatch(/\broi\s*:/);
     expect(moc[1]).toMatch(/store\s*\.\s*tuLuuNoiDung\s*\([^)]*\)\s*\.\s*then\s*\(/);
+    // Story 7.0: lượt vẽ của `put` cũng giữ tiêu điểm — nó có thể là lượt gỡ một kết quả tìm
+    // vừa hết khớp, sau khi Nam đã rời ô sửa.
+    expect(moc[1]).toMatch(
+      /tuLuuNoiDung\s*\([^)]*\)\s*\.\s*then\s*\(\s*\(\s*\)\s*=>\s*veGiuTieuDiem\s*\(\s*document\s*,\s*veTatCa\s*\)\s*\)/,
+    );
 
     const vao = /\bvaoSuaRoiVe\s*=\s*\(\s*id\s*,\s*viTri\s*\)\s*=>\s*\{([\s\S]*?)\n  \}/.exec(main);
     expect(vao).not.toBeNull();
@@ -675,10 +686,58 @@ describe('app/view/luoi.js — luật của tầng view, cưỡng chế được
     expect(roi[1]).toMatch(/setTimeout\s*\(/);
     expect(roi[1]).not.toMatch(/requestAnimationFrame/);
 
-    const giu = /\bveGiuTieuDiem\s*=\s*\(\s*\)\s*=>\s*\{([\s\S]*?)\n  \}/.exec(main);
-    expect(giu).not.toBeNull();
-    expect(giu[1]).toMatch(/activeElement/);
-    expect(giu[1]).toMatch(/\.\s*focus\s*\(\s*\)/);
+    // (4) — Story 7.0: lượt vẽ hoãn gọi hàm giữ tiêu điểm DÙNG CHUNG với neo `undefined` (giữ
+    // chỗ đang đứng). Thân hàm đó không còn bị quét: `test/giu-tieu-diem.test.js` chạy nó.
+    expect(roi[1]).toMatch(
+      /setTimeout\s*\(\s*\(\s*\)\s*=>\s*veGiuTieuDiem\s*\(\s*document\s*,\s*veTatCa\s*\)\s*\)/,
+    );
+  });
+
+  it('app/main.js: MỘT hàm giữ tiêu điểm, MỘT đường xóa điều kiện (Story 7.0)', () => {
+    // Retro Epic 5 B2+A2 và retro Epic 6 A1 — cả hai là "bản chữa thứ hai trôi khỏi bản thứ
+    // nhất". Ba hàm trả tiêu điểm đã trôi khỏi nhau một lần; hai đường xóa điều kiện thì mỗi
+    // đường phải tự nhớ `khayTim.xoaNhap()`. Ca này đếm, không đọc thân: đếm là thứ đỏ lên khi
+    // Story 7.1 thêm một bản thứ hai.
+    const main = boChuThichJs(readFileSync(join(repoRoot, 'app', 'main.js'), 'utf8'));
+    const dem = (mau) => [...main.matchAll(mau)].length;
+    expect(dem(/export\s+function\s+veGiuTieuDiem\s*\(\s*goc\s*,\s*veTatCa\s*,\s*neo\s*\)/g)).toBe(1);
+    expect(dem(/\bveGiuTieuDiem\s*=/g)).toBe(0);
+    expect(main).not.toMatch(/\btraTieuDiem\b/);
+    // Đường lui về ô soạn thảo sống ở ĐÚNG một chỗ — bên trong hàm dùng chung.
+    expect(dem(/getElementById\s*\(\s*ID_O_SOAN\s*\)/g)).toBe(1);
+    // Chỗ gọi của nút `✕` dải băng: neo `null`.
+    expect(main).toMatch(/\bdongRoiVe\s*=\s*\(\s*\)\s*=>\s*veGiuTieuDiem\s*\(\s*document\s*,\s*veTatCa\s*,\s*null\s*\)/);
+
+    // Đường xóa điều kiện: đúng một hàm làm cả hai nửa, và không lời gọi trần nào khác.
+    expect(dem(/\bxoaHetDieuKien\s*\(/g)).toBe(1);
+    expect(dem(/\bxoaNhap\s*\(/g)).toBe(1);
+    const gom = /\bxoaHetDieuKienVaNhap\s*=\s*\(\s*\)\s*=>\s*\{([^}]*)\}/.exec(main);
+    expect(gom).not.toBeNull();
+    expect(gom[1]).toMatch(/store\s*\.\s*xoaHetDieuKien\s*\(\s*\)/);
+    expect(gom[1]).toMatch(/khayTim\s*\.\s*xoaNhap\s*\(\s*\)/);
+    const sauChot = /\bveSauChot\s*=\s*\(\s*([\w$]+)\s*\)\s*=>\s*\{([^}]*)\}/.exec(main);
+    expect(sauChot).not.toBeNull();
+    expect(sauChot[2]).toMatch(
+      new RegExp(`if\\s*\\(\\s*${sauChot[1]}\\s*\\)\\s*xoaHetDieuKienVaNhap\\s*\\(\\s*\\)`),
+    );
+  });
+
+  it('import view-sang-view DUY NHẤT dưới app/view/ là `luoi.js → mau-giay.js` (Story 7.0)', () => {
+    // Retro Epic 5 A3, hợp thức hóa thành ngoại lệ CHA–CON có tên (ARCHITECTURE-SPINE, AGENTS.md):
+    // `mau-giay.js` không phải một view nối vào `main.js` — nó là hình dạng của MỘT ô mà chỉ
+    // lưới dựng. Mọi cặp khác là hai view biết nhau, thứ luật tầng cấm; và một ngoại lệ không
+    // ghim là một ngoại lệ mở rộng dần.
+    const thuMuc = join(repoRoot, 'app', 'view');
+    const cap = [];
+    for (const tep of readdirSync(thuMuc).filter((t) => t.endsWith('.js'))) {
+      const nguon = boChuThichJs(readFileSync(join(thuMuc, tep), 'utf8'));
+      // Mọi dạng import: `from '…'`, import chỉ-tác-dụng-phụ `import '…'`, import động
+      // `import('…')`, nháy đơn lẫn nháy kép, và đường vòng `../view/x.js` về chính thư mục này.
+      const mau =
+        /(?:\bfrom\s*|\bimport\s*\(?\s*)(['"])(?:\.\/|\.\.\/view\/)([\w-]+\.js)\1/g;
+      for (const k of nguon.matchAll(mau)) cap.push(`${tep} → ${k[2]}`);
+    }
+    expect(cap).toEqual(['luoi.js → mau-giay.js']);
   });
 });
 

@@ -105,7 +105,7 @@ Mock: [`mockups/key-canh-bao.html`](./mockups/key-canh-bao.html).
 | **Vượt trần 50 kết quả** (A-11) | `Hiện 50 ghi chú đầu, còn nhiều hơn. Thêm bộ lọc ngày hoặc gõ thêm chữ để thu hẹp.` |
 | Số kết quả trên hàng chip | `1 ghi chú` — con số viết theo số kết quả thật (UJ-2 bước 5: còn đúng một mẩu → `1 ghi chú`) |
 | Đường về mặc định | `về hôm nay` |
-| **Dòng nhắc sao lưu** (FR-17) | `Lần sao lưu gần nhất cách đây tám ngày.` — chữ số viết theo số ngày thật |
+| **Dòng nhắc sao lưu** (FR-17) | `Lần sao lưu gần nhất cách đây 8 ngày.` — chữ số viết theo số ngày thật |
 | Ghi chú bị cắt | `còn 2 dòng ▾` / mở rộng rồi: `thu lại ▴` |
 | Nút xóa trên mẩu giấy | `xóa` |
 | Nút đóng dải băng | dấu `✕` — **không phải chữ**, nên phải có nhãn cho trợ giúp tiếp cận: `đóng thông báo` |
@@ -244,7 +244,7 @@ Protagonist là **Nam** ở cả ba hành trình. Tài liệu này không bao gi
 
 ### UJ-3 · Máy của Nam được IT cài lại
 
-1. Tuần trước nữa, app hiện một dòng nhỏ ở chân trang: `Lần sao lưu gần nhất cách đây tám ngày.` Không hộp thoại, không chặn đường. Nam click `xuất sao lưu` hôm thứ Sáu. Im lặng — file tải xuống là bằng chứng.
+1. Tuần trước nữa, app hiện một dòng nhỏ ở chân trang: `Lần sao lưu gần nhất cách đây 8 ngày.` Không hộp thoại, không chặn đường. Nam click `xuất sao lưu` hôm thứ Sáu. Im lặng — file tải xuống là bằng chứng.
 2. Máy mới, trình duyệt mới. Nam mở app: **trạng thái rỗng tuyệt đối**. Chỉ ô soạn thảo với con trỏ, khay tìm kiếm rỗng, chân trang. Không một chữ chào mừng, không hướng dẫn.
 3. Nhưng chân trang **vẫn có** hai link thường trực `xuất sao lưu` · `nạp lại` — chúng không phụ thuộc dòng nhắc FR-17, và trên máy mới này dòng nhắc chưa có gì để nói.
 4. Nam click `nạp lại`, chọn file thứ Sáu tuần trước.

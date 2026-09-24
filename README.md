@@ -715,3 +715,30 @@ Còn lại là thứ không con số nào nói: lần tải lại có **nháy m�
     *Tốc độ.* Mỗi phím gõ lọc lại không thấy trễ (2.000 ghi chú ≤ 200 ms, `npm test` ghim).
 
     *Cả hai theme.* Lặp ở bản dark (mục 14): dòng "còn nhiều hơn" đọc rõ.
+
+
+### Tiêu điểm sau mỗi lượt vẽ lại — một mục phải làm bằng mắt (Story 7.0)
+
+36. **Bàn phím không bao giờ rơi về đầu trang, và không bị giật về thân mẩu.** Mở trang qua HTTP
+    localhost (mục 1) với ít nhất ba ghi chú ngắn đã chốt hôm nay. `npm run thu-bo-cuc` đã lái
+    bốn đường dưới đây bằng phím thật; mục này là lần nhìn bằng mắt vòng sáng nằm ở đâu.
+
+    *Shift+Tab sang `xóa`.* `Tab` tới một mẩu, `Enter` để vào chế độ sửa, rồi `Shift+Tab`: ô sửa
+    đóng, và vòng sáng nằm trên **nút `xóa` của chính mẩu đó** — không nhảy về thân mẩu. Nhấn
+    `Enter` ngay: hộp thoại xóa mở ra hỏi về mẩu đó (không phải ô sửa mở lại). `Esc` để đóng:
+    vòng sáng lại nằm trên nút `xóa` ấy.
+
+    *Tab ra mẩu kế.* Vào chế độ sửa một mẩu rồi nhấn `Tab`: vòng sáng nằm trên **thân mẩu kế
+    tiếp**, và `Tab` thêm lần nữa đi tới nút `xóa` của mẩu đó — không bắt đầu lại từ đầu trang.
+
+    *Rời ô sửa rỗng.* Vào chế độ sửa, xóa sạch chữ, rồi `Shift+Tab`: mẩu biến mất (mục 30), và
+    con trỏ nháy trong **ô soạn thảo** — không mất hẳn tiêu điểm (nhấn `Tab` một lần: tiêu điểm
+    tới ô tìm, không phải điểm dừng đầu trang).
+
+    *Sửa một kết quả tìm tới hết khớp.* Gõ một chữ ở ô tìm sao cho còn đúng một mẩu khớp. Vào chế
+    độ sửa mẩu đó, thay hết chữ bằng một câu không còn chứa từ khóa, đợi một giây: mẩu **vẫn đứng
+    yên** trong lúc đang gõ. `Shift+Tab`: mẩu biến khỏi lưới, lưới đọc `Không có ghi chú nào
+    khớp.`, và con trỏ ở **ô soạn thảo**. Xóa ô tìm: mẩu đã sửa hiện lại ở khung nhìn hôm nay với
+    chữ mới.
+
+    *Cả hai theme.* Lặp ở bản dark (mục 14): vòng sáng trên nút `xóa` nhìn rõ.

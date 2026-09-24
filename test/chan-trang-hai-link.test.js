@@ -157,6 +157,14 @@ describe('Hai link không bao giờ ẩn (UX-DR-19)', () => {
     expect(ma).toMatch(/#chan-nap/);
     expect(ma).toMatch(/store\.napSaoLuu\(\)/);
   });
+
+  it('`app/view/chan-trang.js` không import `app/adapters/` — file đi qua cổng, không đi tắt', () => {
+    // Retro Epic 4, #4 — cùng khuôn mà mọi tệp test view khác đã mang. Chân trang là view DỄ
+    // bị đi tắt nhất: hai nút của nó làm đúng việc của `adapters/file-io.js`, và một `import`
+    // thẳng từ đó thì nút vẫn chạy, mọi ca trên vẫn xanh, còn lõi mất quyền nói "cổng hỏng".
+    const ma = boChuThichJs(readFileSync(join(repoRoot, 'app', 'view', 'chan-trang.js'), 'utf8'));
+    expect(ma).not.toMatch(/adapters\//);
+  });
 });
 
 describe('Hành vi của `#chan-xuat`: một cú bấm, một action, không một lượt vẽ nào', () => {

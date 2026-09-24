@@ -1199,6 +1199,26 @@ export function taoStore(ports) {
     }
     const seqMoi = soDemSua(id) + 1;
     datLai({ editing: { id, text, seq: { ...noiBo.editing.seq, [id]: seqMoi } } });
+    // Chữ RỖNG (hay chỉ toàn khoảng trắng) KHÔNG BAO GIỜ xuống kho (retro Epic 5, B3 — quyết
+    // định của Story 7.0). Đường xóa của Story 5.2 (`roiCheDoSua`) là nơi DUY NHẤT xử lý một
+    // ghi chú rỗng; để một `put` rỗng đi trước nó là để lại một bản ghi rỗng trong IndexedDB mỗi
+    // khi lần xóa đó hỏng hay tab đóng giữa chừng — một mẩu trắng sống lại ở lần tải sau.
+    //
+    // Khác nhánh trần ngay trên ở đúng một chỗ, và có chủ ý: `seq` ĐÃ TĂNG (dòng trên). Nhánh
+    // trần từ chối một chữ quá dài, nên chữ hợp lệ liền trước vẫn phải được ghi; còn ở đây chữ
+    // liền trước là chữ Nam VỪA XÓA ĐI, và để hẹn của nó nổ là ghi lại đúng thứ người ta vừa bỏ.
+    // Chữ vẫn vào `editing.text` (và `chuDangCho` ở trên) để lượt rời chế độ sửa đọc thấy nó là
+    // rỗng. Cùng phép thử rỗng với `roiCheDoSua`, để hai nửa không bất đồng về "rỗng là gì".
+    //
+    // Lời hứa chốt NGAY, cùng lý do nhánh trần: cổng không bị gọi nên không có gì để chờ.
+    //
+    // Và dải băng "quá dài khi sửa" TẮT ở đây, chỉ riêng mã đó: trước kia `put('')` thành công
+    // tắt nó, nay không còn `put` nào — dán quá trần rồi xóa sạch ô mà để dải băng ở lại là
+    // nói "quá dài" về một ô rỗng. Mọi dải băng khác không liên quan tới chữ này, nên ở lại.
+    if (text.trim() === '') {
+      if (noiBo.banner === LOAI_BANG.TOO_LONG_KHI_SUA) datLai({ banner: null });
+      return Promise.resolve();
+    }
     return henGhiDiSau(id, seqMoi, () => {
       const cu = noiBo.notes.find((mau) => mau.id === id);
       if (cu === undefined) return null;

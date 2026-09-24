@@ -2,7 +2,9 @@
 //
 // Vì sao phủ được cả I/O Matrix mà không cần trình duyệt: `app/core/backup.js` không biết Blob
 // lẫn thẻ `<a download>` — nó nhận một mảng bản ghi cùng một mốc và trả về một chuỗi. Phần còn
-// lại (file rơi xuống đâu) là `app/adapters/file-io.js`, và nó cố ý không có test tự động.
+// lại (file rơi xuống đâu) là `exportFile` của `app/adapters/file-io.js`, và nửa đó vẫn kiểm tay
+// (checklist trong `README.md`); nửa nạp `readChosenFile` có ngoại lệ hẹp ở
+// `test/adapter-file-io.test.js`.
 //
 // Mọi ca dưới đây so NGUYÊN VĂN hoặc so trên object đã phân tích lại, không so "có chứa": hai
 // chiều của UJ-3 đọc cùng một hợp đồng, nên một trường mọc thêm phải làm một ca đỏ chứ không
@@ -391,6 +393,20 @@ describe('gopTheoId — bản ĐANG CÓ luôn thắng, và không bao giờ mấ
     expect(ketQua.map((mau) => mau.id)).toEqual(['a', 'b']);
   });
 
+  it('ghi chú đã xóa sống lại khi nạp', () => {
+    // Hành vi đã chốt, không một khiếm khuyết: không tombstone, nên kho không nhớ rằng `x` từng
+    // bị xóa — `id` vắng mặt trong tập đang có thì nó là một ghi chú MỚI, và nó vào lại. "Không
+    // bao giờ mất" đứng trước "không bao giờ sống lại" (docstring `gopTheoId`). Ca "không xóa
+    // gì" ngay trên chỉ phủ nửa ngược lại, nên nửa này cần một ca mang đúng tên của nó.
+    const daXoa = { id: 'x', createdAt: '2026-09-13T08:00:00+07:00', text: 'đã xóa hôm qua' };
+    const tuFile = docFileSaoLuu(fileVoi({ notes: [daXoa] }));
+    const { ketQua, added, skipped } = gopTheoId(dangCo, tuFile);
+    expect({ added, skipped }).toEqual({ added: 1, skipped: 0 });
+    const songLai = ketQua.find((mau) => mau.id === 'x');
+    expect(songLai).toMatchObject(daXoa);
+    expect(ketQua.map((mau) => mau.id).sort()).toEqual(['a', 'b', 'x']);
+  });
+
   it('kho rỗng: cả file vào hết, `createdAt` gốc giữ nguyên tuyệt đối', () => {
     const tuFile = docFileSaoLuu(fileVoi());
     const { ketQua, added, skipped } = gopTheoId([], tuFile);
@@ -423,7 +439,7 @@ describe('cauNhacSaoLuu — chỉ lên tiếng khi đã QUÁ ngưỡng', () => {
   /** "Bây giờ" cố định cho cả khối, cùng offset với các mốc dưới đây. */
   const BAY_GIO = '2026-09-16T10:00:00+07:00';
 
-  it('quá ngưỡng: tám ngày cho đúng nguyên văn một câu, kể cả dấu chấm', () => {
+  it('quá ngưỡng: 8 ngày cho đúng nguyên văn một câu, kể cả dấu chấm', () => {
     // Nguyên văn TỪNG KÝ TỰ, và số viết bằng CHỮ SỐ (quyết định đã chốt) — một bảng đọc số
     // tiếng Việt là một mặt công khai mới của `core/` mà dòng chữ này không đáng.
     expect(cauNhacSaoLuu('2026-09-08T10:00:00+07:00', BAY_GIO)).toBe(

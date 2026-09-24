@@ -85,8 +85,13 @@ export function dungFileSaoLuu(notes, exportedAt) {
  *  Trường dẫn xuất không nằm ở đây vì chúng không nằm trong file (AD-11, AD-13). */
 const TRUONG_BAT_BUOC = Object.freeze(['id', 'createdAt', 'text']);
 
-/** Object THUẦN — một mảng hay `null` không phải một tài liệu sao lưu. */
-function laObjectThuan(giaTri) {
+/** Object THƯỜNG — một mảng hay `null` không phải một tài liệu sao lưu.
+ *
+ *  Tên và nghĩa khớp `laObjectThuong` của `state.js`, KHÔNG khớp `laObjectThuan` ở đó: hàm này
+ *  không hỏi prototype. Nó không cần hỏi — mọi giá trị đi vào đây vừa ra khỏi `JSON.parse`, và
+ *  `JSON.parse` chỉ dựng được object bằng `{}`. Tên cũ (`laObjectThuan`) hứa một phép kiểm mà
+ *  thân hàm không làm (retro Epic 4, #5). */
+function laObjectThuong(giaTri) {
   return typeof giaTri === 'object' && giaTri !== null && !Array.isArray(giaTri);
 }
 
@@ -112,7 +117,7 @@ function fileHong() {
  * rỗng là cái giá sai.
  */
 function banGhiTuFile(mau) {
-  if (!laObjectThuan(mau)) throw fileHong();
+  if (!laObjectThuong(mau)) throw fileHong();
   for (const truong of TRUONG_BAT_BUOC) {
     if (typeof mau[truong] !== 'string') throw fileHong();
   }
@@ -163,7 +168,7 @@ export function docFileSaoLuu(text) {
   } catch {
     throw fileHong();
   }
-  if (!laObjectThuan(goc)) throw fileHong();
+  if (!laObjectThuong(goc)) throw fileHong();
   if (goc.schemaVersion !== SCHEMA_VERSION) throw loiUngDung(MA_LOI.BAD_VERSION);
   if (!Array.isArray(goc.notes)) throw fileHong();
 
@@ -201,7 +206,7 @@ export function mocXuatSaoLuu(text) {
   } catch {
     return null;
   }
-  if (!laObjectThuan(goc)) return null;
+  if (!laObjectThuong(goc)) return null;
   return typeof goc.exportedAt === 'string' ? goc.exportedAt : null;
 }
 

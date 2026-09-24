@@ -36,8 +36,14 @@ nó nói chuyện với thế giới qua *port*, và *adapter* là thứ duy nh�
 | **core** | `app/core/` | Chỉ JavaScript thuần. Không DOM, không API trình duyệt |
 | **ports** | `app/ports/` | Chữ ký hàm mà core cần thế giới cung cấp |
 | **adapters** | `app/adapters/` | IndexedDB, localStorage, BroadcastChannel, File, `navigator.storage` |
-| **view** | `app/view/` | DOM. Đọc state, phát action. Không bao giờ tự đổi state |
+| **view** | `app/view/` | DOM. Đọc state, phát action. Không bao giờ tự đổi state. Không import view khác — trừ ngoại lệ cha–con dưới bảng |
 | **bootstrap** | `app/main.js` | Nơi duy nhất nối adapter thật vào port |
+
+**Ngoại lệ cha–con có tên, và là ngoại lệ DUY NHẤT (Story 7.0, retro Epic 5 A3):**
+`app/view/luoi.js` import `app/view/mau-giay.js`. `mau-giay.js` không phải một view nối vào
+`main.js`: nó không nhận `store`, không có `ve()`, và chỉ dựng hình dạng của MỘT ô mà lưới đặt vào
+chỗ của nó. Mọi view khác nối chéo bằng callback từ `main.js`. `test/luoi.test.js` ghim rằng
+`luoi.js → mau-giay.js` là cặp import view-sang-view duy nhất; một cặp thứ hai phải sửa bảng này trước.
 
 ```mermaid
 graph TD

@@ -14,7 +14,7 @@
 // Cộng cửa chặn tầng view của riêng file này, y như mỗi view trước đã mang cửa chặn của nó.
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -589,9 +589,12 @@ describe('app/view/banner.js — luật của tầng view, cưỡng chế đư�
     );
     const noi = /noiBanner\s*\(\s*store\s*,\s*document\s*,\s*([\w$]+)\s*\)/.exec(main);
     expect(noi).not.toBeNull();
-    const moc = new RegExp(`\\b${noi[1]}\\s*=\\s*\\(\\s*\\)\\s*=>\\s*\\{([^}]*)\\}`).exec(main);
+    // Story 7.0: móc là MỘT lời gọi hàm giữ tiêu điểm dùng chung, và lượt vẽ chung đi vào nó
+    // qua tham số — hàm đó gọi nó trước khi đặt tiêu điểm (`test/giu-tieu-diem.test.js`).
+    const moc = new RegExp(
+      `\\b${noi[1]}\\s*=\\s*\\(\\s*\\)\\s*=>\\s*veGiuTieuDiem\\s*\\(\\s*document\\s*,\\s*${treo[1]}\\s*,`,
+    ).exec(main);
     expect(moc).not.toBeNull();
-    expect(moc[1]).toMatch(new RegExp(`\\b${treo[1]}\\s*\\(`));
   });
 
   it('app/main.js trả FOCUS về ô soạn thảo sau khi đóng — bàn phím không mất chỗ đứng', () => {
@@ -600,10 +603,16 @@ describe('app/view/banner.js — luật của tầng view, cưỡng chế đư�
     // đường duy nhất và nó không được đứt.
     //
     // Và phép trả focus phải ở `main.js`, KHÔNG ở `view/banner.js`: hai view không biết nhau.
+    //
+    // Story 7.0: móc gọi hàm giữ tiêu điểm dùng chung với neo `null` — "về ô soạn thảo". Hàm đó
+    // CHẠY thật ở `test/giu-tieu-diem.test.js`, nên ở đây chỉ còn ghim chỗ cắm và cái neo.
     const main = boChuThichJs(readFileSync(join(repoRoot, 'app', 'main.js'), 'utf8'));
     const noi = /noiBanner\s*\(\s*store\s*,\s*document\s*,\s*([\w$]+)\s*\)/.exec(main);
-    const moc = new RegExp(`\\b${noi[1]}\\s*=\\s*\\(\\s*\\)\\s*=>\\s*\\{([^}]*)\\}`).exec(main);
-    expect(moc[1]).toMatch(/\.\s*focus\s*\(\s*\)/);
+    expect(main).toMatch(
+      new RegExp(
+        `\\b${noi[1]}\\s*=\\s*\\(\\s*\\)\\s*=>\\s*veGiuTieuDiem\\s*\\(\\s*document\\s*,\\s*veTatCa\\s*,\\s*null\\s*\\)`,
+      ),
+    );
     // Và nó nhắm đúng ô soạn thảo — cùng `id` mà `index.html` mang.
     expect(main).toMatch(/'o-soan'/);
     const html = readFileSync(join(repoRoot, 'index.html'), 'utf8');
@@ -686,5 +695,22 @@ describe('app/view/banner.js — luật của tầng view, cưỡng chế đư�
     // hẹp hơn, nếu không "ai được đặt hàng 6" trở thành một câu không ai trả lời.
     const ma = boChuThichJs(readFileSync(join(repoRoot, 'app', 'core', 'state.js'), 'utf8'));
     expect([...ma.matchAll(/NAP_FILE_XONG/g)]).toHaveLength(1);
+  });
+
+  it('`TOO_LONG_TU_FILE` có ĐÚNG MỘT người phát dưới app/, và đó là `core/state.js`', () => {
+    // Retro Epic 4, #3 — cùng khuôn hàng 6 ngay trên, nhưng quét CẢ `app/` chứ không chỉ một
+    // tệp: sentinel này dùng lại câu của `BAD_FILE`, nên một chỗ phát thứ hai (một view tự đặt
+    // nó khi đọc file chẳng hạn) sẽ ra ĐÚNG câu chữ đúng và không một ca microcopy nào đỏ.
+    // `core/banner.js` là nơi KHAI, không phải nơi phát — nó được trừ ra.
+    const thuMuc = join(repoRoot, 'app');
+    const noiPhat = [];
+    for (const tep of readdirSync(thuMuc, { recursive: true })) {
+      const ten = String(tep).split('\\').join('/');
+      if (!ten.endsWith('.js') || ten === 'core/banner.js') continue;
+      const ma = boChuThichJs(readFileSync(join(thuMuc, ten), 'utf8'));
+      const soLan = [...ma.matchAll(/TOO_LONG_TU_FILE/g)].length;
+      if (soLan > 0) noiPhat.push(`${ten} ×${soLan}`);
+    }
+    expect(noiPhat).toEqual(['core/state.js ×1']);
   });
 });

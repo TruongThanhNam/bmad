@@ -5,7 +5,7 @@
 
 App ghi chú tĩnh chạy thẳng trong trình duyệt: ES module thuần, không bundler, không
 transpile, không thư viện runtime. `package.json` tồn tại chỉ để chạy Vitest. Tài liệu
-gốc: `README.md` (vận hành + checklist thủ công 1–35) và
+gốc: `README.md` (vận hành + checklist thủ công 1–36) và
 `_bmad-output/planning-artifacts/architecture/architecture-ghi-chu-hang-ngay-2026-09-10/ARCHITECTURE-SPINE.md`
 — spine thắng khi lệch với `solution-design.md`.
 
@@ -27,7 +27,7 @@ gốc: `README.md` (vận hành + checklist thủ công 1–35) và
 - `app/core/limits.js` — mọi hằng số, ngưỡng, và `APP_VERSION`
 - `app/core/time.js` — mọi chỗ dựng/đọc `Date`; `app/core/fold.js` — bỏ dấu tiếng Việt
 - `app/core/errors.js` — tập mã lỗi đóng + microcopy; `app/core/banner.js` — bảng ưu tiên dải băng
-- `app/adapters/` không có test tự động theo luật; kiểm nó bằng checklist 1–35 trong `README.md`
+- `app/adapters/` không có test tự động theo luật; kiểm nó bằng checklist 1–36 trong `README.md`
 
 ## Chạy và kiểm chứng
 
@@ -50,7 +50,9 @@ gốc: `README.md` (vận hành + checklist thủ công 1–35) và
   `card` trong mã sản phẩm — dùng `mẩu giấy` / `mau-giay`.
 - Tầng: `core` và `ports` chỉ JS thuần, không DOM và không API trình duyệt; `view` chỉ đọc
   state và phát action, không tự đổi state, không import lẫn nhau — nối chéo bằng callback
-  từ `main.js`; `adapters` không bao giờ gọi vào view, kể cả để báo lỗi.
+  từ `main.js`; `adapters` không bao giờ gọi vào view, kể cả để báo lỗi. Ngoại lệ có tên
+  DUY NHẤT: `view/luoi.js → view/mau-giay.js` (cha–con: `mau-giay` là hình dạng một ô, không
+  nối vào `main.js`); `test/luoi.test.js` ghim rằng không cặp nào khác tồn tại.
 - Import tương đối phải ghi đuôi `.js`/`.css`; không bare specifier trong `app/`.
 - Tập trung hóa bắt buộc, có test quét mã nguồn chặn: số (`limits.js`), `Date` (`time.js`),
   bỏ dấu (`fold.js`), đổi state (`core/state.js`), màu và token (`app/style.css` theo DESIGN.md).
@@ -62,8 +64,14 @@ gốc: `README.md` (vận hành + checklist thủ công 1–35) và
 ## Bẫy đã gặp
 
 - Chữ gõ dở của ô ngày không nằm trong state, nên `khayTim.ve()` không thấy khi điều kiện
-  bị xóa lúc `date` vốn đã `null`. Mọi đường gọi `xoaHetDieuKien()` phải kèm
-  `khayTim.xoaNhap()` (hiện có hai: `veHomNay`, `veSauChot` trong `main.js`).
+  bị xóa lúc `date` vốn đã `null`. Mọi đường xóa điều kiện trong `main.js` gọi
+  `xoaHetDieuKienVaNhap()` (làm cả `store.xoaHetDieuKien()` lẫn `khayTim.xoaNhap()`), không
+  gọi riêng một nửa; test đếm mỗi lời gọi trần chỉ được xuất hiện một lần.
+- Lượt vẽ nào có thể gỡ phần tử đang giữ tiêu điểm (lưới `replaceChildren`, hộp thoại, nút
+  `✕`) phải đi qua `veGiuTieuDiem(goc, veTatCa, neo)` của `main.js`, không tự `focus()`:
+  `undefined` giữ chỗ đang đứng theo id mẩu + vai trò (thân / `xóa` / ô sửa), `null` về
+  `#o-soan`, `{ id, vaiTro }` về đúng phần tử đó; mẩu mất thì về `#o-soan`. Neo vào mẩu mà
+  quên vai trò là lỗi B2 (Shift+Tab sang `xóa` bị giật về thân).
 - Đừng đoán "có tab khác đang sống" bằng `heartbeat`: sau một lần tải lại, nhịp tim mới
   tinh chính là của tab này ở kiếp trước, nên nó tự bỏ rơi bản nháp của mình. Dùng khóa
   sống `navigator.locks` (README mục 10–11).

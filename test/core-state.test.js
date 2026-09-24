@@ -1491,7 +1491,11 @@ describe('vaoCheDoSua / roiCheDoSua — tư cách "đang sửa" sống trong sta
     expect(store.state.notes.map((mau) => mau.id)).toEqual(['c', 'b']);
   });
 
-  it('gõ tới rỗng nhưng CHƯA rời mẩu thì không xóa gì — autosave vẫn ghi bình thường', async () => {
+  it('gõ tới rỗng nhưng CHƯA rời mẩu thì không xóa gì — và KHÔNG ghi gì (Story 7.0)', async () => {
+    // RENEGOTIATE CÓ GHI CHÉP (Story 7.0, retro Epic 5 B3): ca này trước đây ghim "autosave ghi
+    // chuỗi rỗng như bình thường". Quyết định đổi: chữ rỗng không bao giờ xuống IndexedDB, và
+    // đường xóa của Story 5.2 là nơi duy nhất xử lý một ghi chú rỗng. Nửa "không xóa gì khi
+    // chưa rời" thì không đổi một chữ.
     vi.useFakeTimers();
     const { store, kho } = storeVoiKho({ banDau: banGhiMau() });
     await store.khoiDong();
@@ -1499,13 +1503,67 @@ describe('vaoCheDoSua / roiCheDoSua — tư cách "đang sửa" sống trong sta
     kho.nhatKy.length = 0;
     const chot = store.tuLuuNoiDung('a', '');
     expect(store.state.editing.id).toBe('a');
+    expect(store.state.editing.text).toBe('');
     expect(store.state.notes.map((mau) => mau.id)).toEqual(['c', 'a', 'b']);
     await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
     await chot;
-    // Vẫn chưa rời mẩu: autosave ghi chuỗi rỗng như bình thường, không gọi xóa.
-    expect(kho.nhatKy).toEqual(['put:a']);
+    expect(kho.nhatKy).toEqual([]);
     expect(store.state.editing.id).toBe('a');
     expect(store.state.notes.map((mau) => mau.id)).toEqual(['c', 'a', 'b']);
+  });
+
+  it('gõ chữ chỉ khoảng trắng: không `put`, hẹn cũ bị bỏ, lời hứa chốt NGAY (Story 7.0)', async () => {
+    // Hàng "Gõ rỗng" của I/O Matrix Story 7.0. Ba nửa, và nửa thứ hai là nửa dễ sai: một phím
+    // HỢP LỆ ngay trước đó đã đặt một hẹn tự lưu — không tăng `seq` ở nhánh rỗng thì hẹn đó vẫn
+    // nổ và ghi lại đúng chữ Nam vừa xóa đi.
+    vi.useFakeTimers();
+    const { store, kho } = storeVoiKho({ banDau: banGhiMau() });
+    await store.khoiDong();
+    store.vaoCheDoSua('a');
+    kho.nhatKy.length = 0;
+    const chuTruoc = store.tuLuuNoiDung('a', 'phở');
+    const seqTruoc = store.state.editing.seq.a;
+    let daChot = false;
+    store.tuLuuNoiDung('a', '  ').then(() => {
+      daChot = true;
+    });
+    // Chốt không đợi `AUTOSAVE_MS`: không có phép ghi nào để chờ.
+    await Promise.resolve();
+    expect(daChot).toBe(true);
+    expect(store.state.editing.text).toBe('  ');
+    expect(store.state.editing.seq.a).toBe(seqTruoc + 1);
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
+    await chuTruoc;
+    expect(kho.nhatKy).toEqual([]);
+    expect(kho.banGhi.get('a').text).not.toBe('  ');
+    // Và chữ rỗng là chữ mới nhất: mở lại ô sửa thấy nó, không thấy bản trong `notes`.
+    store.vaoCheDoSua('a');
+    expect(store.state.editing.text).toBe('  ');
+  });
+
+  it('dán quá trần rồi xóa sạch ô: dải băng "quá dài khi sửa" tắt, dù không `put` nào (Story 7.0)', async () => {
+    // Trước Story 7.0, `put('')` thành công là thứ tắt dải băng này. Nhánh rỗng không còn ghi,
+    // nên nó phải tự tắt — nếu không, "quá dài" đứng trên một ô rỗng.
+    const { store, kho } = storeVoiKho({ banDau: banGhiMau() });
+    await store.khoiDong();
+    store.vaoCheDoSua('a');
+    kho.nhatKy.length = 0;
+    store.tuLuuNoiDung('a', 'x'.repeat(MAX_NOTE_CHARS + 1));
+    expect(store.state.banner).toBe(LOAI_BANG.TOO_LONG_KHI_SUA);
+    await store.tuLuuNoiDung('a', '');
+    expect(store.state.banner).toBeNull();
+    expect(kho.nhatKy).toEqual([]);
+  });
+
+  it('xóa sạch ô KHÔNG tắt một dải băng khác — chỉ đúng mã "quá dài khi sửa"', async () => {
+    const { store } = storeVoiKho({ banDau: banGhiMau(), tuChoi: { remove: MA_LOI.QUOTA } });
+    await store.khoiDong();
+    // Một lần xóa hỏng dựng dải băng `QUOTA` qua đường thật của lõi.
+    await store.xoaGhiChu('b');
+    expect(store.state.banner).toBe(MA_LOI.QUOTA);
+    store.vaoCheDoSua('a');
+    await store.tuLuuNoiDung('a', '');
+    expect(store.state.banner).toBe(MA_LOI.QUOTA);
   });
 
 });

@@ -2408,6 +2408,263 @@ try {
       await datKhungNhin(1280, 700);
     }
   }
+
+  // ── Luồng xóa 5.2/5.3, Shift+Tab sang `xóa`, sửa kết quả tìm tới hết khớp (Story 7.0) ──
+  //
+  // Vì sao không chỉ Vitest: `test/giu-tieu-diem.test.js` CHẠY `veGiuTieuDiem` trên một gốc
+  // giả, và gốc giả đó tự quyết "Shift+Tab đi đâu" và "`Enter` trên nút là `click`". Ở đây trình
+  // duyệt quyết: phím THẬT qua `Input.dispatchKeyEvent`, thứ tự `blur`/`focus` thật, lượt vẽ
+  // hoãn bằng `setTimeout` thật, và IndexedDB thật (retro Epic 5 #12, retro Epic 6 #22).
+  //
+  // Mẩu đo được CHỐT thật và DỌN theo đúng `id` ở `finally`, cùng luật với các khối trên.
+  {
+    await datKhungNhin(1280, 700);
+    await cdp.taiLai(tab.sessionId);
+    // Cùng điều kiện với khối Story 3.2: không có nó thì phím gửi vào tab headless không dời
+    // được tiêu điểm, và mọi dòng dưới đây đo đúng không gì cả.
+    await cdp.goi('Emulation.setFocusEmulationEnabled', { enabled: true }, tab.sessionId);
+
+    /** Một phím THẬT. `modifiers: 8` là Shift. `text` chỉ cho phím sinh ký tự (`Enter`), để
+     *  `<button>` nhận phép kích hoạt mặc định của nó. */
+    const nhanPhim = async ({ key, code, vk, text, shift = false }) => {
+      for (const type of [text === undefined ? 'rawKeyDown' : 'keyDown', 'keyUp']) {
+        await cdp.goi(
+          'Input.dispatchKeyEvent',
+          {
+            type,
+            key,
+            code,
+            text: type === 'keyUp' ? undefined : text,
+            windowsVirtualKeyCode: vk,
+            nativeVirtualKeyCode: vk,
+            modifiers: shift ? 8 : 0,
+          },
+          tab.sessionId,
+        );
+      }
+      await nghi(30);
+    };
+    const ENTER = { key: 'Enter', code: 'Enter', vk: 13, text: '\r' };
+    const ESC = { key: 'Escape', code: 'Escape', vk: 27 };
+    const TAB = { key: 'Tab', code: 'Tab', vk: 9 };
+
+    /** Đợi một biểu thức trong tab thành đúng; hết hạn thì trả `false` — ca đỏ, không treo. */
+    const doi = async (bieuThuc, soLan = 60) => {
+      for (let i = 0; i < soLan; i += 1) {
+        if (await cdp.chay(tab.sessionId, `return Boolean(${bieuThuc});`)) return true;
+        await nghi(50);
+      }
+      return false;
+    };
+    /** Tiêu điểm đang ở đâu: `id`, class, mẩu chứa nó, và hộp thoại có đang mở không. */
+    const DUNG = `
+      const el = document.activeElement;
+      const m = await import('/app/main.js');
+      const hop = document.querySelector('.hop-thoai') !== null;
+      if (el === null || el === document.body) return { body: true, hop, hoi: m.store.state.xacNhanXoa };
+      const mau = el.closest('[data-mau]');
+      return {
+        body: false,
+        id: el.id || null,
+        lop: String(el.className || ''),
+        mau: mau === null ? null : mau.getAttribute('data-mau'),
+        hop,
+        hoi: m.store.state.xacNhanXoa,
+      };
+    `;
+    const dung = () => cdp.chay(tab.sessionId, DUNG);
+    const TREN_LUOI = (id) => `document.querySelector('.luoi > [data-mau="' + ${JSON.stringify(id)} + '"]') !== null`;
+    const TRONG_KHO = (id) =>
+      `(await import('/app/main.js')).store.state.notes.some((x) => x.id === ${JSON.stringify(id)})`;
+    const datTieuDiem = (chon) =>
+      cdp.chay(tab.sessionId, `document.querySelector(${JSON.stringify(chon)}).focus(); return true;`);
+    const nutXoa = (id) => `.luoi > [data-mau="${id}"] .mau-xoa`;
+    const thanMau = (id) => `.luoi > [data-mau="${id}"]`;
+    /** Gõ vào một ô qua đúng bộ nghe `input` của nó — chữ thay một lần, như một cú dán. */
+    const goVao = (chon, chu) =>
+      cdp.chay(
+        tab.sessionId,
+        `const o = document.querySelector(${JSON.stringify(chon)}); o.value = ${JSON.stringify(chu)};
+         o.dispatchEvent(new Event('input', { bubbles: true })); return true;`,
+      );
+
+    const CHU = {
+      hop: 'thu-7-0 hộp thoại',
+      shift: 'thu-7-0 shift tab',
+      rong: 'thu-7-0 rời rỗng',
+      tim: 'thu-7-0 kqtim70',
+    };
+    const khoTruoc = await cdp.chay(
+      tab.sessionId,
+      `const m = await import('/app/main.js'); return m.store.state.notes.length;`,
+    );
+    const id = {};
+    try {
+      for (const [khoa, chu] of Object.entries(CHU)) {
+        await goVao('.o-soan', chu);
+        await cdp.chay(
+          tab.sessionId,
+          `document.querySelector('.o-soan').dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true }));
+           return true;`,
+        );
+        await doi(`(await import('/app/main.js')).store.state.notes.some((x) => x.text === ${JSON.stringify(chu)})`);
+        id[khoa] = await cdp.chay(
+          tab.sessionId,
+          `const n = (await import('/app/main.js')).store.state.notes.find((x) => x.text === ${JSON.stringify(chu)});
+           return n === undefined ? null : n.id;`,
+        );
+        if (id[khoa] === null) throw new Error(`chốt "${chu}" xong mà không tra ra id — kho có thể còn mẩu rác`);
+        await doi(TREN_LUOI(id[khoa]));
+      }
+
+      // ── Hộp 5.3: mở / Esc / `hủy` / `xóa`, tiêu điểm ở nút hoặc `#o-soan` ────────────────
+      {
+        await datTieuDiem(nutXoa(id.hop));
+        await nhanPhim(ENTER);
+        await doi(`document.querySelector('.hop-thoai') !== null`);
+        const mo = await dung();
+        ghi(
+          'hộp 5.3: `Enter` trên `xóa` mở hộp cho ĐÚNG mẩu, tiêu điểm ở `hủy`',
+          mo.hop && mo.hoi === id.hop && mo.lop.includes('hop-thoai-chon'),
+          JSON.stringify(mo),
+        );
+
+        await nhanPhim(ESC);
+        await doi(`document.querySelector('.hop-thoai') === null`);
+        const sauEsc = await dung();
+        ghi(
+          'hộp 5.3: `Esc` đóng hộp, tiêu điểm về nút `xóa` của chính mẩu đó — không `<body>`',
+          !sauEsc.hop && sauEsc.mau === id.hop && sauEsc.lop.includes('mau-xoa'),
+          JSON.stringify(sauEsc),
+        );
+
+        await nhanPhim(ENTER);
+        await doi(`document.querySelector('.hop-thoai') !== null`);
+        // Tiêu điểm mở ở `hủy`, nên `Enter` ngay là HỦY.
+        await nhanPhim(ENTER);
+        await doi(`document.querySelector('.hop-thoai') === null`);
+        const sauHuy = await dung();
+        const conSauHuy = await cdp.chay(tab.sessionId, `return ${TRONG_KHO(id.hop)};`);
+        ghi(
+          'hộp 5.3: `hủy` đóng hộp, mẩu còn nguyên, tiêu điểm về nút `xóa` của nó',
+          !sauHuy.hop && conSauHuy && sauHuy.mau === id.hop && sauHuy.lop.includes('mau-xoa'),
+          JSON.stringify(sauHuy),
+        );
+
+        await nhanPhim(ENTER);
+        await doi(`document.querySelector('.hop-thoai') !== null`);
+        await nhanPhim(TAB);
+        const oXoa = await dung();
+        await nhanPhim(ENTER);
+        await doi(`!(${TRONG_KHO(id.hop)})`);
+        await doi(`!(${TREN_LUOI(id.hop)})`);
+        await nghi(100);
+        const sauXoa = await dung();
+        const conSauXoa = await cdp.chay(tab.sessionId, `return ${TRONG_KHO(id.hop)};`);
+        ghi(
+          'hộp 5.3: `Tab` sang `xóa` rồi `Enter` — mẩu biến khỏi kho và lưới, tiêu điểm về `#o-soan`',
+          oXoa.lop.includes('hop-thoai-xoa') && !conSauXoa && !sauXoa.hop && sauXoa.id === 'o-soan',
+          `trước Enter ${JSON.stringify(oXoa)} · sau ${JSON.stringify(sauXoa)}`,
+        );
+      }
+
+      // ── Shift+Tab từ ô sửa sang `xóa` của chính mẩu đó, rồi `Enter` (E5#11) ───────────────
+      {
+        await datTieuDiem(thanMau(id.shift));
+        await nhanPhim(ENTER);
+        await doi(`document.activeElement !== null && document.activeElement.matches('.mau-sua')`);
+        const dangSua = await dung();
+        await nhanPhim({ ...TAB, shift: true });
+        // Lượt vẽ hoãn một nhịp `setTimeout` sau `roiCheDoSua()`: đợi ô sửa biến mất.
+        await doi(`document.querySelector('.mau-sua') === null`);
+        await nghi(100);
+        const sauShift = await dung();
+        ghi(
+          'Shift+Tab từ ô sửa: tiêu điểm Ở LẠI nút `xóa` của chính mẩu đó — không bị giật về thân',
+          dangSua.lop.includes('mau-sua') &&
+            sauShift.mau === id.shift &&
+            sauShift.lop.includes('mau-xoa'),
+          `đang sửa ${JSON.stringify(dangSua)} → ${JSON.stringify(sauShift)}`,
+        );
+        await nhanPhim(ENTER);
+        await doi(`document.querySelector('.hop-thoai') !== null`);
+        const sauEnter = await dung();
+        ghi(
+          'Shift+Tab rồi `Enter`: mở hộp hỏi về ĐÚNG mẩu đó — không vào lại chế độ sửa',
+          sauEnter.hop && sauEnter.hoi === id.shift &&
+            (await cdp.chay(tab.sessionId, `return document.querySelector('.mau-sua') === null;`)),
+          JSON.stringify(sauEnter),
+        );
+        await nhanPhim(ESC);
+        await doi(`document.querySelector('.hop-thoai') === null`);
+      }
+
+      // ── Rời ô sửa rỗng (Story 5.2): mẩu tự biến mất, tiêu điểm về `#o-soan` ──────────────
+      {
+        await datTieuDiem(thanMau(id.rong));
+        await nhanPhim(ENTER);
+        await doi(`document.activeElement !== null && document.activeElement.matches('.mau-sua')`);
+        await goVao('.mau-sua', '');
+        await nhanPhim({ ...TAB, shift: true });
+        await doi(`!(${TRONG_KHO(id.rong)})`);
+        await doi(`!(${TREN_LUOI(id.rong)})`);
+        await nghi(100);
+        const sauRong = await dung();
+        const conTrongKho = await cdp.chay(tab.sessionId, `return ${TRONG_KHO(id.rong)};`);
+        ghi(
+          'rời ô sửa rỗng: mẩu biến khỏi kho và lưới, không hỏi gì, tiêu điểm ở `#o-soan` — không `<body>`',
+          !conTrongKho && !sauRong.hop && !sauRong.body && sauRong.id === 'o-soan',
+          JSON.stringify(sauRong),
+        );
+      }
+
+      // ── Sửa một mẩu trong kết quả tìm tới khi hết khớp (E6#22) ───────────────────────────
+      {
+        await goVao('#o-tim', 'kqtim70');
+        await doi(TREN_LUOI(id.tim));
+        const chiMotMau = await cdp.chay(tab.sessionId, `return document.querySelectorAll('.luoi > [data-mau]').length;`);
+        await datTieuDiem(thanMau(id.tim));
+        await nhanPhim(ENTER);
+        await doi(`document.activeElement !== null && document.activeElement.matches('.mau-sua')`);
+        await goVao('.mau-sua', 'thu-7-0 đã hết khớp');
+        // Đợi hẹn tự lưu xuống kho: sau đó `notes` không còn khớp, nhưng lưới GÁC ô sửa đang gõ.
+        await doi(
+          `(await import('/app/main.js')).store.state.notes.some((x) => x.id === ${JSON.stringify(id.tim)} && x.text === 'thu-7-0 đã hết khớp')`,
+        );
+        const conKhiGo = await cdp.chay(tab.sessionId, `return ${TREN_LUOI(id.tim)};`);
+        await nhanPhim({ ...TAB, shift: true });
+        await doi(`!(${TREN_LUOI(id.tim)})`);
+        await nghi(100);
+        const sauTim = await dung();
+        const khongKhop = await cdp.chay(
+          tab.sessionId,
+          `return document.querySelector('.luoi-khong-khop') !== null;`,
+        );
+        ghi(
+          'sửa kết quả tìm tới hết khớp: mẩu đứng yên lúc gõ, biến mất khi rời, tiêu điểm về `#o-soan`',
+          chiMotMau === 1 && conKhiGo && khongKhop && !sauTim.body && sauTim.id === 'o-soan',
+          `khớp ${chiMotMau} mẩu · còn lúc gõ=${conKhiGo} · không khớp=${khongKhop} · ${JSON.stringify(sauTim)}`,
+        );
+        await goVao('#o-tim', '');
+      }
+    } finally {
+      const conLai = await cdp.chay(
+        tab.sessionId,
+        `
+        const m = await import('/app/main.js');
+        for (const id of ${JSON.stringify(Object.values(id).filter((x) => typeof x === 'string'))}) await m.store.xoaGhiChu(id);
+        return m.store.state.notes.length;
+      `,
+      );
+      ghi(
+        'Story 7.0: dọn sạch đúng những mẩu vừa tạo — kho trở lại y như trước',
+        conLai === khoTruoc,
+        `kho ${khoTruoc} → ${conLai} (đã tạo ${Object.keys(id).length})`,
+      );
+      await cdp.goi('Emulation.setFocusEmulationEnabled', { enabled: false }, tab.sessionId);
+      await cdp.taiLai(tab.sessionId);
+    }
+  }
 } finally {
   if (tab !== null) await cdp.dongTab(tab.targetId).catch(() => {});
   await cdp.dong();

@@ -13,9 +13,11 @@
 // `document` chỉ được hỏi tới bên trong `exportFile`. `test/trang-tinh.test.js` import động
 // `app/main.js` ở NODE, nơi không có `document` lẫn `Blob`.
 //
-// Adapter CỐ Ý không có test tự động (quy ước repo, như `broadcast.js`): mọi thứ ở đây là hành
-// vi của trình duyệt thật, và một bản giả của `URL.createObjectURL` chỉ nghiệm thu được rằng
-// tệp này gọi đúng bản giả đó. Đường kiểm thật là bước thủ công trong spec.
+// Test tự động phủ đúng MỘT nửa (quy ước repo, xem `test/adapter-session-store.test.js`):
+// `test/adapter-file-io.test.js` là ngoại lệ hẹp cho `readChosenFile` — nó chỉ cần một
+// `document` vài dòng, và nó là cửa mà toàn bộ chiều nạp đi qua. `exportFile` thì VẪN kiểm tay
+// (checklist trong `README.md`): mọi thứ ở đó là hành vi của trình duyệt thật, và một bản giả
+// của `URL.createObjectURL` chỉ nghiệm thu được rằng tệp này gọi đúng bản giả đó.
 
 /** Kiểu MIME của file sao lưu — nội dung là JSON, và trình duyệt phải được nói đúng điều đó. */
 const KIEU_JSON = 'application/json';

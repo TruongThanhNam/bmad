@@ -89,6 +89,97 @@ function congThat() {
  *  chuỗi này; bản thứ hai ở đây là khuôn trùng lặp có ý thức mà AD-19 cho phép. */
 const ID_O_SOAN = 'o-soan';
 
+/** Mệnh đề chọn "bất cứ mẩu nào" — dựng từ tên thuộc tính của `view/mau-giay.js`, không chép. */
+const CHON_MAU = `[${THUOC_TINH_MAU}]`;
+
+/** Ba VAI TRÒ một phần tử trong mẩu có thể giữ tiêu điểm: chính mẩu (thân, `tabindex="0"`),
+ *  nút `xóa`, và ô sửa. Không vai trò nào khác nhận được tiêu điểm trong một mẩu. */
+const VAI_THAN = 'than';
+const VAI_XOA = 'xoa';
+const VAI_SUA = 'sua';
+
+/**
+ * Neo tiêu điểm hiện tại: `{ id, vaiTro }` khi nó nằm trong một mẩu, `null` khi nằm ở ngoài.
+ *
+ * Vai trò đọc bằng `closest` chứ không bằng phép so với chính mẩu: nút `xóa` và ô sửa là CON
+ * của mẩu, và một phép thử "có phải chính mẩu không" đọc cả hai thành thân — đúng lỗi B2 của
+ * retro Epic 5 (Shift+Tab sang `xóa` bị giật về thân, và `Enter` kế tiếp vào lại chế độ sửa).
+ */
+function neoTuTieuDiem(goc) {
+  const dangDung = goc.activeElement ?? null;
+  if (dangDung === null || typeof dangDung.closest !== 'function') return null;
+  const mau = dangDung.closest(CHON_MAU);
+  if (mau === null) return null;
+  const id = mau.getAttribute(THUOC_TINH_MAU);
+  if (dangDung.closest(CHON_XOA) !== null) return { id, vaiTro: VAI_XOA };
+  if (dangDung.closest(CHON_SUA) !== null) return { id, vaiTro: VAI_SUA };
+  return { id, vaiTro: VAI_THAN };
+}
+
+/**
+ * Lượt vẽ GIỮ TIÊU ĐIỂM — hàm DUY NHẤT của ứng dụng vừa vẽ lại vừa đặt tiêu điểm (Story 7.0,
+ * gộp ba hàm `traTieuDiem` / `veGiuTieuDiem` / `dongRoiVe` cũ, retro Epic 5 B2+A2).
+ *
+ * Một lớp lỗi, ba nguồn: nút `✕` của dải băng, hộp thoại xác nhận, và `replaceChildren` của lưới
+ * đều GỠ khỏi DOM đúng phần tử đang giữ tiêu điểm ở chính lượt vẽ do chúng gây ra — và một phần
+ * tử đang focus bị gỡ thì focus rơi về `<body>`, nơi `Tab` tiếp theo bắt đầu lại từ đầu trang.
+ * Sản phẩm cố ý không có phím tắt, nên bàn phím là đường duy nhất và nó không được đứt. Ba bản
+ * chữa riêng đã trôi khỏi nhau một lần (bản của lưới neo vào mẩu và quên vai trò); một hàm thì
+ * không trôi được, và Story 7.1 thêm một nguồn vẽ lại thứ tư (bản tin từ tab khác).
+ *
+ * `neo` nói tiêu điểm phải về đâu SAU lượt vẽ:
+ *
+ * - `undefined` — giữ chỗ đang đứng. Neo chụp từ `goc.activeElement` TRƯỚC khi vẽ (sau thì
+ *   phần tử đã bị gỡ và `activeElement` là `<body>`). Tiêu điểm ở ngoài mọi mẩu thì không đụng
+ *   tới: `replaceChildren` của lưới không chạm được nó.
+ * - `null` — về ô soạn thảo: tầng 1, thứ `autofocus` của `index.html` đã chọn, chỗ Nam làm việc.
+ * - `{ id, vaiTro }` — về đúng phần tử mang vai trò đó của mẩu `id`: `'than'` là chính mẩu,
+ *   `'xoa'` là nút `xóa`, `'sua'` là ô sửa (không còn ô sửa thì lấy thân).
+ *
+ * Tìm mẩu theo `id` (`THUOC_TINH_MAU`), không theo vị trí trong danh sách con: lượt vẽ chạy
+ * `locGhiChu` lại với mốc "hôm nay" mới và khối điều kiện đang bật, nên nó có thể dựng một tập
+ * mẩu KHÁC — ô thứ `i` lúc đó là một ghi chú khác hẳn. Mẩu đã mất khỏi lưới (vừa bị xóa, hay
+ * trôi khỏi kết quả tìm) thì về ô soạn thảo: đẩy tiêu điểm sang một ghi chú không ai chọn còn
+ * tệ hơn, và để nó rơi về `<body>` là đứt đường bàn phím.
+ *
+ * EXPORT để test CHẠY được nó: khối `document` bên dưới không bao giờ chạy dưới Vitest, và một
+ * bộ quét regex vẫn xanh khi phép tìm đổi thành "nút xóa đầu tiên của trang".
+ *
+ * @param {{ activeElement?: Element|null, querySelector: Function, getElementById: Function }}
+ *   goc Gốc DOM — `document` ở trình duyệt, một gốc giả ở test.
+ * @param {() => void} veTatCa Lượt vẽ chung.
+ * @param {{ id: string, vaiTro: 'than'|'xoa'|'sua' } | null} [neo] Chỗ trả tiêu điểm về.
+ * @returns {void}
+ */
+export function veGiuTieuDiem(goc, veTatCa, neo) {
+  const dich = neo === undefined ? neoTuTieuDiem(goc) : neo;
+  // Chụp xong mới vẽ — thứ tự này là toàn bộ điểm của nhánh `undefined`.
+  veTatCa();
+  // Tiêu điểm đang ở ngoài mọi mẩu: lượt vẽ không chạm tới nó, nên không có gì để trả.
+  if (neo === undefined && dich === null) return;
+  const mau = dich === null ? null : mauTheoId(goc, dich.id);
+  if (mau !== null) {
+    phanTuTheoVai(mau, dich.vaiTro).focus();
+    return;
+  }
+  goc.getElementById(ID_O_SOAN)?.focus();
+}
+
+/** Mẩu mang `id` trong lưới HIỆN HÀNH (sau lượt vẽ), hay `null`. Chỉ xét con TRỰC TIẾP của
+ *  lưới; dòng "không khớp" và dòng "còn nhiều hơn" cũng là con, nhưng không mang `id` nào. */
+function mauTheoId(goc, id) {
+  const vungLuoi = goc.querySelector(CHON_LUOI) ?? null;
+  if (vungLuoi === null) return null;
+  return [...vungLuoi.children].find((moc) => moc.getAttribute(THUOC_TINH_MAU) === id) ?? null;
+}
+
+/** Phần tử mang vai trò đó trong mẩu. Ô sửa (hay nút) không còn thì lấy thân — chính mẩu. */
+function phanTuTheoVai(mau, vaiTro) {
+  if (vaiTro === VAI_XOA) return mau.querySelector(CHON_XOA) ?? mau;
+  if (vaiTro === VAI_SUA) return mau.querySelector(CHON_SUA) ?? mau;
+  return mau;
+}
+
 /**
  * Luồng xóa qua hộp thoại xác nhận (Story 5.3): bốn móc nối lưới và hộp thoại vào action của
  * lõi, kèm hai việc THỨ HAI mà chỉ tầng nối biết cách làm — gọi lượt vẽ và trả tiêu điểm.
@@ -98,42 +189,19 @@ const ID_O_SOAN = 'o-soan';
  * regex trên mã nguồn thì vẫn xanh khi phép tìm nút đổi thành "nút xóa đầu tiên của trang".
  * Mọi thứ nó chạm đi vào qua tham số — `goc` là `document` ở trình duyệt, một gốc giả ở test.
  *
+ * Tiêu điểm sau `hủy` và sau `xóa` về nút `xóa` của mẩu vừa được hỏi, qua `veGiuTieuDiem`: hộp
+ * thoại tự gỡ mình khỏi DOM ở đúng lượt vẽ do nó gây ra. Mẩu không còn (vừa bị xóa thật) thì
+ * hàm đó tự lui về ô soạn thảo.
+ *
  * @param {object} store Khối state của ứng dụng.
  * @param {{ querySelector: Function, getElementById: Function }} goc Gốc DOM.
  * @param {() => void} veTatCa Lượt vẽ chung của cả sáu view.
  * @param {() => Promise<void>} [choRoiSua] Lời hứa của lượt rời chế độ sửa đang treo, hỏi lại
  *   ở MỖI lần bấm. Mặc định là một lời hứa đã chốt.
  * @returns {{ moHoi: (id: string) => Promise<void>, huy: (id: string) => void,
- *   xoa: (id: string) => Promise<void>, traTieuDiem: (id: string) => void }}
+ *   xoa: (id: string) => Promise<void> }}
  */
 export function noiLuongXoa(store, goc, veTatCa, choRoiSua = () => Promise.resolve()) {
-  /**
-   * Trả tiêu điểm về nút `xóa` của mẩu vừa được hỏi, đường lui là ô soạn thảo.
-   *
-   * Cùng lớp lỗi với `dongRoiVe` và `veGiuTieuDiem`, cùng cách chữa: hộp thoại tự gỡ mình khỏi
-   * DOM ở đúng lượt vẽ do nó gây ra, và một phần tử đang focus bị gỡ đi thì focus rơi về
-   * `<body>` — `Tab` tiếp theo bắt đầu lại từ đầu trang. Sản phẩm cố ý không có phím tắt, nên
-   * bàn phím là đường duy nhất và nó không được đứt.
-   *
-   * Neo vào `id` chứ không vào vị trí, cùng lý do với `veGiuTieuDiem`: lượt vẽ vừa chạy có thể
-   * dựng một tập mẩu KHÁC. Mẩu không còn trên lưới (vừa bị xóa thật, hay trôi khỏi khung nhìn)
-   * thì về ô soạn thảo — đẩy tiêu điểm sang một ghi chú không ai chọn còn tệ hơn.
-   */
-  const traTieuDiem = (id) => {
-    const vungLuoi = goc.querySelector(CHON_LUOI);
-    const mau =
-      vungLuoi === null
-        ? undefined
-        : [...vungLuoi.children].find((moc) => moc.getAttribute(THUOC_TINH_MAU) === id);
-    const nut = mau === undefined ? null : mau.querySelector(CHON_XOA);
-    if (nut !== null) {
-      nut.focus();
-      return;
-    }
-    const o = goc.getElementById(ID_O_SOAN);
-    if (o !== null) o.focus();
-  };
-
   return {
     /**
      * Nút `xóa` của một mẩu: nó KHÔNG xóa, nó mở một câu hỏi. Và nó ĐỢI lượt rời chế độ sửa
@@ -151,8 +219,7 @@ export function noiLuongXoa(store, goc, veTatCa, choRoiSua = () => Promise.resol
      *  Không một phép ghi nào, nên không có gì để đợi. */
     huy(id) {
       store.dongXacNhanXoa();
-      veTatCa();
-      traTieuDiem(id);
+      veGiuTieuDiem(goc, veTatCa, { id, vaiTro: VAI_XOA });
     },
     /**
      * XÓA — đóng hộp và VẼ LẠI NGAY, rồi mới xóa.
@@ -165,15 +232,11 @@ export function noiLuongXoa(store, goc, veTatCa, choRoiSua = () => Promise.resol
      * thì mẩu còn nguyên, dải băng mang mã lỗi, và tiêu điểm ở lại đúng nút của nó.
      */
     xoa(id) {
+      const neo = { id, vaiTro: VAI_XOA };
       store.dongXacNhanXoa();
-      veTatCa();
-      traTieuDiem(id);
-      return store.xoaGhiChu(id).then(() => {
-        veTatCa();
-        traTieuDiem(id);
-      });
+      veGiuTieuDiem(goc, veTatCa, neo);
+      return store.xoaGhiChu(id).then(() => veGiuTieuDiem(goc, veTatCa, neo));
     },
-    traTieuDiem,
   };
 }
 
@@ -190,34 +253,6 @@ if (typeof document !== 'undefined') {
   // cách làm: gọi một lượt vẽ. Dự án không có cơ chế subscribe (xem chú thích ở
   // `view/luoi.js`), nên mọi phép đổi state xảy ra SAU một lời hứa chỉ hiện ra được nếu một
   // chỗ nối ở đây kéo theo một lượt vẽ.
-  /**
-   * Lượt vẽ GIỮ TIÊU ĐIỂM — cùng lớp lỗi với `dongRoiVe`, cùng cách chữa.
-   *
-   * `Tab` ra khỏi ô sửa đưa tiêu điểm tới điểm dừng kế tiếp, và điểm dừng đó nay nằm TRONG lưới
-   * (mọi mẩu mang `tabindex="0"` từ story này). Lượt vẽ sau đó `replaceChildren` cả lưới, tức
-   * gỡ đúng phần tử vừa nhận tiêu điểm — và tiêu điểm rơi về `<body>`, nơi `Tab` tiếp theo bắt
-   * đầu lại từ đầu trang. Sản phẩm cố ý không có phím tắt, nên bàn phím là đường duy nhất.
-   *
-   * Neo vào `id` của MẨU đang nhận tiêu điểm, không vào vị trí của nó trong danh sách con: lượt
-   * vẽ này chạy `locGhiChu` lại với một mốc "hôm nay" mới và khối điều kiện đang bật, nên nó có
-   * thể dựng một tập mẩu KHÁC — và lúc đó ô thứ `i` là một ghi chú khác hẳn. Mẩu biến mất khỏi
-   * lưới thì KHÔNG làm gì: đẩy tiêu điểm sang một ghi chú không ai chọn còn tệ hơn để nó rơi.
-   *
-   * Tiêu điểm ở ngoài lưới thì cũng không phải làm gì — `replaceChildren` không chạm tới nó.
-   */
-  const veGiuTieuDiem = () => {
-    const dangDung = document.activeElement;
-    const mauDangDung = dangDung === null ? null : dangDung.closest(`[${THUOC_TINH_MAU}]`);
-    const idGiu = mauDangDung === null ? null : mauDangDung.getAttribute(THUOC_TINH_MAU);
-    veTatCa();
-    if (idGiu === null) return;
-    const vungLuoi = document.querySelector(CHON_LUOI);
-    if (vungLuoi === null) return;
-    const thay = [...vungLuoi.children].find(
-      (moc) => moc.getAttribute(THUOC_TINH_MAU) === idGiu,
-    );
-    if (thay !== undefined) thay.focus();
-  };
   const vaoSuaRoiVe = (id, viTri) => {
     store.vaoCheDoSua(id);
     veTatCa();
@@ -256,7 +291,11 @@ if (typeof document !== 'undefined') {
       // TRƯỚC `mouseup` và `click`. Vẽ ngay thì phần tử chuột vừa bấm xuống bị thay ra trước khi
       // nhả chuột, trình duyệt phát `click` lên tổ tiên chung thay vì lên mẩu — cú bấm từ mẩu A
       // sang mẩu B bị mất, và Nam phải bấm hai lần.
-      setTimeout(veGiuTieuDiem);
+      //
+      // Và lượt vẽ đó GIỮ tiêu điểm ở chỗ nó vừa tới (neo `undefined`): `Tab` ra khỏi ô sửa đưa
+      // tiêu điểm tới một điểm dừng NẰM TRONG lưới — thân mẩu kế, hay nút `xóa` của chính mẩu
+      // này khi đi `Shift+Tab` — và `replaceChildren` sắp gỡ đúng phần tử đó.
+      setTimeout(() => veGiuTieuDiem(document, veTatCa));
     });
   };
   const mocSua = {
@@ -266,8 +305,12 @@ if (typeof document !== 'undefined') {
     // của action, tức nó chạy khi phép ghi ĐÃ XONG hoặc ĐÃ HỎNG: đó là lúc `notes` mang chữ mới
     // (lưới phải hiện nó) hay `banner` mang một mã lỗi (dải băng phải hiện ra). `luoi.ve` tự
     // gác để `<textarea>` đang gõ không bị thay ra bởi lượt vẽ này.
+    //
+    // Và lượt vẽ đó GIỮ tiêu điểm (neo `undefined`, Story 7.0): rời ô sửa của một kết quả tìm
+    // TRƯỚC khi hẹn `AUTOSAVE_MS` nổ thì lượt vẽ hoãn của `roi` còn thấy chữ cũ, và chính lượt vẽ
+    // của `put` này mới gỡ mẩu hết khớp — cùng lúc gỡ nút `xóa` mà `Shift+Tab` vừa đặt tiêu điểm.
     go: (id, text) => {
-      store.tuLuuNoiDung(id, text).then(veTatCa);
+      store.tuLuuNoiDung(id, text).then(() => veGiuTieuDiem(document, veTatCa));
     },
     // Nút `xóa` của mỗi mẩu (Story 5.3) — nó mở một câu hỏi, không xóa. Hành vi sống ở
     // `noiLuongXoa` phía trên khối này, nơi test chạy được nó; đây chỉ là chỗ cắm.
@@ -295,23 +338,13 @@ if (typeof document !== 'undefined') {
   // Callback là một hàm khai ở đây chứ không phải thẳng `veTatCa`: `veTatCa` được khai ngay bên
   // dưới và nó phải gọi được `banner.ve`, nên hai thứ tham chiếu vòng lại nhau — một lớp bọc
   // lười là cách duy nhất không phải tách lượt vẽ của dải băng ra khỏi lượt vẽ chung. Và nó
-  // còn làm một việc thứ hai mà chỉ file này biết cách làm: TRẢ FOCUS.
-  //
-  // Nút `✕` tự gỡ mình khỏi DOM ở đúng lượt vẽ do nó gây ra, và một phần tử đang focus bị gỡ
-  // đi thì focus rơi về `<body>` — người dùng bàn phím mất chỗ đứng, và `Tab` tiếp theo bắt
-  // đầu lại từ đầu trang. Sản phẩm cố ý KHÔNG có phím tắt, nên bàn phím là đường duy nhất và
-  // nó không được đứt. Ô soạn thảo là chỗ trả về đúng: nó là tầng 1, là thứ `autofocus` của
-  // `index.html` đã chọn lúc tải, và là chỗ Nam đang làm việc.
+  // còn làm một việc thứ hai mà chỉ file này biết cách làm: TRẢ FOCUS về ô soạn thảo (neo
+  // `null` của `veGiuTieuDiem`) — nút `✕` tự gỡ mình khỏi DOM ở đúng lượt vẽ do nó gây ra.
   //
   // `view/banner.js` KHÔNG được biết tới ô soạn thảo: hai view không biết nhau, chỉ file này
-  // biết cả bốn. Chuỗi `'o-soan'` vì thế bị viết lần thứ hai ở đây (`index.html` mang bản đầu),
-  // đúng khuôn trùng lặp có ý thức mà AD-19 cho phép — `ID_O_SOAN` khai ở đầu tệp, cạnh
-  // `noiLuongXoa`, vì luồng xóa cũng trả tiêu điểm về đó.
-  const dongRoiVe = () => {
-    veTatCa();
-    const o = document.getElementById(ID_O_SOAN);
-    if (o !== null) o.focus();
-  };
+  // biết cả hai. Chuỗi `'o-soan'` vì thế bị viết lần thứ hai ở đầu tệp (`index.html` mang bản
+  // đầu), đúng khuôn trùng lặp có ý thức mà AD-19 cho phép.
+  const dongRoiVe = () => veGiuTieuDiem(document, veTatCa, null);
   const banner = noiBanner(store, document, dongRoiVe);
   // Nút theme là view THỨ TƯ, và nó nối SAU ba view trên: thứ tự nối của chúng không đổi một
   // dòng. Nó vẽ từ đúng MỘT giá trị state (`theme`) và đặt `data-theme` trên `<html>` — nên nó
@@ -340,15 +373,24 @@ if (typeof document !== 'undefined') {
   // Khay tìm là view THỨ BẢY (Story 6.1), nối SAU sáu view trên. Nó phát `datDieuKien` mỗi phím
   // rồi gọi lượt vẽ chung — lớp bọc lười vì `veTatCa` khai ngay bên dưới, cùng khuôn `latRoiVe`.
   const khayTim = noiKhayTim(store, document, () => veTatCa());
-  // Hàng chip là view THỨ TÁM (Story 6.3). Nút `về hôm nay` về khung nhìn mặc định trong MỘT
-  // thao tác: xóa điều kiện, xóa cả ngày gõ dở (không ở trong state nên `ve()` không thấy), vẽ
-  // lại, rồi trả tiêu điểm về ô soạn thảo — nút vừa bấm tự biến mất ở chính lượt vẽ đó.
-  const veHomNay = () => {
+  // Xóa điều kiện tra cứu — ĐƯỜNG DUY NHẤT, cho mọi chỗ gọi (retro Epic 6, A1). Hai nửa đi
+  // cùng nhau hoặc không đi: chữ gõ dở của ô ngày KHÔNG nằm trong state, nên khi `date` vốn đã
+  // `null` thì `khayTim.ve()` không thấy lần xóa nào và chữ dở ở lại trong ô. Một đường xóa mới
+  // (Story 7.1 sẽ thêm) gọi hàm này, không gọi riêng một nửa — `test/luoi.test.js` ghim rằng
+  // `xoaHetDieuKien(` và `xoaNhap(` mỗi thứ chỉ xuất hiện đúng một lần trong tệp này.
+  //
+  // `store.xoaHetDieuKien()` ở đường chốt là lần thứ hai (`chotBanNhap` đã tự xóa trong lõi), và
+  // lần thứ hai đó vô hại: điều kiện đã rỗng thì nó không đổi gì.
+  const xoaHetDieuKienVaNhap = () => {
     store.xoaHetDieuKien();
     khayTim.xoaNhap();
-    veTatCa();
-    const o = document.getElementById(ID_O_SOAN);
-    if (o !== null) o.focus();
+  };
+  // Hàng chip là view THỨ TÁM (Story 6.3). Nút `về hôm nay` về khung nhìn mặc định trong MỘT
+  // thao tác: xóa điều kiện cùng ngày gõ dở, vẽ lại, rồi trả tiêu điểm về ô soạn thảo — nút vừa
+  // bấm tự biến mất ở chính lượt vẽ đó.
+  const veHomNay = () => {
+    xoaHetDieuKienVaNhap();
+    veGiuTieuDiem(document, veTatCa, null);
   };
   const hangChip = noiHangChip(store, document, undefined, veHomNay);
   // Một callback vẽ chung cho MỌI view: đây là chỗ DUY NHẤT biết rằng "vẽ lại" nghĩa là vẽ lại
@@ -391,10 +433,10 @@ if (typeof document !== 'undefined') {
   // các view không biết nhau, chỉ file này biết cả ba.
   //
   // Chốt đã xóa điều kiện thì ô ngày cũng phải về rỗng, kể cả chữ gõ dở chưa từng vào state —
-  // `ve()` không thấy được lần xóa đó khi `date` vốn đã `null`. Chốt thoát sớm (ô soạn rỗng,
-  // chữ vượt trần) thì điều kiện còn nguyên, và ngày đang gõ dở cũng phải còn nguyên.
+  // qua `xoaHetDieuKienVaNhap`, đường xóa duy nhất. Chốt thoát sớm (ô soạn rỗng, chữ vượt trần)
+  // thì điều kiện còn nguyên, và ngày đang gõ dở cũng phải còn nguyên.
   const veSauChot = (daXoaDieuKien) => {
-    if (daXoaDieuKien) khayTim.xoaNhap();
+    if (daXoaDieuKien) xoaHetDieuKienVaNhap();
     veTatCa();
   };
   const oSoan = noiOSoan(store, document, veSauChot);
