@@ -206,17 +206,23 @@ export function noiHopThoai(store, goc = document, sauKhiDong = () => {}, sauKhi
     // ở một nhánh nào là để trình duyệt đưa tiêu điểm ra nền, nơi một cú `Enter` bấm vào một
     // điều khiển người dùng không nhìn thấy.
     const luaChon = [huy, xoa];
-    // Cú bấm vào CHỮ hay vào khoảng đệm của hộp KHÔNG được lấy tiêu điểm khỏi hai nút.
+    // Cú bấm vào CHỮ, vào khoảng đệm của hộp, hay vào VÙNG MỜ quanh nó KHÔNG được lấy tiêu điểm
+    // khỏi hai nút.
     //
     // Đây không phải chuyện thẩm mỹ: cả hai bộ nghe bàn phím sống trên `hop`, và chúng chỉ nhận
     // được phím vì phím nổi bọt lên từ một phần tử BÊN TRONG đang giữ tiêu điểm. Để tiêu điểm
     // rơi về `<body>` là `Esc` chết và `Tab` hết bị chặn — tức hộp thoại vẫn hiện ra nhưng phép
     // giam đã tắt, và không một lượt vẽ nào nói cho ai biết.
     //
+    // Bộ nghe gắn trên `nen` chứ không trên `hop`: `nen` bọc cả hộp, nên một bộ nghe phủ được cả
+    // hai chỗ. Gắn trên `hop` thì một cú nhấn trên vùng mờ vẫn đẩy tiêu điểm đi — và nếu đó là
+    // một cú KÉO nhả ra ngoài vùng mờ thì không có `click` nào tới để đóng hộp, tức hộp ở lại
+    // trên màn hình với phép giam đã tắt.
+    //
     // `mousedown` chứ không `pointerdown` (bộ quét của `test/chuyen-dong-va-tin-hieu.test.js`
     // chặn cái sau), và `preventDefault` ở đây chỉ bỏ đúng một hành vi mặc định: phép DỜI tiêu
     // điểm. Sự kiện `click` vẫn phát bình thường, nên hai nút và overlay không đổi gì.
-    hop.addEventListener('mousedown', (suKien) => {
+    nen.addEventListener('mousedown', (suKien) => {
       if (luaChon.includes(suKien.target)) return;
       suKien.preventDefault?.();
     });

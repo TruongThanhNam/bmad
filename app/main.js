@@ -83,6 +83,98 @@ function congThat() {
   };
 }
 
+/** `id` của ô soạn thảo — đường lui của mọi phép trả tiêu điểm. `index.html` mang bản đầu của
+ *  chuỗi này; bản thứ hai ở đây là khuôn trùng lặp có ý thức mà AD-19 cho phép. */
+const ID_O_SOAN = 'o-soan';
+
+/**
+ * Luồng xóa qua hộp thoại xác nhận (Story 5.3): bốn móc nối lưới và hộp thoại vào action của
+ * lõi, kèm hai việc THỨ HAI mà chỉ tầng nối biết cách làm — gọi lượt vẽ và trả tiêu điểm.
+ *
+ * Nó là một hàm EXPORT chứ không là bốn closure trong khối `document` bên dưới vì một lý do: chỉ
+ * như vậy thì test mới CHẠY được nó. Khối kia không bao giờ chạy dưới Vitest, và một bộ quét
+ * regex trên mã nguồn thì vẫn xanh khi phép tìm nút đổi thành "nút xóa đầu tiên của trang".
+ * Mọi thứ nó chạm đi vào qua tham số — `goc` là `document` ở trình duyệt, một gốc giả ở test.
+ *
+ * @param {object} store Khối state của ứng dụng.
+ * @param {{ querySelector: Function, getElementById: Function }} goc Gốc DOM.
+ * @param {() => void} veTatCa Lượt vẽ chung của cả sáu view.
+ * @param {() => Promise<void>} [choRoiSua] Lời hứa của lượt rời chế độ sửa đang treo, hỏi lại
+ *   ở MỖI lần bấm. Mặc định là một lời hứa đã chốt.
+ * @returns {{ moHoi: (id: string) => Promise<void>, huy: (id: string) => void,
+ *   xoa: (id: string) => Promise<void>, traTieuDiem: (id: string) => void }}
+ */
+export function noiLuongXoa(store, goc, veTatCa, choRoiSua = () => Promise.resolve()) {
+  /**
+   * Trả tiêu điểm về nút `xóa` của mẩu vừa được hỏi, đường lui là ô soạn thảo.
+   *
+   * Cùng lớp lỗi với `dongRoiVe` và `veGiuTieuDiem`, cùng cách chữa: hộp thoại tự gỡ mình khỏi
+   * DOM ở đúng lượt vẽ do nó gây ra, và một phần tử đang focus bị gỡ đi thì focus rơi về
+   * `<body>` — `Tab` tiếp theo bắt đầu lại từ đầu trang. Sản phẩm cố ý không có phím tắt, nên
+   * bàn phím là đường duy nhất và nó không được đứt.
+   *
+   * Neo vào `id` chứ không vào vị trí, cùng lý do với `veGiuTieuDiem`: lượt vẽ vừa chạy có thể
+   * dựng một tập mẩu KHÁC. Mẩu không còn trên lưới (vừa bị xóa thật, hay trôi khỏi khung nhìn)
+   * thì về ô soạn thảo — đẩy tiêu điểm sang một ghi chú không ai chọn còn tệ hơn.
+   */
+  const traTieuDiem = (id) => {
+    const vungLuoi = goc.querySelector(CHON_LUOI);
+    const mau =
+      vungLuoi === null
+        ? undefined
+        : [...vungLuoi.children].find((moc) => moc.getAttribute(THUOC_TINH_MAU) === id);
+    const nut = mau === undefined ? null : mau.querySelector(CHON_XOA);
+    if (nut !== null) {
+      nut.focus();
+      return;
+    }
+    const o = goc.getElementById(ID_O_SOAN);
+    if (o !== null) o.focus();
+  };
+
+  return {
+    /**
+     * Nút `xóa` của một mẩu: nó KHÔNG xóa, nó mở một câu hỏi. Và nó ĐỢI lượt rời chế độ sửa
+     * đang treo (nếu có) xong trước: `blur` đi trước `click` nhưng `roiCheDoSua()` là bất đồng
+     * bộ, nên mở hộp ngay là hỏi về một mẩu có thể đang trên đường bị xóa (Story 5.2) — hộp
+     * NHÁY MỞ rồi tự đóng. Không có lượt nào thì lời hứa đã chốt, và sự chậm là một microtask.
+     */
+    moHoi(id) {
+      return choRoiSua().then(() => {
+        store.moXacNhanXoa(id);
+        veTatCa();
+      });
+    },
+    /** HỦY — `hủy`, `Esc` và click overlay đi chung một đường: đóng, vẽ lại, trả tiêu điểm.
+     *  Không một phép ghi nào, nên không có gì để đợi. */
+    huy(id) {
+      store.dongXacNhanXoa();
+      veTatCa();
+      traTieuDiem(id);
+    },
+    /**
+     * XÓA — đóng hộp và VẼ LẠI NGAY, rồi mới xóa.
+     *
+     * Lượt vẽ ngay là điều kiện chứ không phải thẩm mỹ: `xoaGhiChu` ghi xuống kho trước, nên
+     * trong khe chờ đó hộp thoại vẫn còn trong DOM nếu không ai gỡ nó — một cú bấm `xóa` thứ
+     * hai gọi `remove` lần nữa, và một cú `hủy` cho người dùng thấy "đã hủy" rồi mẩu vẫn biến
+     * mất. Tiêu điểm về nút của mẩu (nó còn sống trong khe chờ), rồi lượt vẽ thứ hai treo vào
+     * LỜI HỨA của `xoaGhiChu`: ghi được thì mẩu biến mất và tiêu điểm về ô soạn thảo, ghi hỏng
+     * thì mẩu còn nguyên, dải băng mang mã lỗi, và tiêu điểm ở lại đúng nút của nó.
+     */
+    xoa(id) {
+      store.dongXacNhanXoa();
+      veTatCa();
+      traTieuDiem(id);
+      return store.xoaGhiChu(id).then(() => {
+        veTatCa();
+        traTieuDiem(id);
+      });
+    },
+    traTieuDiem,
+  };
+}
+
 /** Khối state duy nhất của ứng dụng. */
 export const store = taoStore(congThat());
 
@@ -175,69 +267,18 @@ if (typeof document !== 'undefined') {
     go: (id, text) => {
       store.tuLuuNoiDung(id, text).then(veTatCa);
     },
-    // Nút `xóa` của mỗi mẩu (Story 5.3). Nó KHÔNG xóa: nó mở một câu hỏi, và câu hỏi đó là một
-    // trường state như mọi thứ khác. Sản phẩm không có hoàn tác và không có thùng rác, nên
-    // đường xóa thật phải đi qua đúng một bước xác nhận.
-    // Và nó ĐỢI lượt rời chế độ sửa đang treo (nếu có) xong trước: `blur` đi trước `click`
-    // nhưng `roiCheDoSua()` là bất đồng bộ, nên mở hộp ngay là hỏi về một mẩu có thể đang trên
-    // đường bị xóa. Chưa có lượt nào thì `luotRoiSua` là một lời hứa đã chốt, và `.then` của nó
-    // chạy ở microtask kế — không có khung hình nào nhìn thấy sự chậm đó.
+    // Nút `xóa` của mỗi mẩu (Story 5.3) — nó mở một câu hỏi, không xóa. Hành vi sống ở
+    // `noiLuongXoa` phía trên khối này, nơi test chạy được nó; đây chỉ là chỗ cắm.
     xoa: (id) => {
-      luotRoiSua.then(() => {
-        store.moXacNhanXoa(id);
-        veTatCa();
-      });
+      luongXoa.moHoi(id);
     },
   };
   // ── Xóa qua hộp thoại xác nhận (Story 5.3) ─────────────────────────────────────────────
   //
-  // Ba hàm, và cả ba làm một việc THỨ HAI mà chỉ file này biết cách làm — gọi một lượt vẽ, và
-  // với hai hàm đóng thì còn trả TIÊU ĐIỂM về đúng chỗ. `view/hop-thoai.js` không biết lưới
-  // tồn tại, đúng như `view/banner.js` không biết ô soạn thảo tồn tại.
-  /**
-   * Trả tiêu điểm về nút `xóa` của mẩu vừa được hỏi, đường lui là ô soạn thảo.
-   *
-   * Cùng lớp lỗi với `dongRoiVe` và `veGiuTieuDiem`, cùng cách chữa: hộp thoại tự gỡ mình khỏi
-   * DOM ở đúng lượt vẽ do nó gây ra, và một phần tử đang focus bị gỡ đi thì focus rơi về
-   * `<body>` — `Tab` tiếp theo bắt đầu lại từ đầu trang. Sản phẩm cố ý không có phím tắt, nên
-   * bàn phím là đường duy nhất và nó không được đứt.
-   *
-   * Neo vào `id` chứ không vào vị trí, cùng lý do với `veGiuTieuDiem`: lượt vẽ vừa chạy có thể
-   * dựng một tập mẩu KHÁC. Mẩu không còn trên lưới (vừa bị xóa thật, hay trôi khỏi khung nhìn)
-   * thì về ô soạn thảo — đẩy tiêu điểm sang một ghi chú không ai chọn còn tệ hơn.
-   */
-  const traTieuDiemVeNutXoa = (id) => {
-    const vungLuoi = document.querySelector(CHON_LUOI);
-    const mau =
-      vungLuoi === null
-        ? undefined
-        : [...vungLuoi.children].find((moc) => moc.getAttribute(THUOC_TINH_MAU) === id);
-    const nut = mau === undefined ? null : mau.querySelector(CHON_XOA);
-    if (nut !== null && nut !== undefined) {
-      nut.focus();
-      return;
-    }
-    const o = document.getElementById(ID_O_SOAN);
-    if (o !== null) o.focus();
-  };
-  /** HỦY — `hủy`, `Esc` và click overlay đi chung một đường: đóng, vẽ lại, trả tiêu điểm.
-   *  Không một phép ghi nào, nên không có gì để đợi và lượt vẽ chạy ngay. */
-  const dongHopThoaiRoiVe = (id) => {
-    store.dongXacNhanXoa();
-    veTatCa();
-    traTieuDiemVeNutXoa(id);
-  };
-  /** XÓA — đóng hộp TRƯỚC, rồi xóa. Lượt vẽ treo vào LỜI HỨA của `xoaGhiChu` (khuôn `mocSua.go`
-   *  ngay trên): dự án không có subscribe, nên `notes` mất một mẩu — hay dải băng mang một mã
-   *  lỗi vì kho từ chối — chỉ hiện ra được ở đó. Ghi hỏng thì mẩu còn nguyên trên lưới, và tiêu
-   *  điểm về lại đúng nút `xóa` của nó. */
-  const xoaRoiVe = (id) => {
-    store.dongXacNhanXoa();
-    store.xoaGhiChu(id).then(() => {
-      veTatCa();
-      traTieuDiemVeNutXoa(id);
-    });
-  };
+  // `luotRoiSua` đi vào qua một HÀM chứ không qua giá trị: nó bị gán lại ở mỗi lần rời chế độ
+  // sửa, và móc phải đợi lượt rời MỚI NHẤT, không phải lượt có lúc nối. `veTatCa` bọc lười vì
+  // nó khai ở bên dưới, cùng khuôn `latRoiVe`.
+  const luongXoa = noiLuongXoa(store, document, () => veTatCa(), () => luotRoiSua);
   // `undefined` cho tham số thứ ba: nguồn mốc hiện tại giữ mặc định `nowIso` của
   // `core/time.js` — chỉ test bố cục mới truyền một mốc cố định vào đó.
   const luoi = noiLuoi(store, document, undefined, mocSua);
@@ -262,8 +303,8 @@ if (typeof document !== 'undefined') {
   //
   // `view/banner.js` KHÔNG được biết tới ô soạn thảo: hai view không biết nhau, chỉ file này
   // biết cả bốn. Chuỗi `'o-soan'` vì thế bị viết lần thứ hai ở đây (`index.html` mang bản đầu),
-  // đúng khuôn trùng lặp có ý thức mà AD-19 cho phép.
-  const ID_O_SOAN = 'o-soan';
+  // đúng khuôn trùng lặp có ý thức mà AD-19 cho phép — `ID_O_SOAN` khai ở đầu tệp, cạnh
+  // `noiLuongXoa`, vì luồng xóa cũng trả tiêu điểm về đó.
   const dongRoiVe = () => {
     veTatCa();
     const o = document.getElementById(ID_O_SOAN);
@@ -293,7 +334,7 @@ if (typeof document !== 'undefined') {
   //
   // Hai móc đi vào qua THAM SỐ, cùng khuôn `sauKhiDong` của dải băng: chỉ file này biết chỗ
   // trả tiêu điểm về, và chỉ file này được phép vừa gọi action vừa gọi một lượt vẽ.
-  const hopThoai = noiHopThoai(store, document, dongHopThoaiRoiVe, xoaRoiVe);
+  const hopThoai = noiHopThoai(store, document, luongXoa.huy, luongXoa.xoa);
   // Một callback vẽ chung cho cả SÁU view: đây là chỗ DUY NHẤT biết rằng "vẽ lại" nghĩa là
   // vẽ lại cả sáu. Treo riêng từng cái vào từng điểm nối là cách một view mới bị quên ở một
   // trong hai chỗ, và tiêu đề sẽ đứng yên sau lần chốt mà không làm gì đỏ cả.

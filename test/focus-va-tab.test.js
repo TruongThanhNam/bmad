@@ -572,7 +572,7 @@ describe('(c) mọi điều khiển đều có một vòng sáng lấy màu từ
   });
 });
 
-describe('(d) hai quyết định của story, ghim thành bất biến chứ không bỏ qua trong im lặng', () => {
+describe('(d) các quyết định của story, ghim thành bất biến chứ không bỏ qua trong im lặng', () => {
   const maMau = readFileSync(join(repoRoot, 'app', 'view', 'mau-giay.js'), 'utf8');
 
   it('QĐ-1 đã ĐỔI CHIỀU ở Story 5.3: `.mau-xoa` KHÔNG còn `tabindex="-1"`', () => {

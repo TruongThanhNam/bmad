@@ -16,8 +16,10 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { MA_LOI, loiUngDung } from '../app/core/errors.js';
 import { fold } from '../app/core/fold.js';
 import { taoStore } from '../app/core/state.js';
+import { noiLuongXoa } from '../app/main.js';
 import { PORT_METHODS } from '../app/ports/index.js';
 import { noiHopThoai } from '../app/view/hop-thoai.js';
 import { boChuThichJs } from './helpers/quet-nguon.js';
@@ -157,18 +159,56 @@ function ban(id, text) {
   return { id, createdAt, localDate: createdAt.slice(0, 10), text, textFolded: fold(text) };
 }
 
-function storeVoiKho(ghiChu = []) {
+function storeVoiKho(ghiChu = [], remove = () => Promise.resolve()) {
   const ports = portsDay();
   ports.noteStore = {
     ...ports.noteStore,
     readAll: () => Promise.resolve(ghiChu),
-    remove: () => Promise.resolve(),
+    remove,
     // Hẹn tự lưu của `tuLuuNoiDung` có thể nổ ra sau khi ca test đã xong (nó là một
     // `setTimeout` thật). Cho nó một cửa im lặng thay vì để `portsDay()` ném ở một chỗ không ca
     // nào bắt — phép ghi đó không phải thứ tệp này hỏi về.
     put: () => Promise.resolve(),
   };
   return taoStore(ports);
+}
+
+/**
+ * Gốc DOM giả cho `noiLuongXoa`: một lưới dựng lại TỪ STATE ở mỗi lượt vẽ, bằng phần tử MỚI —
+ * đúng như `replaceChildren` của `view/luoi.js`. Đó là điều kiện để các ca dưới đây có nghĩa:
+ * một phép trả tiêu điểm chạy TRƯỚC lượt vẽ đặt tiêu điểm lên một nút đã bị gỡ khỏi lưới, và
+ * `nutXoaCua` (đọc lưới HIỆN HÀNH) không bao giờ trả về nút đó.
+ */
+function gocLuoiGia(store) {
+  const oSoan = {
+    ten: 'o-soan',
+    focus() {
+      tieuDiem = this;
+    },
+  };
+  const luoi = { children: [] };
+  const ve = () => {
+    luoi.children = store.state.notes.map((note) => {
+      const nut = {
+        ten: `xoa:${note.id}`,
+        focus() {
+          tieuDiem = this;
+        },
+      };
+      return {
+        getAttribute: (ten) => (ten === 'data-mau' ? note.id : null),
+        querySelector: (chon) => (chon === '.mau-xoa' ? nut : null),
+        nut,
+      };
+    });
+  };
+  ve();
+  const goc = {
+    querySelector: (chon) => (chon === '.luoi' ? luoi : null),
+    getElementById: (id) => (id === 'o-soan' ? oSoan : null),
+  };
+  const nutXoaCua = (id) => luoi.children.find((mau) => mau.getAttribute('data-mau') === id)?.nut;
+  return { goc, ve, oSoan, nutXoaCua };
 }
 
 /** Store đã nạp sẵn hai mẩu, hộp thoại đã nối, và một nhật ký hai móc. */
@@ -430,6 +470,27 @@ describe('noiHopThoai — tiêu điểm mở ở `hủy` và bị giam giữa đ
     expect(tieuDiem).toBe(theoLop(nen, 'hop-thoai-xoa'));
   });
 
+  it('nhấn chuột trên VÙNG MỜ cũng không lấy tiêu điểm đi — kể cả một cú kéo không thành `click`', async () => {
+    // Bộ nghe giữ tiêu điểm sống trên `nen`, không trên `hop`. Gắn trên `hop` thì cú nhấn trên
+    // vùng mờ vẫn đẩy tiêu điểm về `<body>`, và nếu đó là một cú KÉO nhả ra ngoài vùng mờ thì
+    // không có `click` nào tới để đóng hộp: hộp ở lại trên màn hình với phép giam đã tắt.
+    const { store, chuNha, nhatKy, hop } = await dungCanh();
+    store.moXacNhanXoa('a');
+    hop.ve();
+    const nen = chuNha.con[0];
+    const huy = theoLop(nen, 'hop-thoai-chon');
+
+    // Chỉ nhịp `mousedown` — cú kéo nhả ra ngoài, không `click` nào theo sau.
+    const xuong = phat(nen, 'mousedown');
+    expect(xuong.daChanMacDinh).toBe(true);
+    expect(tieuDiem).toBe(huy);
+    expect(nhatKy).toEqual([]);
+
+    // Và phép giam còn sống: `Esc` vẫn hủy được.
+    phat(theoLop(nen, 'hop-thoai'), 'keydown', { key: 'Escape', target: huy });
+    expect(nhatKy).toEqual(['dong:a']);
+  });
+
   it('bấm chuột vào một NÚT thì tiêu điểm đi bình thường — phép giữ hẹp đúng bằng phần còn lại', async () => {
     // Vế âm tính: một phép chặn viết rộng tay sẽ giữ tiêu điểm lại cả khi bấm vào chính nút, và
     // `:focus-visible` cùng thứ tự `Tab` sau đó đọc ra một chỗ đứng không phải chỗ vừa bấm.
@@ -510,25 +571,53 @@ describe('noiHopThoai — không hỏi về một mẩu không còn tồn tại'
     // sẵn. `blur` chạy trước `click`, nhưng `roiCheDoSua()` là BẤT ĐỒNG BỘ: lúc cú bấm vào nút
     // `xóa` tới nơi, `notes` VẪN còn mẩu đó. Mở hộp ngay lúc đó là hộp hiện ra cho một mẩu đang
     // trên đường chết, rồi tự đóng ở lượt vẽ sau — một cú nháy, và một câu hỏi về hư không.
-    const { store, chuNha, hop } = await dungCanh();
+    //
+    // Phép `remove` bị GIỮ LẠI cho tới khi ca này thả nó: một kho trả lời ngay thì phép xóa xong
+    // trong vài microtask, trước cả khi một móc KHÔNG đợi kịp chạy — và ca xanh vì lý do sai.
+    let thaXoa;
+    const store = storeVoiKho(
+      [ban('a', 'phở'), ban('b', 'bún')],
+      () =>
+        new Promise((giai) => {
+          thaXoa = giai;
+        }),
+    );
+    await store.khoiDong();
+    const chuNha = chuNhaGia();
+    const hop = noiHopThoai(store, gocGia(chuNha), () => {}, () => {});
     store.vaoCheDoSua('a');
     store.tuLuuNoiDung('a', '   ');
 
-    // `blur`: khởi động lượt rời, KHÔNG await — đúng như `app/main.js` làm.
-    const luotRoiSua = store.roiCheDoSua();
+    // Móc THẬT của `app/main.js`, không một bản chép lại trong test: bản chép thì xanh cả khi
+    // mã thật quên đợi. Mỗi lượt vẽ ghi lại hộp có đang hiện hay không.
+    const daThayHop = [];
+    let luotRoiSua = Promise.resolve();
+    const luong = noiLuongXoa(
+      store,
+      gocLuoiGia(store).goc,
+      () => {
+        hop.ve();
+        daThayHop.push(chuNha.con.length > 0);
+      },
+      () => luotRoiSua,
+    );
+
+    // `blur`: khởi động lượt rời, KHÔNG await — đúng như `roiSuaRoiVe` làm.
+    luotRoiSua = store.roiCheDoSua();
     // Chứng minh cái bẫy có thật: ngay lúc này mẩu vẫn còn, nên mở hộp ngay là hộp MỞ RA.
     expect(store.state.notes.map((mau) => mau.id)).toEqual(['a', 'b']);
 
-    // `click` của nút `xóa`: móc `xoa` treo mình vào lượt rời đang bay thay vì chạy ngay.
-    luotRoiSua.then(() => {
-      store.moXacNhanXoa('a');
-      hop.ve();
-    });
+    // `click` của nút `xóa` — tới trong lúc phép xóa của lượt rời còn đang bay.
+    const moXong = luong.moHoi('a');
+    for (let i = 0; i < 10; i += 1) await Promise.resolve();
+    // Móc đang ĐỢI: chưa một lượt vẽ nào chạy, nên chưa có gì để nháy.
+    expect(daThayHop).toEqual([]);
 
-    await luotRoiSua;
-    await Promise.resolve();
+    thaXoa();
+    await moXong;
     // Không một lượt vẽ nào từng thấy hộp mở: mẩu đã chết trước khi câu hỏi được đặt ra.
     expect(store.state.notes.map((mau) => mau.id)).toEqual(['b']);
+    expect(daThayHop).toEqual([false]);
     expect(chuNha.con).toEqual([]);
   });
 
@@ -602,56 +691,24 @@ describe('app/view/hop-thoai.js — luật của tầng view, cưỡng chế đ�
     expect(moc[1]).toBe('');
   });
 
-  it('app/main.js nối view THỨ SÁU và hai móc của nó, đúng thứ tự đã chốt', () => {
-    // Bốn nửa, và cả bốn vỡ trong im lặng:
-    //
-    //   (1) `xoaRoiVe` phải ĐÓNG hộp TRƯỚC rồi mới xóa — đóng sau thì một phép ghi bị từ chối
-    //       để lại hộp thoại trên màn hình với một mẩu vẫn còn sống bên dưới.
-    //   (2) và nó phải treo lượt vẽ vào LỜI HỨA của `xoaGhiChu`: dự án không có subscribe, nên
-    //       `notes` mất một mẩu (hay dải băng mang một mã lỗi) chỉ hiện ra được ở đó.
-    //   (3) `dongHopThoaiRoiVe` phải TRẢ TIÊU ĐIỂM — hộp tự gỡ mình khỏi DOM ở đúng lượt vẽ do
-    //       nó gây ra, và tiêu điểm rơi về `<body>` nếu không ai đỡ.
-    //   (4) móc `xoa` của lưới chỉ được MỞ một câu hỏi, không gọi `xoaGhiChu`.
+  it('app/main.js cắm ĐÚNG luồng xóa vào lưới và hộp thoại — hành vi thì ca bên dưới chạy thật', () => {
+    // Chỉ phần CẮM được quét ở đây, và nó là phần duy nhất không chạy được dưới Vitest: khối
+    // `document` của `main.js` không bao giờ chạy ở Node. Hành vi của `noiLuongXoa` — thứ tự vẽ,
+    // chỗ trả tiêu điểm, phép đợi lượt rời — có describe riêng bên dưới và nó CHẠY mã thật.
     const main = boChuThichJs(readFileSync(join(repoRoot, 'app', 'main.js'), 'utf8'));
-    const noi = /noiHopThoai\s*\(\s*store\s*,\s*document\s*,\s*([\w$]+)\s*,\s*([\w$]+)\s*\)/.exec(
-      main,
+    expect(main).toMatch(
+      /noiHopThoai\s*\(\s*store\s*,\s*document\s*,\s*luongXoa\s*\.\s*huy\s*,\s*luongXoa\s*\.\s*xoa\s*\)/,
     );
-    expect(noi).not.toBeNull();
-
-    const dong = new RegExp(`\\b${noi[1]}\\s*=\\s*\\(\\s*id\\s*\\)\\s*=>\\s*\\{([\\s\\S]*?)\\n  \\}`)
-      .exec(main);
-    expect(dong).not.toBeNull();
-    expect(dong[1]).toMatch(/store\s*\.\s*dongXacNhanXoa\s*\(\s*\)/);
-    expect(dong[1]).toMatch(/veTatCa\s*\(\s*\)/);
-    expect(dong[1]).toMatch(/traTieuDiemVeNutXoa\s*\(\s*id\s*\)/);
-    // THỨ TỰ, không chỉ sự có mặt: đảo hai dòng cuối lên nhau thì tiêu điểm được đặt lên nút
-    // của lưới CŨ, rồi `veTatCa` gọi `replaceChildren` gỡ đúng phần tử đó ra — tiêu điểm rơi về
-    // `<body>` y như khi không ai trả nó. Ba `toMatch` ở trên vẫn khớp và suite vẫn xanh.
-    expect(dong[1].search(/veTatCa/)).toBeLessThan(dong[1].search(/traTieuDiemVeNutXoa/));
-
-    const xoa = new RegExp(`\\b${noi[2]}\\s*=\\s*\\(\\s*id\\s*\\)\\s*=>\\s*\\{([\\s\\S]*?)\\n  \\}`)
-      .exec(main);
-    expect(xoa).not.toBeNull();
-    expect(xoa[1].search(/dongXacNhanXoa/)).toBeLessThan(xoa[1].search(/xoaGhiChu/));
-    expect(xoa[1]).toMatch(/store\s*\.\s*xoaGhiChu\s*\(\s*id\s*\)\s*\.\s*then\s*\(/);
-
-    // Móc `xoa` của lưới: một action, một lượt vẽ, và KHÔNG một phép xóa nào. Và nó ĐỢI lượt
-    // rời chế độ sửa đang treo — xem ca hành vi ngay bên dưới cho lý do.
+    // Móc `xoa` của lưới chỉ MỞ một câu hỏi.
     const moc = /\bxoa\s*:\s*\(\s*id\s*\)\s*=>\s*\{([\s\S]*?)\n    \}/.exec(main);
     expect(moc).not.toBeNull();
-    expect(moc[1]).toMatch(/store\s*\.\s*moXacNhanXoa\s*\(\s*id\s*\)/);
-    expect(moc[1]).not.toMatch(/xoaGhiChu/);
-    expect(moc[1]).toMatch(/luotRoiSua\s*\.\s*then\s*\(/);
-    expect(moc[1].search(/luotRoiSua/)).toBeLessThan(moc[1].search(/moXacNhanXoa/));
-    // Và `luotRoiSua` phải THẬT SỰ nhận lời hứa của lượt rời, không ở lại một lời hứa đã chốt.
+    expect(moc[1].trim()).toMatch(/^luongXoa\s*\.\s*moHoi\s*\(\s*id\s*\)\s*;?$/);
+    // Lượt rời đi vào qua một HÀM đọc lại biến mỗi lần — một giá trị chụp lúc nối là lời hứa đã
+    // chốt mãi mãi, và móc không bao giờ đợi gì cả.
+    expect(main).toMatch(
+      /noiLuongXoa\s*\(\s*store\s*,\s*document\s*,\s*\(\s*\)\s*=>\s*veTatCa\s*\(\s*\)\s*,\s*\(\s*\)\s*=>\s*luotRoiSua\s*\)/,
+    );
     expect(main).toMatch(/luotRoiSua\s*=\s*store\s*\.\s*roiCheDoSua\s*\(\s*\)\s*\.\s*then\s*\(/);
-
-    // Và phép trả tiêu điểm neo vào `id`, không vào vị trí — cùng lý do với `veGiuTieuDiem`.
-    const tra = /\btraTieuDiemVeNutXoa\s*=\s*\(\s*id\s*\)\s*=>\s*\{([\s\S]*?)\n  \}/.exec(main);
-    expect(tra).not.toBeNull();
-    expect(tra[1]).toMatch(/THUOC_TINH_MAU/);
-    expect(tra[1]).toMatch(/CHON_XOA/);
-    expect(tra[1]).toMatch(/\.\s*focus\s*\(\s*\)/);
   });
 
   it('không tự soạn một câu lỗi nào — mọi chuyện xấu đi ra bằng dải băng (AD-17)', () => {
@@ -659,5 +716,90 @@ describe('app/view/hop-thoai.js — luật của tầng view, cưỡng chế đ�
     // thông báo thứ hai, và bảng ưu tiên của `core/banner.js` không còn bao được cả sản phẩm.
     expect(nguon).not.toMatch(/không lưu được|hết dung lượng|lỗi|thất bại/i);
     expect(nguon).not.toMatch(/maBanner|MA_LOI|banner/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// noiLuongXoa — nối dây của `app/main.js`, CHẠY thật trên một gốc DOM giả
+// ---------------------------------------------------------------------------
+
+describe('noiLuongXoa — lượt vẽ, phép xóa và chỗ trả tiêu điểm, chạy chứ không quét', () => {
+  async function dungLuong({ remove } = {}) {
+    const store = storeVoiKho([ban('a', 'phở'), ban('b', 'bún')], remove);
+    await store.khoiDong();
+    const luoi = gocLuoiGia(store);
+    const nhatKy = [];
+    const veTatCa = () => {
+      luoi.ve();
+      nhatKy.push(`ve:${store.state.xacNhanXoa ?? '-'}`);
+    };
+    const luong = noiLuongXoa(store, luoi.goc, veTatCa);
+    return { store, luoi, nhatKy, luong };
+  }
+
+  it('moHoi: mở câu hỏi cho đúng mẩu và vẽ lại — không xóa gì', async () => {
+    const { store, nhatKy, luong } = await dungLuong();
+    await luong.moHoi('b');
+    expect(store.state.xacNhanXoa).toBe('b');
+    expect(nhatKy).toEqual(['ve:b']);
+    expect(store.state.notes.map((mau) => mau.id)).toEqual(['a', 'b']);
+  });
+
+  it('huy: đóng, vẽ lại, rồi tiêu điểm về nút `xóa` của ĐÚNG mẩu vừa hỏi, trên lưới MỚI', async () => {
+    // Hai cách hỏng, và cả hai giữ mọi regex trên mã nguồn xanh: tìm "nút xóa đầu tiên của
+    // trang" thay vì theo `id` (tiêu điểm về mẩu `a`), và trả tiêu điểm TRƯỚC lượt vẽ (nút cũ
+    // bị gỡ khỏi lưới ngay sau đó). `nutXoaCua` đọc lưới hiện hành nên bắt được cả hai.
+    const { store, luoi, nhatKy, luong } = await dungLuong();
+    await luong.moHoi('b');
+    luong.huy('b');
+    expect(store.state.xacNhanXoa).toBeNull();
+    expect(nhatKy).toEqual(['ve:b', 've:-']);
+    expect(tieuDiem).toBe(luoi.nutXoaCua('b'));
+    expect(store.state.notes.map((mau) => mau.id)).toEqual(['a', 'b']);
+  });
+
+  it('xoa: hộp gỡ khỏi màn hình NGAY, trước khi phép ghi trả lời — không có khe cho cú bấm thứ hai', async () => {
+    // Không có lượt vẽ đồng bộ này thì hộp thoại còn trong DOM tới khi `xoaGhiChu` chốt: một cú
+    // `xóa` thứ hai gọi `remove` lần nữa, và một cú `hủy` cho người dùng thấy "đã hủy" rồi mẩu
+    // vẫn biến mất.
+    let traLoi;
+    const { store, luoi, nhatKy, luong } = await dungLuong({
+      remove: () =>
+        new Promise((giai) => {
+          traLoi = giai;
+        }),
+    });
+    await luong.moHoi('a');
+    const xong = luong.xoa('a');
+    // Phép ghi còn đang bay, mà hộp đã đóng và đã vẽ lại.
+    expect(store.state.xacNhanXoa).toBeNull();
+    expect(nhatKy).toEqual(['ve:a', 've:-']);
+    // Mẩu còn sống trong khe chờ, nên tiêu điểm đứng trên nút của nó chứ không rơi về `<body>`.
+    expect(tieuDiem).toBe(luoi.nutXoaCua('a'));
+
+    traLoi();
+    await xong;
+    expect(store.state.notes.map((mau) => mau.id)).toEqual(['b']);
+    expect(nhatKy).toEqual(['ve:a', 've:-', 've:-']);
+    // Mẩu đã biến mất: đường lui là ô soạn thảo.
+    expect(tieuDiem).toBe(luoi.oSoan);
+  });
+
+  it('xoa với ghi hỏng: mẩu còn nguyên, dải băng mang mã lỗi, tiêu điểm ở lại nút của nó', async () => {
+    const { store, luoi, luong } = await dungLuong({
+      remove: () => Promise.reject(loiUngDung(MA_LOI.QUOTA)),
+    });
+    await luong.moHoi('a');
+    await luong.xoa('a');
+    expect(store.state.notes.map((mau) => mau.id)).toEqual(['a', 'b']);
+    expect(store.state.banner).toBe(MA_LOI.QUOTA);
+    expect(store.state.xacNhanXoa).toBeNull();
+    expect(tieuDiem).toBe(luoi.nutXoaCua('a'));
+  });
+
+  it('traTieuDiem: mẩu không còn trên lưới thì về ô soạn thảo, không sang một mẩu khác', async () => {
+    const { luoi, luong } = await dungLuong();
+    luong.traTieuDiem('khong-co');
+    expect(tieuDiem).toBe(luoi.oSoan);
   });
 });
