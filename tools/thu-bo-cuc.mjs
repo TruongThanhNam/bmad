@@ -1362,10 +1362,18 @@ try {
           // khối đo bên dưới. Một lần ném ở giữa mà không gỡ là để nó sống hết cả lượt chạy.
           await cdp.goi('Page.removeScriptToEvaluateOnNewDocument', { identifier }, tab.sessionId);
         }
-        const trongKho = await cdp.chay(
-          tab.sessionId,
-          `const m = await import('/app/main.js'); return m.store.state.notes.length;`,
-        );
+        // "Gõ được" tới TRƯỚC khi `notes` nạp xong — kho đọc bất đồng bộ, và ô soạn không chờ
+        // nó. Đọc ngay ở đây là đua với chính app: máy nhanh thì thấy `0` dù kho đủ 2.000. Chờ
+        // có hạn cho state nạp đủ; hạn là để một lần nạp hỏng vẫn đỏ, không treo cả lượt chạy.
+        let trongKho = 0;
+        for (let i = 0; i < 100; i += 1) {
+          trongKho = await cdp.chay(
+            tab.sessionId,
+            `const m = await import('/app/main.js'); return m.store.state.notes.length;`,
+          );
+          if (trongKho >= SO_BAN_GHI) break;
+          await nghi(50);
+        }
         ghi(
           `NFR-1: ${SO_BAN_GHI} ghi chú trong kho, mở tab tới gõ được ≤ ${TRAN_MS}ms`,
           moc !== null && moc <= TRAN_MS && trongKho >= SO_BAN_GHI,

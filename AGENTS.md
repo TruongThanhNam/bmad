@@ -5,7 +5,7 @@
 
 App ghi chú tĩnh chạy thẳng trong trình duyệt: ES module thuần, không bundler, không
 transpile, không thư viện runtime. `package.json` tồn tại chỉ để chạy Vitest. Tài liệu
-gốc: `README.md` (vận hành + checklist thủ công 1–32) và
+gốc: `README.md` (vận hành + checklist thủ công 1–35) và
 `_bmad-output/planning-artifacts/architecture/architecture-ghi-chu-hang-ngay-2026-09-10/ARCHITECTURE-SPINE.md`
 — spine thắng khi lệch với `solution-design.md`.
 
@@ -27,7 +27,7 @@ gốc: `README.md` (vận hành + checklist thủ công 1–32) và
 - `app/core/limits.js` — mọi hằng số, ngưỡng, và `APP_VERSION`
 - `app/core/time.js` — mọi chỗ dựng/đọc `Date`; `app/core/fold.js` — bỏ dấu tiếng Việt
 - `app/core/errors.js` — tập mã lỗi đóng + microcopy; `app/core/banner.js` — bảng ưu tiên dải băng
-- `app/adapters/` không có test tự động theo luật; kiểm nó bằng checklist 1–32 trong `README.md`
+- `app/adapters/` không có test tự động theo luật; kiểm nó bằng checklist 1–35 trong `README.md`
 
 ## Chạy và kiểm chứng
 
@@ -37,7 +37,8 @@ gốc: `README.md` (vận hành + checklist thủ công 1–32) và
   `tools/cdp.mjs`); không có script `npm start`.
 - `npm run thu-tay` và `npm run thu-bo-cuc` lái Chrome/Edge thật qua CDP: cần trình duyệt
   cài sẵn, đặt `GHICHU_BROWSER` nếu nó dò không ra. `thu-tay` chậm có chủ ý (chờ hết
-  `DRAFT_STALE_MS`).
+  `DRAFT_STALE_MS`). Ca "tải lại: mọi mẩu về thu gọn" của `thu-bo-cuc` chập chờn từ trước
+  Epic 6 (một mẩu đo 128 → 106); ca đỏ nào khác mới là hồi quy.
 - Suite ghim `TZ=Asia/Kolkata`; đừng gỡ — múi lệch nửa giờ là thứ duy nhất bắt được lỗi
   dựng hậu tố offset.
 - Không có lint/formatter/CI. Test là cổng duy nhất.
@@ -60,6 +61,9 @@ gốc: `README.md` (vận hành + checklist thủ công 1–32) và
 
 ## Bẫy đã gặp
 
+- Chữ gõ dở của ô ngày không nằm trong state, nên `khayTim.ve()` không thấy khi điều kiện
+  bị xóa lúc `date` vốn đã `null`. Mọi đường gọi `xoaHetDieuKien()` phải kèm
+  `khayTim.xoaNhap()` (hiện có hai: `veHomNay`, `veSauChot` trong `main.js`).
 - Đừng đoán "có tab khác đang sống" bằng `heartbeat`: sau một lần tải lại, nhịp tim mới
   tinh chính là của tab này ở kiếp trước, nên nó tự bỏ rơi bản nháp của mình. Dùng khóa
   sống `navigator.locks` (README mục 10–11).
