@@ -80,6 +80,12 @@ function timTheoThuocTinh(phanTu, ten) {
   return null;
 }
 
+/** Chữ của một phần tử giả: `textContent` của nó, hay nối chữ của mọi con khi nó có con. */
+function chuCua(phanTu) {
+  if ((phanTu.con ?? []).length === 0) return phanTu.textContent;
+  return phanTu.con.map(chuCua).join('');
+}
+
 /** Con cháu của một ô mang đúng một class — `null` nếu không có. */
 function timTheoLop(phanTu, lop) {
   if (phanTu.className !== undefined && phanTu.className.split(' ').includes(lop)) return phanTu;
@@ -105,7 +111,11 @@ function luoiGia() {
     con: [],
     textContent: '',
     soLanThayCon: 0,
-    ownerDocument: { createElement: () => phanTuGia() },
+    // `createTextNode` từ Story 6.1: thân mẩu có phần khớp được dựng bằng node chữ + `<mark>`.
+    ownerDocument: {
+      createElement: (the) => Object.assign(phanTuGia(), { the }),
+      createTextNode: (chu) => ({ nodeType: 3, textContent: chu }),
+    },
     append(...moi) {
       luoi.con.push(...moi);
     },
@@ -124,7 +134,10 @@ function luoiGia() {
       return null;
     },
     chu() {
-      return luoi.con.map((c) => timTheoLop(c, 'mau-than')?.textContent ?? null);
+      return luoi.con.map((c) => {
+        const than = timTheoLop(c, 'mau-than');
+        return than === null ? null : chuCua(than);
+      });
     },
   };
   return luoi;
@@ -475,10 +488,11 @@ describe('noiLuoi — lưới của hôm nay', () => {
     v.ve();
     expect(luoi.chu()).toEqual(['phở bò']);
 
-    // Và một ngày khác thì lưới trống — điều kiện `date` cũng phải tới được view.
+    // Và một ngày khác thì không mẩu nào — điều kiện `date` cũng phải tới được view, và vì
+    // đang có điều kiện nên lưới nói đúng một dòng "không khớp" (Story 6.1).
     store.datDieuKien({ keyword: null, date: '2026-09-01' });
     v.ve();
-    expect(luoi.con).toEqual([]);
+    expect(luoi.con.map((c) => c.textContent)).toEqual(['Không có ghi chú nào khớp.']);
   });
 
   it('chữ nhiều dòng giữ NGUYÊN, và thẻ HTML hiện ra nguyên văn như chữ', async () => {
@@ -594,7 +608,13 @@ describe('app/view/luoi.js — luật của tầng view, cưỡng chế được
       'nutTheme',
       'chanTrang',
       'hopThoai',
+      'khayTim',
     ]);
+    // Khay tìm (Story 6.1) PHẢI nhận móc vẽ lại: thiếu tham số thứ ba thì ô tìm câm.
+    expect(main).toMatch(/import\s*\{\s*noiKhayTim\s*\}\s*from\s*'\.\/view\/khay-tim\.js'/);
+    expect(main).toMatch(
+      /noiKhayTim\s*\(\s*store\s*,\s*document\s*,\s*\(\s*\)\s*=>\s*veTatCa\s*\(\s*\)\s*\)/,
+    );
     // Lưới nối TRƯỚC khi kho được hỏi — `luoi.ve` phải tồn tại trước khi có chỗ treo nó vào.
     expect(main.search(/noiLuoi\s*\(/)).toBeLessThan(main.search(/store\s*\.\s*khoiDong\s*\(/));
   });
@@ -639,5 +659,78 @@ describe('app/view/luoi.js — luật của tầng view, cưỡng chế được
     expect(giu).not.toBeNull();
     expect(giu[1]).toMatch(/activeElement/);
     expect(giu[1]).toMatch(/\.\s*focus\s*\(\s*\)/);
+  });
+});
+
+describe('noiLuoi — tìm bằng chữ (Story 6.1)', () => {
+  it('gõ không dấu ra mẩu hôm qua, mốc đầy đủ, phần khớp được tô', async () => {
+    const luoi = luoiGia();
+    const store = storeVoiKho([
+      ban(HOM_NAY, '10:00:00', 'cà phê'),
+      ban(HOM_QUA, '10:00:00', 'Phân quyền'),
+    ]);
+    await store.khoiDong();
+    const v = noiLuoi(store, gocGia(luoi), () => MOC);
+    store.datDieuKien({ keyword: 'phan quyen' });
+    v.ve();
+    expect(luoi.chu()).toEqual(['Phân quyền']);
+    expect(timTheoLop(luoi.con[0], 'mau-gio').textContent).toBe('13/09/2026 10:00');
+    expect(timTheoLop(luoi.con[0], 'mau-khop').textContent).toBe('Phân quyền');
+  });
+
+  it('mỗi phím lọc lại; không khớp → đúng một dòng; xóa hết chữ → về hôm nay, HH:mm, không tô', async () => {
+    const luoi = luoiGia();
+    const store = storeVoiKho([
+      ban(HOM_NAY, '11:00:00', 'ab ab'),
+      ban(HOM_NAY, '10:00:00', 'cd'),
+      ban(HOM_QUA, '10:00:00', 'abc'),
+    ]);
+    await store.khoiDong();
+    const v = noiLuoi(store, gocGia(luoi), () => MOC);
+    store.datDieuKien({ keyword: 'a' });
+    v.ve();
+    expect(luoi.chu()).toEqual(['ab ab', 'abc']);
+    store.datDieuKien({ keyword: 'ab' });
+    v.ve();
+    const than = timTheoLop(luoi.con[0], 'mau-than');
+    expect(than.con.filter((c) => c.className === 'mau-khop')).toHaveLength(2);
+
+    store.datDieuKien({ keyword: 'zzz' });
+    v.ve();
+    expect(luoi.con).toHaveLength(1);
+    expect(luoi.con[0].className).toBe('luoi-khong-khop');
+    expect(luoi.con[0].textContent).toBe('Không có ghi chú nào khớp.');
+
+    store.datDieuKien({ keyword: '' });
+    expect(store.state.dieuKien.keyword).toBeNull();
+    v.ve();
+    expect(luoi.chu()).toEqual(['ab ab', 'cd']);
+    expect(timTheoLop(luoi.con[0], 'mau-gio').textContent).toBe('11:00');
+    expect(timTheoLop(luoi.con[0], 'mau-khop')).toBeNull();
+  });
+
+  it('mặc định rỗng vẫn KHÔNG một chữ — dòng không khớp chỉ khi có điều kiện', async () => {
+    const luoi = luoiGia();
+    const store = storeVoiKho([ban(HOM_QUA, '10:00:00', 'hôm qua')]);
+    await store.khoiDong();
+    const v = noiLuoi(store, gocGia(luoi), () => MOC);
+    v.ve();
+    expect(luoi.con).toEqual([]);
+    expect(luoi.textContent).toBe('');
+  });
+
+  it('sửa tại chỗ chạy y hệt trên mẩu trong kết quả tìm', async () => {
+    const luoi = luoiGia();
+    const store = storeVoiKho([ban(HOM_QUA, '10:00:00', 'phở gà')]);
+    await store.khoiDong();
+    const vao = [];
+    const v = noiLuoi(store, gocGia(luoi), () => MOC, { vao: (id) => vao.push(id) });
+    store.datDieuKien({ keyword: 'pho' });
+    v.ve();
+    luoi.con[0].boNghe.click({});
+    expect(vao).toEqual([store.state.notes[0].id]);
+    store.vaoCheDoSua(store.state.notes[0].id);
+    v.ve();
+    expect(timTheoLop(luoi.con[0], 'mau-sua').value).toBe('phở gà');
   });
 });

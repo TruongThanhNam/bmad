@@ -21,7 +21,8 @@
 // không phải một ô giờ rỗng rồi im lặng.
 
 import { COLLAPSED_LINES } from '../core/limits.js';
-import { localTime } from '../core/time.js';
+import { khoangKhop } from '../core/query.js';
+import { localDateTime, localTime } from '../core/time.js';
 
 /** Class của ô lưới, và cùng lúc là class của mẩu giấy. Nó ở lại nguyên tên của Story 2.4:
  *  `luoi.js` vẫn thay cả danh sách con bằng đúng những phần tử mang class này, và thứ Story 2.5
@@ -42,6 +43,10 @@ const LOP_THAN = 'mau-than';
 /** Cờ "đang mở rộng" treo trên THÂN mẩu: nó gỡ trần chiều cao, không đổi gì khác. */
 const LOP_THAN_MO = 'mau-than-mo';
 const LOP_GAP = 'mau-gap';
+
+/** Thẻ và class của phần chữ KHỚP từ khóa (Story 6.1). */
+const THE_KHOP = 'mark';
+const LOP_KHOP = 'mau-khop';
 
 /** Thẻ và class của ô sửa tại chỗ (Story 5.1) — nó THAY thân mẩu, không nằm cạnh. */
 const THE_SUA = 'textarea';
@@ -113,6 +118,9 @@ const PHIM_MO = ['Enter', ' '];
  *  không bao giờ trở thành nút gửi của một form nào đó ở story sau. */
 const KIEU_NUT = 'button';
 
+/** Khung nhìn mặc định: không tô, mốc `HH:mm`. */
+const TIM_RONG = Object.freeze({ keyword: null, dayDu: false });
+
 /**
  * Số dòng logic của một nội dung.
  *
@@ -173,7 +181,20 @@ export function viTriConTroTuDiem(ownerDocument, than, suKien) {
   // `contains` tính cả chính phần tử, nên một cú bấm vào khoảng đệm của thân mẩu vẫn đi qua.
   if (typeof than.contains !== 'function') return null;
   if (!than.contains(node)) return null;
-  return viTri;
+  // Thân có phần khớp được tô (Story 6.1) bị chia thành nhiều node chữ + `<mark>`, và `offset`
+  // chỉ tính trong node vừa bấm: cộng độ dài mọi node chữ ĐỨNG TRƯỚC nó trong thân.
+  let truoc = 0;
+  const duyet = (nut) => {
+    if (nut === node) return true;
+    if (nut.nodeType === node.TEXT_NODE) {
+      truoc += nut.textContent.length;
+      return false;
+    }
+    for (const con of nut.childNodes ?? []) if (duyet(con)) return true;
+    return false;
+  };
+  duyet(than);
+  return truoc + viTri;
 }
 
 /**
@@ -198,13 +219,29 @@ export function caoTheoNoiDungSua(o) {
 }
 
 /** Thân mẩu ở dạng CHỮ CHẾT — hình dạng mặc định của một thứ đã chốt. */
-function veThanChu(note, ownerDocument, dangMoRong) {
+function veThanChu(note, ownerDocument, dangMoRong, keyword) {
   const than = ownerDocument.createElement(THE_THAN);
   than.className = dangMoRong ? `${LOP_THAN} ${LOP_THAN_MO}` : LOP_THAN;
-  // `textContent` chứ không `innerHTML`, và đó là một luật: chữ của Nam KHÔNG BAO GIỜ được
-  // thành markup. `'<b>x</b>'` phải hiện ra nguyên văn như chữ, và `textContent` giữ nguyên
-  // mọi ký tự xuống dòng cho `white-space: pre-wrap` của CSS xử.
-  than.textContent = note.text;
+  // Text node và `<mark>` chứ không `innerHTML`, và đó là một luật: chữ của Nam KHÔNG BAO GIỜ
+  // được thành markup. `'<b>x</b>'` phải hiện ra nguyên văn như chữ, và node chữ giữ nguyên mọi
+  // ký tự xuống dòng cho `white-space: pre-wrap` của CSS xử.
+  //
+  // Khoảng khớp tính ở lõi trên `textFolded` và cắt thẳng trên `text`: `fold` giữ độ dài.
+  const khoang = keyword === null ? [] : khoangKhop(note.textFolded, keyword);
+  if (khoang.length === 0) {
+    than.textContent = note.text;
+    return than;
+  }
+  let den = 0;
+  for (const [dau, cuoi] of khoang) {
+    if (dau > den) than.append(ownerDocument.createTextNode(note.text.slice(den, dau)));
+    const khop = ownerDocument.createElement(THE_KHOP);
+    khop.className = LOP_KHOP;
+    khop.textContent = note.text.slice(dau, cuoi);
+    than.append(khop);
+    den = cuoi;
+  }
+  if (den < note.text.length) than.append(ownerDocument.createTextNode(note.text.slice(den)));
   return than;
 }
 
@@ -273,6 +310,9 @@ function veThanSua(note, ownerDocument, sua) {
  *   thì nút vẫn vẽ ra và vẫn chặn nổi bọt, chỉ không phát gì — đường của test bố cục, cùng
  *   khuôn `mocSua` vắng mặt ở `luoi.js`. Nó KHÔNG xóa gì: nó mở hộp thoại xác nhận, và chỗ nối
  *   quyết định điều đó.
+ * @param {{ keyword: string | null, dayDu: boolean }} [tim] Hai phép ĐỌC của Story 6.1, do
+ *   `luoi.js` truyền xuống từ `dieuKien`: `keyword` để tô phần khớp, `dayDu` (đang có điều
+ *   kiện) để hiện mốc `dd/MM/yyyy HH:mm` thay cho `HH:mm`. Vắng mặt thì như khung nhìn mặc định.
  * @returns {Element} Phần tử mẩu giấy, sẵn sàng cho `replaceChildren`.
  */
 export function veMau(
@@ -283,6 +323,7 @@ export function veMau(
   sua = null,
   khiGap = khiClick,
   khiXoa = undefined,
+  tim = TIM_RONG,
 ) {
   const mau = ownerDocument.createElement(THE_MAU);
   mau.className = LOP_MAU;
@@ -295,7 +336,7 @@ export function veMau(
   gio.className = LOP_GIO;
   // `localTime` ném với một `createdAt` hỏng, và nó được để ném: một mẩu vẽ ra với ô giờ rỗng
   // là một bản ghi hỏng trong kho đi qua mà không ai biết.
-  gio.textContent = localTime(note);
+  gio.textContent = tim.dayDu ? localDateTime(note) : localTime(note);
 
   const xoa = ownerDocument.createElement(THE_XOA);
   xoa.className = LOP_XOA;
@@ -321,7 +362,7 @@ export function veMau(
   // cả hai — ô sửa THAY thân mẩu, nên không có lúc nào cùng một nội dung nằm ở hai chỗ.
   const than = dangSua
     ? veThanSua(note, ownerDocument, sua)
-    : veThanChu(note, ownerDocument, dangMoRong);
+    : veThanChu(note, ownerDocument, dangMoRong, tim.keyword);
 
   mau.append(dau, than);
 

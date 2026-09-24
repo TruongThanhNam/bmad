@@ -35,6 +35,12 @@ import { CHON_SUA, THUOC_TINH_SUA, caoTheoNoiDungSua, soDong, veMau } from './ma
  *  EXPORT để `app/main.js` dùng lại thay vì khai lần thứ hai. */
 export const CHON_LUOI = '.luoi';
 
+/** Dòng duy nhất lưới được nói (Story 6.1): CHỈ khi đang có điều kiện VÀ không mẩu nào khớp.
+ *  Khung nhìn mặc định rỗng vẫn không một chữ (Story 2.6, AD-16). */
+const THE_KHONG_KHOP = 'p';
+const LOP_KHONG_KHOP = 'luoi-khong-khop';
+const CHU_KHONG_KHOP = 'Không có ghi chú nào khớp.';
+
 /**
  * Nối lưới vào store.
  *
@@ -88,7 +94,11 @@ export function noiLuoi(store, goc = document, mocHienTai = nowIso, mocSua = {})
         if (oSuaCu.getAttribute(THUOC_TINH_SUA) === dangSua) return;
       }
     }
-    const hienThi = locGhiChu(store.state.notes, store.state.dieuKien, mocHienTai());
+    const dieuKien = store.state.dieuKien;
+    const hienThi = locGhiChu(store.state.notes, dieuKien, mocHienTai());
+    // Đang có điều kiện thì kết quả trải qua nhiều ngày: mốc đầy đủ, và phần khớp được tô.
+    const coDieuKien = dieuKien.keyword !== null || dieuKien.date !== null;
+    const tim = { keyword: dieuKien.keyword, dayDu: coDieuKien };
     const dangMo = store.state.expandedIds;
     const o = hienThi.map((note) => {
       const moRong = dangMo.includes(note.id);
@@ -135,9 +145,17 @@ export function noiLuoi(store, goc = document, mocHienTai = nowIso, mocSua = {})
         // `app/main.js`. Lưới không biết hộp thoại tồn tại, đúng như nó không biết ô sửa được
         // đặt tiêu điểm ở đâu.
         mocSua.xoa,
+        tim,
       );
     });
-    // Danh sách rỗng cũng đi qua đúng lời gọi này: lưới sạch trơn, KHÔNG một chữ nào. Story
+    if (coDieuKien && o.length === 0) {
+      const khongKhop = luoi.ownerDocument.createElement(THE_KHONG_KHOP);
+      khongKhop.className = LOP_KHONG_KHOP;
+      khongKhop.textContent = CHU_KHONG_KHOP;
+      o.push(khongKhop);
+    }
+    // Danh sách rỗng của khung nhìn MẶC ĐỊNH cũng đi qua đúng lời gọi này: lưới sạch trơn,
+    // KHÔNG một chữ nào (dòng "không khớp" phía trên chỉ có khi đang có điều kiện). Story
     // 2.6 đã chốt đúng điều đó — trạng thái rỗng KHÔNG có lời nhắn nào, không hình minh họa,
     // không skeleton. Mỗi sáng đều là trạng thái này; nó bình thường, không cần an ủi. Một
     // dòng chữ "chưa có gì" thêm ở đây là thứ `luoi.test.js` ghim là không được tồn tại.

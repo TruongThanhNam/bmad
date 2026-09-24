@@ -604,3 +604,29 @@ Còn lại là thứ không con số nào nói: lần tải lại có **nháy m�
     riêng, vì nền dark đã tối sẵn); **bóng của hộp** tách nó khỏi nền (bóng đen đậm ở dark, bóng
     nâu ở light) và nó là **bóng sâu duy nhất** trong cả sản phẩm; và chữ `xóa` màu `--danger`
     **đọc rõ** trên nền `--surface` của hộp.
+
+### Tìm bằng chữ trên toàn bộ dữ liệu — một mục phải làm bằng mắt (Story 6.1)
+
+32. **Gõ không dấu, tìm ra ghi chú hôm qua, và xóa chữ là về hôm nay.** Mở trang qua HTTP
+    localhost (mục 1) với ít nhất một ghi chú **của hôm qua** chứa `Phân quyền` (nạp một file sao
+    lưu qua chân trang là cách nhanh nhất) và vài ghi chú của hôm nay.
+
+    *Ô tìm luôn hiện.* Tầng 2 có nhãn `tìm`, ô mang placeholder `từ khóa`, khay nền `--chip-bg`.
+
+    *Gõ không dấu.* Bấm vào ô tìm và gõ `phan quyen` từng ký tự: lưới lọc lại **ở mỗi phím**,
+    không cần `Enter`. Mẩu hôm qua hiện ra, chữ `Phân quyền` được **tô nền** đúng chỗ, và mốc của
+    mọi mẩu trong kết quả đổi thành `dd/MM/yyyy HH:mm`, mới nhất trên cùng. Gõ `PHAN`: vẫn khớp,
+    tô đúng bốn ký tự gốc. Một mẩu có chữ lặp lại (`ab ab`, gõ `ab`) được tô **cả hai** chỗ.
+
+    *Không khớp.* Gõ `zzz`: lưới chỉ còn đúng một dòng `Không có ghi chú nào khớp.`
+
+    *Xóa hết chữ.* Xóa sạch ô: lưới về khung nhìn hôm nay, mốc về `HH:mm`, không còn chỗ nào được
+    tô. Nếu hôm nay chưa có ghi chú nào thì lưới **trống trơn, không một chữ** (Story 2.6).
+
+    *Sửa tại chỗ trong kết quả.* Tìm lại mẩu hôm qua, click vào nó: nó vào chế độ sửa y hệt mục
+    29, sửa một chữ rồi rời — chữ mới xuống kho, tải lại trang vẫn còn.
+
+    *Chốt khi đang tìm.* Gõ một từ khóa, rồi viết một ghi chú ở ô soạn và `Ctrl+Enter`: điều kiện
+    bị xóa, ô tìm **về rỗng**, lưới về hôm nay với mẩu vừa chốt ở đầu.
+
+    *Cả hai theme.* Lặp phần tô ở bản dark (mục 14): chữ trên nền tô `--hl` phải đọc rõ.

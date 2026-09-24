@@ -28,6 +28,7 @@ import { PORT_METHODS } from './ports/index.js';
 import { noiBanner } from './view/banner.js';
 import { noiChanTrang } from './view/chan-trang.js';
 import { noiHopThoai } from './view/hop-thoai.js';
+import { noiKhayTim } from './view/khay-tim.js';
 import { CHON_LUOI, noiLuoi } from './view/luoi.js';
 // Mệnh đề chọn ô sửa và tên thuộc tính chở `id` của mẩu đi VÀO từ `view/mau-giay.js` — nơi
 // chúng được ĐẶT — chứ không khai lại ở đây. Đây là ngoại lệ đã có tiền lệ với `CHON_LUOI`:
@@ -335,8 +336,11 @@ if (typeof document !== 'undefined') {
   // Hai móc đi vào qua THAM SỐ, cùng khuôn `sauKhiDong` của dải băng: chỉ file này biết chỗ
   // trả tiêu điểm về, và chỉ file này được phép vừa gọi action vừa gọi một lượt vẽ.
   const hopThoai = noiHopThoai(store, document, luongXoa.huy, luongXoa.xoa);
-  // Một callback vẽ chung cho cả SÁU view: đây là chỗ DUY NHẤT biết rằng "vẽ lại" nghĩa là
-  // vẽ lại cả sáu. Treo riêng từng cái vào từng điểm nối là cách một view mới bị quên ở một
+  // Khay tìm là view THỨ BẢY (Story 6.1), nối SAU sáu view trên. Nó phát `datDieuKien` mỗi phím
+  // rồi gọi lượt vẽ chung — lớp bọc lười vì `veTatCa` khai ngay bên dưới, cùng khuôn `latRoiVe`.
+  const khayTim = noiKhayTim(store, document, () => veTatCa());
+  // Một callback vẽ chung cho cả BẢY view: đây là chỗ DUY NHẤT biết rằng "vẽ lại" nghĩa là
+  // vẽ lại cả bảy. Treo riêng từng cái vào từng điểm nối là cách một view mới bị quên ở một
   // trong hai chỗ, và tiêu đề sẽ đứng yên sau lần chốt mà không làm gì đỏ cả.
   const veTatCa = () => {
     luoi.ve();
@@ -345,6 +349,7 @@ if (typeof document !== 'undefined') {
     nutTheme.ve();
     chanTrang.ve();
     hopThoai.ve();
+    khayTim.ve();
   };
   // `notes` nạp BẤT ĐỒNG BỘ, nên lượt vẽ đầu tiên phải chờ kho trả lời — vẽ ngay ở đây chỉ
   // dựng lại một mảng rỗng và nháy một con số sai lên thanh tab. Không có cơ chế subscribe

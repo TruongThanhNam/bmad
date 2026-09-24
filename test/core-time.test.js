@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   daysBetween,
   localDate,
+  localDateTime,
   localStamp,
   localTime,
   msBetweenIso,
@@ -304,5 +305,18 @@ describe('core/time.js — đầu vào sai ném ngay tại chỗ', () => {
     expect(() => localStamp({ createdAt: '2026-09-03T16:40:12+99:00' })).toThrow(TypeError);
     // Biên hợp lệ vẫn phải qua: 23:59:59 và 29/02 năm nhuận.
     expect(localStamp({ createdAt: '2028-02-29T23:59:59+07:00' })).toBe('2028-02-29T23:59:59');
+  });
+});
+
+describe('core/time.js — localDateTime (Story 6.1)', () => {
+  it('mốc đầy đủ dd/MM/yyyy HH:mm theo giờ tại chỗ lúc tạo', () => {
+    expect(localDateTime({ createdAt: '2026-09-03T16:40:12+07:00' })).toBe('03/09/2026 16:40');
+    // Offset khác không đổi giờ hiển thị — cắt chuỗi, không quy về UTC.
+    expect(localDateTime({ createdAt: '2026-12-31T23:59:00-05:00' })).toBe('31/12/2026 23:59');
+  });
+
+  it('createdAt hỏng thì ném TypeError, như ba khóa kia', () => {
+    expect(() => localDateTime({ createdAt: '2026-02-30T10:00:00+07:00' })).toThrow(TypeError);
+    expect(() => localDateTime({})).toThrow(TypeError);
   });
 });

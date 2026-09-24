@@ -15,8 +15,9 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { fold } from '../app/core/fold.js';
 import { COLLAPSED_LINES } from '../app/core/limits.js';
-import { caoTheoNoiDungSua, soDong, veMau } from '../app/view/mau-giay.js';
+import { caoTheoNoiDungSua, soDong, veMau, viTriConTroTuDiem } from '../app/view/mau-giay.js';
 import { boChuThichJs } from './helpers/quet-nguon.js';
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
@@ -641,5 +642,70 @@ describe('COLLAPSED_LINES của JS và token trần chiều cao của CSS', () =
     const lineH = /--note-line-h\s*:\s*([\d.]+)em\s*;/.exec(css);
     expect(lineH).not.toBeNull();
     expect(Number(lineH[1])).toBe(Number(fontNote[1]));
+  });
+});
+
+describe('veMau — tô phần khớp và mốc đầy đủ (Story 6.1)', () => {
+  const docCoChu = {
+    createElement: (the) => Object.assign(phanTuGia(), { the }),
+    createTextNode: (chu) => ({ nodeType: 3, textContent: chu }),
+  };
+  const coKhop = (text) => ({ ...ban(text), textFolded: fold(text) });
+  const ve = (note, tim) => veMau(note, docCoChu, false, () => {}, null, undefined, undefined, tim);
+
+  it('thân dựng bằng node chữ + <mark class="mau-khop">, tô MỌI lần xuất hiện', () => {
+    const than = theoLop(ve(coKhop('ab x ab'), { keyword: 'AB', dayDu: true }), 'mau-than');
+    expect(than.con.map((c) => [c.the ?? '#text', c.textContent])).toEqual([
+      ['mark', 'ab'],
+      ['#text', ' x '],
+      ['mark', 'ab'],
+    ]);
+    expect(than.con[0].className).toBe('mau-khop');
+  });
+
+  it('gõ không dấu tô đúng chữ có dấu', () => {
+    const than = theoLop(
+      ve(coKhop('xem Phân quyền nhé'), { keyword: 'phan quyen', dayDu: true }),
+      'mau-than',
+    );
+    expect(than.con.map((c) => c.textContent)).toEqual(['xem ', 'Phân quyền', ' nhé']);
+  });
+
+  it('có điều kiện: mốc dd/MM/yyyy HH:mm; mặc định: HH:mm và không tô', () => {
+    const note = coKhop('ab');
+    const day = ve(note, { keyword: 'ab', dayDu: true });
+    expect(theoLop(day, 'mau-gio').textContent).toMatch(/^\d{2}\/\d{2}\/\d{4} \d{2}:\d{2}$/);
+    const macDinh = veMau(note, docCoChu, false, () => {});
+    expect(theoLop(macDinh, 'mau-gio').textContent).toMatch(/^\d{2}:\d{2}$/);
+    expect(theoLop(macDinh, 'mau-than').textContent).toBe('ab');
+    expect(theoLop(macDinh, 'mau-than').con).toEqual([]);
+  });
+
+  it('không innerHTML: markup trong chữ vẫn là CHỮ khi được tô', () => {
+    const than = theoLop(ve(coKhop('<b>ab</b>'), { keyword: 'ab', dayDu: true }), 'mau-than');
+    expect(than.con.map((c) => c.textContent)).toEqual(['<b>', 'ab', '</b>']);
+    const nguon = readFileSync(
+      join(fileURLToPath(new URL('..', import.meta.url)), 'app', 'view', 'mau-giay.js'),
+      'utf8',
+    );
+    expect(boChuThichJs(nguon)).not.toMatch(/innerHTML/);
+  });
+});
+
+describe('viTriConTroTuDiem — thân có phần tô (Story 6.1)', () => {
+  it('bấm vào node thứ hai/thứ ba trả vị trí trong TOÀN VĂN, không trong node', () => {
+    const chu = (t) => ({ nodeType: 3, TEXT_NODE: 3, textContent: t, childNodes: [] });
+    const n1 = chu('xem ');
+    const n2 = chu('Phân');
+    const mark = { nodeType: 1, TEXT_NODE: 3, childNodes: [n2] };
+    const n3 = chu(' quyền');
+    const than = { nodeType: 1, TEXT_NODE: 3, childNodes: [n1, mark, n3], contains: () => true };
+    const docBam = (node, offset) => ({
+      caretPositionFromPoint: () => ({ offsetNode: node, offset }),
+    });
+    const bam = { clientX: 1, clientY: 1 };
+    expect(viTriConTroTuDiem(docBam(n2, 2), than, bam)).toBe(6);
+    expect(viTriConTroTuDiem(docBam(n3, 3), than, bam)).toBe(11);
+    expect(viTriConTroTuDiem(docBam(n1, 1), than, bam)).toBe(1);
   });
 });

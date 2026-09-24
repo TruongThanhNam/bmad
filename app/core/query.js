@@ -31,14 +31,38 @@ import { localDate } from './time.js';
  * @returns {Array<object>} Các bản ghi khớp, theo đúng thứ tự chúng đứng trong `notes`.
  */
 export function locGhiChu(notes, dieuKien, mocHienTai) {
-  // `date === null` → hôm nay. Đây là toàn bộ chỗ mà chữ "hôm nay" tồn tại trong sản phẩm.
-  const ngay = dieuKien.date === null ? localDate({ createdAt: mocHienTai }) : dieuKien.date;
+  // CẢ HAI nửa `null` → hôm nay. Đây là toàn bộ chỗ mà chữ "hôm nay" tồn tại trong sản phẩm.
+  // Có một nửa bất kỳ thì "hôm nay" KHÔNG tham gia: từ khóa một mình tìm trên MỌI ngày (AD-15).
+  const macDinh = dieuKien.keyword === null && dieuKien.date === null;
+  const ngay = macDinh ? localDate({ createdAt: mocHienTai }) : dieuKien.date;
   // Điều kiện chữ gấp MỘT LẦN ở đây, không gấp trong vòng lặp: `textFolded` của bản ghi đã
   // gấp sẵn lúc tạo, nên so hai chuỗi đã gấp là đủ — và không dòng nào ở đây tự bỏ dấu.
   const chuGap = dieuKien.keyword === null ? null : fold(dieuKien.keyword);
   return notes.filter((note) => {
-    if (localDate(note) !== ngay) return false;
-    // Hai điều kiện CHỒNG lên nhau: có chữ thì lọc thêm, không thay cho phép lọc ngày.
+    if (ngay !== null && localDate(note) !== ngay) return false;
+    // Hai điều kiện là phép GIAO: có chữ thì lọc thêm, không thay cho phép lọc ngày.
     return chuGap === null || note.textFolded.includes(chuGap);
   });
+}
+
+/**
+ * Các khoảng khớp của từ khóa trong một chuỗi ĐÃ GẤP — mọi lần xuất hiện, không chồng nhau.
+ *
+ * Tính trên `textFolded` rồi dùng thẳng trên `text`: `fold` giữ nguyên độ dài (AD-5), nên vị
+ * trí thứ `i` của chuỗi gấp là vị trí thứ `i` của chuỗi gốc.
+ *
+ * @param {string} textFolded Nội dung đã gấp của bản ghi.
+ * @param {string | null} keyword Từ khóa CHƯA gấp, đúng như state mang nó.
+ * @returns {Array<[number, number]>} Các cặp `[đầu, cuối)` tăng dần; rỗng khi không có từ khóa.
+ */
+export function khoangKhop(textFolded, keyword) {
+  if (keyword === null || keyword === '') return [];
+  const chuGap = fold(keyword);
+  const ra = [];
+  let tu = textFolded.indexOf(chuGap);
+  while (tu !== -1) {
+    ra.push([tu, tu + chuGap.length]);
+    tu = textFolded.indexOf(chuGap, tu + chuGap.length);
+  }
+  return ra;
 }

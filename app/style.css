@@ -453,6 +453,24 @@ body {
   flex: 1;
 }
 
+/* Phần chữ KHỚP từ khóa trong thân mẩu (Story 6.1). `--ink` trên `--hl` đạt ngưỡng ở cả hai
+ * bảng màu; `color` viết ra chứ không thừa hưởng để bộ đo tương phản thấy đúng cặp này. */
+
+.mau-khop {
+  background: var(--hl);
+  color: var(--ink);
+}
+
+/* Dòng duy nhất lưới được nói — chỉ khi đang có điều kiện mà không mẩu nào khớp. Nó trải hết
+ * bề ngang lưới thay vì chiếm một ô, vì nó không phải một mẩu giấy. */
+
+.luoi-khong-khop {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--ink-2);
+  font: var(--font-ui);
+}
+
 .o-ngay-boc {
   flex: none;
   display: flex;

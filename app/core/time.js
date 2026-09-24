@@ -155,6 +155,18 @@ export function localTime(note) {
   return createdAtHopLe(note).slice(LOCAL_TIME_START, LOCAL_TIME_START + LOCAL_TIME_CHARS);
 }
 
+/**
+ * Mốc HIỂN THỊ ĐẦY ĐỦ của một mẩu giấy: `dd/MM/yyyy HH:mm` (Story 6.1) — dùng khi đang có điều
+ * kiện, vì khi đó kết quả trải qua nhiều ngày và `HH:mm` một mình không nói mẩu nào của hôm nào.
+ *
+ * Cắt chuỗi chứ không dựng mốc, cùng lý do với `localTime`: giờ tại chỗ lúc tạo nằm sẵn trong
+ * chuỗi có offset, và dựng một `Date` là để nó trượt theo múi giờ của máy đang xem.
+ */
+export function localDateTime(note) {
+  const [nam, thang, ngay] = localDate(note).split('-');
+  return `${ngay}/${thang}/${nam} ${localTime(note)}`;
+}
+
 /** Mốc tuyệt đối (mili giây) của một chuỗi ISO-8601 CÓ offset, hoặc ném nêu hình dạng mong đợi.
  *
  * Cửa vào của `msBetweenIso`, và là chỗ thứ hai được dựng một mốc thời gian trong module này.

@@ -137,6 +137,8 @@ describe('Hình dạng tĩnh của tầng 2 và tầng 4', () => {
     expect(html).toMatch(/<label[^>]*>\s*ngày\s*<\/label>/);
     expect(html).toMatch(/<input[^>]*class="[^"]*\bo-tim\b/);
     expect(html).toMatch(/<input[^>]*class="[^"]*\bo-ngay\b/);
+    // Story 6.1: ô tìm mang placeholder `từ khóa`.
+    expect(html).toMatch(/<input[^>]*id="o-tim"[^>]*placeholder="từ khóa"/);
     // Nhãn phải thật sự nối với ô: `for` khớp `id`.
     for (const id of ['o-tim', 'o-ngay']) {
       expect(html).toMatch(new RegExp(`for="${id}"`));

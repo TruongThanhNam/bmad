@@ -8,7 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { fold } from '../app/core/fold.js';
-import { locGhiChu } from '../app/core/query.js';
+import { khoangKhop, locGhiChu } from '../app/core/query.js';
 
 const HOM_NAY = '2026-09-14';
 const HOM_QUA = '2026-09-13';
@@ -81,16 +81,16 @@ describe('locGhiChu — hai nửa của khối điều kiện', () => {
     expect(ra.map((n) => n.text)).toEqual(['phở bò']);
   });
 
-  it('keyword CHỒNG lên phép lọc ngày, không thay cho nó', () => {
-    // Nửa vỡ trong im lặng: một cài đặt lọc "hoặc ngày hoặc chữ" vẫn ra đúng một mẩu ở ca
-    // trên, và ở đây nó sẽ kéo cả mẩu hôm qua có chữ `phở` ra theo.
+  it('keyword một mình tìm trên MỌI ngày — "hôm nay" chỉ khi CẢ HAI nửa null (Story 6.1)', () => {
+    // Trước Story 6.1 bộ truy vấn lọc thêm theo hôm nay khi `date === null`, nên từ khóa không
+    // bao giờ tới được mẩu hôm qua. AD-15: có bất kỳ nửa nào thì "hôm nay" không tham gia.
     const notes = [
       ban(HOM_NAY, '11:00:00', 'phở bò'),
       ban(HOM_NAY, '10:00:00', 'cà phê'),
       ban(HOM_QUA, '11:00:00', 'phở gà'),
     ];
     const ra = locGhiChu(notes, { keyword: 'phở', date: null }, MOC_HOM_NAY);
-    expect(ra.map((n) => n.text)).toEqual(['phở bò']);
+    expect(ra.map((n) => n.text)).toEqual(['phở bò', 'phở gà']);
   });
 
   it('cả hai nửa cùng có: ngày cụ thể GIAO với chữ', () => {
@@ -132,5 +132,54 @@ describe('locGhiChu KHÔNG đọc đồng hồ — "hôm nay" đi vào qua tham 
     expect(locGhiChu(notes, RONG, `${HOM_NAY}T00:30:00+07:00`).map((n) => n.text)).toEqual([
       'nửa đêm về sáng',
     ]);
+  });
+});
+
+describe('Story 6.1 — tìm bằng chữ trên toàn bộ dữ liệu', () => {
+  it('gõ không dấu tìm ra mẩu HÔM QUA có dấu', () => {
+    const notes = [ban(HOM_NAY, '10:00:00', 'cà phê'), ban(HOM_QUA, '10:00:00', 'Phân quyền')];
+    const ra = locGhiChu(notes, { keyword: 'phan quyen', date: null }, MOC_HOM_NAY);
+    expect(ra.map((n) => n.text)).toEqual(['Phân quyền']);
+  });
+
+  it('keyword KHÔNG bị trim: chuỗi gõ sao so vậy', () => {
+    const notes = [ban(HOM_QUA, '10:00:00', 'ab'), ban(HOM_QUA, '09:00:00', 'x ab')];
+    const ra = locGhiChu(notes, { keyword: ' ab', date: null }, MOC_HOM_NAY);
+    expect(ra.map((n) => n.text)).toEqual(['x ab']);
+  });
+
+  it('vẫn trả MẢNG và giữ thứ tự đầu vào khi tìm trên nhiều ngày', () => {
+    const notes = [ban(HOM_NAY, '10:00:00', 'ab 1'), ban(HOM_QUA, '10:00:00', 'ab 2')];
+    const ra = locGhiChu(notes, { keyword: 'ab', date: null }, MOC_HOM_NAY);
+    expect(Array.isArray(ra)).toBe(true);
+    expect(ra.map((n) => n.text)).toEqual(['ab 1', 'ab 2']);
+  });
+});
+
+describe('khoangKhop — vị trí tô (Story 6.1)', () => {
+  it('hoa/thường: `PHAN` khớp `Phân`, đúng 4 ký tự gốc', () => {
+    expect(khoangKhop(fold('Phân quyền'), 'PHAN')).toEqual([[0, 4]]);
+  });
+
+  it('gõ không dấu tô đúng vị trí trong chữ có dấu', () => {
+    const text = 'xem Phân quyền';
+    const [[dau, cuoi]] = khoangKhop(fold(text), 'phan quyen');
+    expect(text.slice(dau, cuoi)).toBe('Phân quyền');
+  });
+
+  it('tô MỌI lần xuất hiện', () => {
+    expect(khoangKhop(fold('ab ab'), 'ab')).toEqual([
+      [0, 2],
+      [3, 5],
+    ]);
+  });
+
+  it('không chồng nhau: `aa` trong `aaa` chỉ một khoảng', () => {
+    expect(khoangKhop('aaa', 'aa')).toEqual([[0, 2]]);
+  });
+
+  it('không có từ khóa, hay không khớp: mảng rỗng', () => {
+    expect(khoangKhop('abc', null)).toEqual([]);
+    expect(khoangKhop('abc', 'zzz')).toEqual([]);
   });
 });
