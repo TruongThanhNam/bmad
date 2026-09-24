@@ -109,18 +109,27 @@
           <label class="khay-nhan" for="o-ngay">ngày</label>
           <span class="o-ngay-boc">
             <input class="o-nhap o-ngay" id="o-ngay" type="text" placeholder="dd/MM/yyyy">
-            <!-- Icon DUY NHẤT của sản phẩm, và nó là SVG nội tuyến: AD-12 cấm mọi tài nguyên
+            <!-- Nút lịch (Story 6.2): mở picker gốc của trình duyệt qua `showPicker()`. Nó đứng
+                 ngay sau `#o-ngay` trong thứ tự Tab.
+
+                 Icon DUY NHẤT của sản phẩm, và nó là SVG nội tuyến: AD-12 cấm mọi tài nguyên
                  mạng, nên không font icon và không `url(...)`. `stroke="currentColor"` để nó
                  đi theo token màu của phần tử bọc, không tự khai một màu nào. -->
-            <svg class="icon-lich" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"
-                 focusable="false" fill="none" stroke="currentColor" stroke-width="1.25">
-              <rect x="2" y="3.5" width="12" height="10" rx="1"></rect>
-              <line x1="2" y1="6.5" x2="14" y2="6.5"></line>
-              <line x1="5.5" y1="2" x2="5.5" y2="4.5"></line>
-              <line x1="10.5" y1="2" x2="10.5" y2="4.5"></line>
-            </svg>
+            <button class="nut-lich" type="button" aria-label="chọn ngày">
+              <svg class="icon-lich" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"
+                   focusable="false" fill="none" stroke="currentColor" stroke-width="1.25">
+                <rect x="2" y="3.5" width="12" height="10" rx="1"></rect>
+                <line x1="2" y1="6.5" x2="14" y2="6.5"></line>
+                <line x1="5.5" y1="2" x2="5.5" y2="4.5"></line>
+                <line x1="10.5" y1="2" x2="10.5" y2="4.5"></line>
+              </svg>
+            </button>
+            <!-- Picker gốc: ẩn khỏi mắt bằng CSS và khỏi Tab bằng `tabindex="-1"` — KHÔNG
+                 `hidden`/`display:none`, vì khi đó `showPicker()` không mở được. -->
+            <input class="o-ngay-chon" type="date" tabindex="-1" aria-hidden="true">
           </span>
         </div>
+        <p class="o-ngay-loi-chu" id="o-ngay-loi" hidden>Ngày phải viết dd/MM/yyyy, ví dụ 03/09/2026.</p>
       </div>
     </section>
 

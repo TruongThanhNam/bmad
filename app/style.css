@@ -212,6 +212,7 @@ body {
 
 .dai-bang-dong:focus-visible,
 .o-nhap:focus-visible,
+.nut-lich:focus-visible,
 .o-luoi:focus-visible,
 .mau-sua:focus-visible,
 .mau-xoa:focus-visible,
@@ -472,6 +473,8 @@ body {
 }
 
 .o-ngay-boc {
+  /* Neo cho picker gốc `.o-ngay-chon` (vị trí tuyệt đối) — Story 6.2. */
+  position: relative;
   flex: none;
   display: flex;
   /* 118px là kích thước NGOÀI theo DESIGN.md — thiếu dòng này thì viền và padding cộng thêm
@@ -506,6 +509,47 @@ body {
    * không một giá trị màu nào bị viết ra ở đây hay trong SVG. */
   inline-size: var(--space-4);
   block-size: var(--space-4);
+}
+
+/* Nút bọc icon lịch (Story 6.2): không viền, không nền — nó vẫn là icon nằm trong khung ô ngày,
+ * `color: inherit` để nét icon tiếp tục lấy `--ink-2` từ `.o-ngay-boc`. */
+
+.nut-lich {
+  flex: none;
+  display: flex;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+}
+
+/* Picker gốc ẩn khỏi mắt nhưng vẫn render — `display: none` làm `showPicker()` ném. */
+
+.o-ngay-chon {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  opacity: 0;
+}
+
+/* Lỗi ô ngày: viền `--danger` LUÔN đi kèm chữ `.o-ngay-loi-chu` ngay dưới khay. */
+
+.o-ngay-loi {
+  border-color: var(--danger);
+}
+
+/* Chữ lỗi đứng trên nền bàn, dưới khay. Màu `--ink`: chữ tự nói ra lỗi, màu đỏ là của viền. */
+
+.o-ngay-loi-chu {
+  margin: var(--space-1) 0 0;
+  color: var(--ink);
+  font: var(--font-ui);
 }
 
 /* ── Tầng 3 — lưới ghi chú ─────────────────────────────────────────────────────────────

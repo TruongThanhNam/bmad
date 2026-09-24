@@ -630,3 +630,35 @@ Còn lại là thứ không con số nào nói: lần tải lại có **nháy m�
     bị xóa, ô tìm **về rỗng**, lưới về hôm nay với mẩu vừa chốt ở đầu.
 
     *Cả hai theme.* Lặp phần tô ở bản dark (mục 14): chữ trên nền tô `--hl` phải đọc rõ.
+
+### Lọc theo một ngày cụ thể — một mục phải làm bằng mắt (Story 6.2)
+
+33. **Gõ một ngày, gõ sai thấy lỗi, chọn bằng lịch, và xóa ô là về hôm nay.** Mở trang qua HTTP
+    localhost (mục 1) với ghi chú của ít nhất hai ngày khác nhau (nạp một file sao lưu qua chân
+    trang), trong đó có một ngày cũ, ví dụ `03/09/2026`.
+
+    *Ô ngày.* Bên phải khay: nhãn `ngày`, ô rộng 118px chữ monospace placeholder `dd/MM/yyyy`, và
+    icon lịch 16px nét `--ink-2`. `Tab` từ ô ngày: tiêu điểm tới **nút lịch** (có vòng sáng), rồi
+    mới tới mẩu giấy đầu tiên.
+
+    *Gõ ngày.* Gõ `03/09/2026`: lưới chỉ còn ghi chú của ngày đó, mốc dạng `dd/MM/yyyy HH:mm`.
+
+    *Gõ sai.* Xóa bớt thành `03/09/20`: lưới **đứng yên**, chưa có lỗi. Rời ô (`Tab`): viền ô
+    thành `--danger` và dưới khay hiện `Ngày phải viết dd/MM/yyyy, ví dụ 03/09/2026.`; lưới vẫn
+    đứng yên. Gõ `31/02/2026`: lỗi bật ngay khi đủ 10 ký tự, lưới đứng yên. Sửa lại thành một ngày
+    hợp lệ: lỗi tắt ngay, lưới lọc theo ngày mới.
+
+    *Picker.* Bấm icon lịch: picker gốc của trình duyệt mở. Chọn một ngày: ô hiện đúng
+    `dd/MM/yyyy`, lưới lọc theo ngày đó, picker đóng, không còn lỗi.
+
+    *Giao với từ khóa.* Gõ thêm một từ khóa ở ô tìm: lưới chỉ còn mẩu khớp chữ **và** đúng ngày.
+
+    *Xóa ô.* Xóa sạch ô ngày (và ô tìm): lưới về khung nhìn hôm nay, mốc về `HH:mm`, lỗi tắt.
+
+    *Sửa tại chỗ trong kết quả lọc ngày.* Lọc một ngày cũ, click một mẩu: sửa một chữ rồi rời —
+    chữ mới xuống kho, tải lại trang vẫn còn.
+
+    *Chốt khi đang lọc ngày.* Đang lọc ngày, chốt một ghi chú bằng `Ctrl+Enter`: ô ngày **về
+    rỗng**, lỗi (nếu có) tắt, lưới về hôm nay.
+
+    *Cả hai theme.* Lặp phần gõ sai ở bản dark (mục 14): viền đỏ thấy rõ, chữ lỗi đọc rõ.

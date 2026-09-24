@@ -146,6 +146,16 @@ describe('Hình dạng tĩnh của tầng 2 và tầng 4', () => {
     }
   });
 
+  it('Story 6.2: icon lịch bọc trong nút `chọn ngày` ngay sau #o-ngay; chữ lỗi và picker gốc có mặt', () => {
+    expect(html).toMatch(
+      /id="o-ngay"[^>]*>\s*(?:<!--[\s\S]*?-->\s*)?<button class="nut-lich" type="button" aria-label="chọn ngày">\s*<svg/,
+    );
+    expect(html).toMatch(/<input class="o-ngay-chon" type="date" tabindex="-1" aria-hidden="true">/);
+    expect(html).toMatch(
+      /<p class="o-ngay-loi-chu" id="o-ngay-loi" hidden>Ngày phải viết dd\/MM\/yyyy, ví dụ 03\/09\/2026\.<\/p>/,
+    );
+  });
+
   it('icon lịch là SVG nội tuyến 16px, không url(...) và không tự khai màu nào', () => {
     const svg = /<svg\b[\s\S]*?<\/svg>/i.exec(html);
     expect(svg).not.toBeNull();

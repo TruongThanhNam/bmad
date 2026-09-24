@@ -346,6 +346,16 @@ export function dieuKhienTrongHtml(html) {
       (the === 'a' && /\bhref\s*=/i.test(thuocTinh)) ||
       (giaTriTab !== null && !giaTriTab.startsWith('-'));
     if (!laDiemDung) continue;
+    // Story 6.2: picker gốc `.o-ngay-chon` là một `<input>` ra khỏi Tab (`tabindex="-1"`) VÀ khỏi
+    // cây trợ năng (`aria-hidden`) — nó chỉ mở bằng `showPicker()` từ nút lịch, không ai đứng
+    // lên nó bằng bàn phím, nên nó không cần một vòng sáng. Cần CẢ HAI mới được bỏ qua.
+    if (
+      giaTriTab === '-1' &&
+      /\baria-hidden\s*=\s*"true"/i.test(thuocTinh) &&
+      /\bclass\s*=\s*"o-ngay-chon"/i.test(thuocTinh)
+    ) {
+      continue;
+    }
     const lop = /\bclass\s*=\s*"([^"]*)"/i.exec(thuocTinh);
     ra.push({
       dong: soDong(html, khop.index),
@@ -457,8 +467,15 @@ describe('(a) không `tabindex` dương ở bất kỳ đâu — thứ tự Tab 
     // Không phải thừa so với ca trên: `tabindex="0"` hợp lệ về mặt luật, nhưng trong một tài
     // liệu tĩnh mà mọi điều khiển đã là `<button>`/`<input>` thì nó chỉ là tiếng ồn — và nó là
     // bước đầu tiên của một người sắp gõ `tabindex="1"`.
+    //
+    // Ngoại lệ DUY NHẤT (Story 6.2, quyết định người): picker gốc `.o-ngay-chon` mang
+    // `tabindex="-1"` để RA KHỎI Tab — nút lịch đứng ngay sau `#o-ngay` mới là điểm dừng.
     const ma = readFileSync(join(repoRoot, FILE_HTML), 'utf8');
-    expect(datTabindexTrongFile(FILE_HTML, ma)).toEqual([]);
+    const ngoaiLe = ma.split('\n').findIndex((d) => /class="o-ngay-chon"/.test(d)) + 1;
+    expect(ngoaiLe).toBeGreaterThan(0);
+    expect(datTabindexTrongFile(FILE_HTML, ma)).toEqual([
+      { dong: ngoaiLe, giaTri: '-1', cach: 'thuộc tính' },
+    ]);
   });
 });
 

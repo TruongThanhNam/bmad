@@ -1565,6 +1565,8 @@ try {
     const THU_TU = [
       'input.o-nhap.o-tim',
       'input.o-nhap.o-ngay',
+      // Story 6.2: nút lịch ngay sau ô ngày; picker gốc `.o-ngay-chon` ra khỏi Tab.
+      'button.nut-lich',
       'div.o-luoi',
       'button.mau-xoa',
       'div.o-luoi',
@@ -1895,6 +1897,27 @@ try {
       toi['nét icon lịch'] === boc,
       `icon=${toi['nét icon lịch']} bọc=${boc}`,
     );
+    // Story 6.2: lỗi ô ngày — viền là `--danger` và chữ lỗi hiện, ở CẢ HAI theme.
+    for (const theme of ['light', 'dark']) {
+      const loi = await cdp.chay(
+        tab.sessionId,
+        `document.documentElement.dataset.theme = ${JSON.stringify(theme)};
+         const boc = document.querySelector('.o-ngay-boc');
+         const chu = document.getElementById('o-ngay-loi');
+         boc.classList.add('o-ngay-loi'); chu.hidden = false;
+         const tam = document.createElement('span');
+         tam.style.color = 'var(--danger)'; document.body.append(tam);
+         const ra = { vien: getComputedStyle(boc).borderTopColor, danger: getComputedStyle(tam).color,
+                      thay: chu.getBoundingClientRect().height > 0 };
+         tam.remove(); boc.classList.remove('o-ngay-loi'); chu.hidden = true;
+         return ra;`,
+      );
+      ghi(
+        `lỗi ô ngày (${theme}): viền --danger và chữ lỗi hiện`,
+        loi.vien === loi.danger && loi.thay,
+        `viền=${loi.vien} danger=${loi.danger} chữ=${loi.thay}`,
+      );
+    }
   }
 
   // ── Nút theme: lật bằng chuột và bằng `Enter`, rồi đo tương phản THẬT (Story 3.3) ─────

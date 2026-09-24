@@ -82,6 +82,37 @@ function ngayCoThat(ngay) {
   return dungLich ? moc : null;
 }
 
+/** Chuỗi người gõ vào ô ngày (Story 6.2): `dd/MM/yyyy` và không gì khác — `3/9/2026` là gõ dở. */
+const MAU_NHAP = /^(\d{2})\/(\d{2})\/(\d{4})$/;
+
+/**
+ * Đọc chuỗi ô ngày `dd/MM/yyyy` thành khóa lọc `yyyy-MM-dd`, hoặc `null` nếu sai dạng HOẶC ngày
+ * không có thật (`31/02/2026`). Trả `null` chứ không ném: đây là chữ người đang gõ, gõ dở là
+ * trạng thái bình thường, không phải lỗi lập trình.
+ */
+export function ngayTuChuoiNhap(chuoi) {
+  const khop = typeof chuoi === 'string' ? MAU_NHAP.exec(chuoi) : null;
+  if (!khop) return null;
+  const [, ngay, thang, nam] = khop;
+  const khoa = `${nam}-${thang}-${ngay}`;
+  return ngayCoThat(khoa) === null ? null : khoa;
+}
+
+/**
+ * Chuỗi ô ngày đã gõ đủ độ dài của `dd/MM/yyyy` chưa — mốc để view bật lỗi mà không đợi `blur`.
+ * `dd/MM/yyyy` dài đúng bằng `yyyy-MM-dd`, nên dùng chung `LOCAL_DATE_CHARS`.
+ */
+export function chuoiNhapDuDai(chuoi) {
+  return typeof chuoi === 'string' && chuoi.length >= LOCAL_DATE_CHARS;
+}
+
+/** Ngược của `ngayTuChuoiNhap`: `yyyy-MM-dd` → `dd/MM/yyyy`. Ném nếu không phải ngày có thật. */
+export function chuoiNhapTuNgay(khoa) {
+  mocGiuaTrua(khoa);
+  const [nam, thang, ngay] = khoa.split('-');
+  return `${ngay}/${thang}/${nam}`;
+}
+
 /** Đệm `0` cho đủ độ rộng một ô của mốc ISO. */
 function dem(so, doRong) {
   return String(so).padStart(doRong, '0');

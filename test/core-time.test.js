@@ -6,8 +6,44 @@ import {
   localStamp,
   localTime,
   msBetweenIso,
+  chuoiNhapDuDai,
+  chuoiNhapTuNgay,
+  ngayTuChuoiNhap,
   nowIso,
 } from '../app/core/time.js';
+
+describe('core/time.js — ngayTuChuoiNhap / chuoiNhapTuNgay (Story 6.2)', () => {
+  it('dd/MM/yyyy hợp lệ → yyyy-MM-dd', () => {
+    expect(ngayTuChuoiNhap('03/09/2026')).toBe('2026-09-03');
+    expect(ngayTuChuoiNhap('29/02/2028')).toBe('2028-02-29');
+  });
+
+  it('ngày không có thật → null', () => {
+    expect(ngayTuChuoiNhap('31/02/2026')).toBeNull();
+    expect(ngayTuChuoiNhap('29/02/2026')).toBeNull();
+    expect(ngayTuChuoiNhap('00/09/2026')).toBeNull();
+    expect(ngayTuChuoiNhap('03/13/2026')).toBeNull();
+  });
+
+  it('sai dạng / gõ dở → null', () => {
+    for (const s of ['2026-09-03', '3/9/2026', '03/09/20', '', ' 03/09/2026', '03/09/2026 ', null, undefined, 3]) {
+      expect(ngayTuChuoiNhap(s)).toBeNull();
+    }
+  });
+
+  it('chuoiNhapDuDai: đúng 10 ký tự trở lên', () => {
+    expect(chuoiNhapDuDai('03/09/202')).toBe(false);
+    expect(chuoiNhapDuDai('2026-09-03')).toBe(true);
+    expect(chuoiNhapDuDai(null)).toBe(false);
+  });
+
+  it('chuoiNhapTuNgay đổi ngược, và ném với khóa sai', () => {
+    expect(chuoiNhapTuNgay('2026-09-03')).toBe('03/09/2026');
+    expect(ngayTuChuoiNhap(chuoiNhapTuNgay('2028-02-29'))).toBe('2028-02-29');
+    expect(() => chuoiNhapTuNgay('2026-02-31')).toThrow(TypeError);
+    expect(() => chuoiNhapTuNgay('03/09/2026')).toThrow(TypeError);
+  });
+});
 
 // Độ dài ghim bằng số literal chứ không bằng hằng của `limits.js`: so khóa với chính hằng mà
 // mã dùng để cắt thì đổi hằng cũng vẫn xanh. Test không bị `nguong-tap-trung` quét.

@@ -596,7 +596,11 @@ describe('index.html — con trỏ sẵn, microcopy ghim, và KHÔNG maxlength',
   it('không nút "Lưu", không chữ "đã lưu", không dấu hiệu "chưa chốt", không đếm ký tự', () => {
     // AC nói "tìm thì không có" — nên nó là một phép tìm, trên bản thô.
     for (const mau of [/\bLưu\b/, /đã lưu/i, /chưa chốt/i, /ký tự/i, /\d+\s*\/\s*\d+/]) {
-      expect(indexHtmlThoc.replace(/<!--[\s\S]*?-->/g, '')).not.toMatch(mau);
+      // Chữ lỗi ô ngày (Story 6.2) mang ví dụ `dd/MM/yyyy` — một ngày, không phải bộ đếm.
+      const tho = indexHtmlThoc
+        .replace(/<!--[\s\S]*?-->/g, '')
+        .replace(/<p class="o-ngay-loi-chu"[^>]*>[^<]*<\/p>/, '');
+      expect(tho).not.toMatch(mau);
     }
   });
 });

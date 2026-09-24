@@ -180,7 +180,9 @@ const DUNG_DANGER = [
       'chính nhãn `xóa` của nút nói ra việc nó làm, và dòng `Không có thùng rác và không hoàn ' +
       'tác được.` ở `.hop-thoai-than` ngay trên nói ra hậu quả',
   },
-  // { chon: '.o-ngay-loi', chu: 'thông báo lỗi ở `.o-ngay-loi-chu`, ngay dưới ô ngày' },
+  // Story 6.2: viền lỗi ô ngày. `app/view/khay-tim.js` bật class và bỏ `hidden` của chữ lỗi
+  // trong CÙNG một hàm (`hienLoi`) — không có đường nào bật viền mà không bật chữ.
+  { chon: '.o-ngay-loi', chu: 'thông báo lỗi ở `.o-ngay-loi-chu`, ngay dưới khay tìm' },
 ];
 
 /** Hai bảng token — nơi `--danger` được KHAI, không phải nơi nó được DÙNG làm tín hiệu. */
@@ -435,8 +437,8 @@ describe('bộ quét tự nó còn mắt — mỗi nhóm chạy trên một chu�
 
   it('(c) một selector mới dùng var(--danger) mà chưa khai thì bị bắt; bảng token thì không', () => {
     expect(
-      dungDangerTrongCss('.o-ngay-loi { border-color: var(--danger); }').map((v) => v.chon),
-    ).toEqual(['.o-ngay-loi']);
+      dungDangerTrongCss('.o-chua-khai { border-color: var(--danger); }').map((v) => v.chon),
+    ).toEqual(['.o-chua-khai']);
     expect(dungDangerTrongCss('\n\n.x { color: var( --danger ) }').map((v) => v.dong)).toEqual([3]);
     // Âm tính: KHAI `--danger` ở hai bảng token không phải DÙNG nó làm tín hiệu.
     expect(dungDangerTrongCss(':root { --danger: #97392C; }')).toEqual([]);

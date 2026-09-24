@@ -134,6 +134,8 @@ const NEN_CUA = Object.freeze({
   '.mau-khop': '--hl',
   // Dòng "không khớp" đứng thẳng trên nền bàn, như dòng nhắc dưới ô soạn thảo.
   '.luoi-khong-khop': '--bg',
+  // Chữ lỗi ô ngày (Story 6.2) đứng dưới khay, thẳng trên nền bàn — không trên `--chip-bg`.
+  '.o-ngay-loi-chu': '--bg',
   // Hộp thoại xác nhận xóa (Story 5.3): cả ba chỗ có chữ nằm trên nền `--surface` của chính
   // hộp, không trên màn phủ — màn phủ ở DƯỚI hộp, và không một chữ nào đứng trên nó.
   '.hop-thoai-tieu-de': '--surface',

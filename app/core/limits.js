@@ -79,4 +79,4 @@ export const YEAR_CHARS = 4;
 
 /** Phiên bản app, bump TAY ở mọi lần deploy (AD-21, checklist trong README).
  *  AD-21 chỉ so bằng nhau: tab thấy giá trị khác của mình thì vào chế độ chỉ đọc. */
-export const APP_VERSION = '0.5.0';
+export const APP_VERSION = '0.6.0';
