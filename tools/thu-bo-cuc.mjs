@@ -1556,8 +1556,8 @@ try {
 
     const DAT_TIEU_DIEM_O_SOAN = `document.querySelector('.o-soan').focus(); return true;`;
 
-    // Dãy nghiệm thu, và nó CHỈ gồm những phần tử đã tồn tại hôm nay. `về hôm nay` (Epic 6)
-    // chưa tính.
+    // Dãy nghiệm thu của khung nhìn MẶC ĐỊNH. `về hôm nay` (Story 6.3) chỉ có khi có điều kiện,
+    // nên nó không ở trong dãy này — khối ngay sau dãy đo nó riêng.
     //
     // Nút `xóa` gia nhập ở Story 5.3, và với nó thứ tự trong MỖI mẩu là THÂN rồi NÚT XÓA — đúng
     // thứ tự DOM, không một `tabindex` nào nắn lại. Trước đó nó mang `tabindex="-1"` vì nó chưa
@@ -1609,6 +1609,83 @@ try {
         JSON.stringify(nguoc.map((d) => d.ten)) === JSON.stringify(mongNguoc),
         `${JSON.stringify(nguoc.map((d) => d.ten))}`,
       );
+    }
+
+    // ── Story 6.3: có điều kiện thì `về hôm nay` đứng sau nút lịch, trước mẩu đầu ─────────
+    //
+    // Điều kiện bật qua ĐÚNG đường của người dùng (gõ vào `#o-tim`), rồi bơm lại ba mẩu giả vào
+    // lưới — lượt vẽ thật vừa thay lưới bằng tập khớp (rỗng) của kho thật. Hàng chip không bị
+    // lượt bơm đó chạm tới, nên nó vẫn là của app thật.
+    {
+      await cdp.chay(
+        tab.sessionId,
+        `const o = document.getElementById('o-tim'); o.value = 'zzz-thu-chip';
+         o.dispatchEvent(new Event('input', { bubbles: true })); return true;`,
+      );
+      await nghi(100);
+      await cdp.chay(tab.sessionId, BOM_MAU_CAT);
+      const hang = await cdp.chay(
+        tab.sessionId,
+        `const h = document.querySelector('.hang-chip');
+         return { an: h.hidden, chu: [...h.children].map((c) => c.textContent),
+                  goiY: document.getElementById('o-soan').getAttribute('placeholder') };`,
+      );
+      ghi(
+        'có điều kiện: hàng chip hiện `zzz-thu-chip · 0 ghi chú · về hôm nay`, ô soạn mang placeholder cảnh báo',
+        hang.an === false &&
+          JSON.stringify(hang.chu) === JSON.stringify(['zzz-thu-chip', '0 ghi chú', 'về hôm nay']) &&
+          hang.goiY === 'gõ vào đây sẽ bỏ mọi điều kiện lọc',
+        JSON.stringify(hang),
+      );
+      await cdp.chay(tab.sessionId, `document.querySelector('.nut-lich').focus(); return true;`);
+      const day = await diTab(2);
+      ghi(
+        'Tab từ nút lịch khi có điều kiện: `về hôm nay` rồi mới tới mẩu đầu',
+        JSON.stringify(day.map((d) => d.ten)) === JSON.stringify(['button.ve-hom-nay', 'div.o-luoi']),
+        JSON.stringify(day.map((d) => d.ten)),
+      );
+      // Ngày gõ dở + rời ô: lỗi ngày bật, và chữ đó KHÔNG ở trong state — `về hôm nay` phải
+      // tự xóa nó (`khayTim.xoaNhap()`).
+      const loiTruoc = await cdp.chay(
+        tab.sessionId,
+        `const n = document.getElementById('o-ngay'); n.value = '03/09/20';
+         n.dispatchEvent(new Event('input', { bubbles: true }));
+         n.dispatchEvent(new Event('blur'));
+         document.querySelector('.ve-hom-nay').focus();
+         return document.getElementById('o-ngay-loi').hidden;`,
+      );
+      ghi('ngày gõ dở + rời ô: chữ lỗi ngày hiện trước khi về hôm nay', loiTruoc === false, String(loiTruoc));
+      for (const type of ['keyDown', 'keyUp']) {
+        await cdp.goi(
+          'Input.dispatchKeyEvent',
+          {
+            type,
+            key: 'Enter',
+            code: 'Enter',
+            text: type === 'keyDown' ? '\r' : undefined,
+            windowsVirtualKeyCode: 13,
+            nativeVirtualKeyCode: 13,
+          },
+          tab.sessionId,
+        );
+      }
+      await nghi(120);
+      const sau = await cdp.chay(
+        tab.sessionId,
+        `return { an: document.querySelector('.hang-chip').hidden,
+                  tim: document.getElementById('o-tim').value,
+                  ngay: document.getElementById('o-ngay').value,
+                  loiAn: document.getElementById('o-ngay-loi').hidden,
+                  dung: document.activeElement && document.activeElement.id,
+                  goiY: document.getElementById('o-soan').hasAttribute('placeholder') };`,
+      );
+      ghi(
+        'Enter trên `về hôm nay`: hàng chip biến mất, ô tìm rỗng, placeholder gỡ, tiêu điểm ở #o-soan',
+        sau.an === true && sau.tim === '' && sau.ngay === '' && sau.loiAn === true && sau.dung === 'o-soan' && sau.goiY === false,
+        JSON.stringify(sau),
+      );
+      // Trả lưới về ba mẩu giả cho các khối đo vòng sáng bên dưới.
+      await cdp.chay(tab.sessionId, BOM_MAU_CAT);
     }
 
     // ── Vòng sáng: hiện ra, khác lúc nghỉ, và lấy màu từ `--focus` — ở CẢ HAI theme ──────

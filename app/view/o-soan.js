@@ -19,6 +19,11 @@ const CHON_O_SOAN = '#o-soan';
 /** Phím chốt, đi cùng `Ctrl` — nguyên văn microcopy "Ctrl+Enter để chốt" của EXPERIENCE.md. */
 const PHIM_CHOT = 'Enter';
 
+/** Placeholder cảnh báo khi đang lọc (Story 6.3) — nguyên văn EXPERIENCE.md, UJ-2 bước 4. Gõ
+ *  vào ô KHÔNG xóa điều kiện; chỉ chốt thật mới xóa (AD-15) — README mục 34. */
+const THUOC_TINH_GOI_Y = 'placeholder';
+const CHU_CANH_BAO = 'gõ vào đây sẽ bỏ mọi điều kiện lọc';
+
 /**
  * Nối ô soạn thảo vào store: mỗi phím gõ đi thẳng vào action tự lưu.
  *
@@ -30,14 +35,15 @@ const PHIM_CHOT = 'Enter';
  *   treo `luoi.ve` vào đây. Là THAM SỐ chứ không phải một import: hai view không được biết
  *   nhau, chỉ `main.js` biết cả hai — cùng lý do view không được biết adapter. Không có cơ
  *   chế subscribe trong dự án này, và đây là điểm nối duy nhất không sinh một state thứ hai.
- * @returns {{ dongBoTuState: () => void }} `dongBoTuState` đưa chữ trong state ra ô, dùng
- *   đúng một lần sau khi `khoiDongBanNhap()` chốt.
+ * @returns {{ dongBoTuState: () => void, ve: () => void }} `dongBoTuState` đưa chữ trong state
+ *   ra ô, dùng đúng một lần sau khi `khoiDongBanNhap()` chốt; `ve` đặt/gỡ placeholder cảnh báo
+ *   theo `dieuKien` — nằm trong lượt vẽ chung của `main.js`.
  */
 export function noiOSoan(store, goc = document, sauKhiChot = () => {}) {
   const o = goc.querySelector(CHON_O_SOAN);
   // Không có ô thì không có gì để nối — và cũng không có gì để ném. `dongBoTuState` vẫn phải
   // gọi được, vì `app/main.js` treo nó vào một lời hứa không bao giờ bị từ chối.
-  if (o === null || o === undefined) return { dongBoTuState() {} };
+  if (o === null || o === undefined) return { dongBoTuState() {}, ve() {} };
 
   /**
    * Ô cao khít nội dung.
@@ -127,5 +133,20 @@ export function noiOSoan(store, goc = document, sauKhiChot = () => {}) {
   // phím đầu tiên làm ô giật từ chiều cao mặc định của trình duyệt xuống sàn của token.
   caoTheoNoiDung();
 
-  return { dongBoTuState };
+  /**
+   * Placeholder cảnh báo (Story 6.3): CHỈ khi đang có điều kiện lọc; không có điều kiện thì gỡ
+   * hẳn thuộc tính — placeholder trống là quyết định của DESIGN.md cho khung nhìn mặc định.
+   * Đọc thẳng `dieuKien`, không giữ bản sao nào: mỗi lượt vẽ hỏi lại state.
+   */
+  function ve() {
+    const dieuKien = store.state.dieuKien;
+    const coDieuKien = dieuKien.keyword !== null || dieuKien.date !== null;
+    if (coDieuKien) {
+      if (o.getAttribute(THUOC_TINH_GOI_Y) !== CHU_CANH_BAO) o.setAttribute(THUOC_TINH_GOI_Y, CHU_CANH_BAO);
+    } else if (o.hasAttribute(THUOC_TINH_GOI_Y)) {
+      o.removeAttribute(THUOC_TINH_GOI_Y);
+    }
+  }
+
+  return { dongBoTuState, ve };
 }

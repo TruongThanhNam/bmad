@@ -662,3 +662,39 @@ Còn lại là thứ không con số nào nói: lần tải lại có **nháy m�
     rỗng**, lỗi (nếu có) tắt, lưới về hôm nay.
 
     *Cả hai theme.* Lặp phần gõ sai ở bản dark (mục 14): viền đỏ thấy rõ, chữ lỗi đọc rõ.
+
+### Hàng chip điều kiện và đường về — một mục phải làm bằng mắt (Story 6.3)
+
+34. **Thấy mình đang lọc theo gì, và về hôm nay trong một thao tác.** Mở trang qua HTTP localhost
+    (mục 1) với dữ liệu như mục 32–33 (bốn ghi chú chứa `Phân quyền` ở nhiều ngày, một trong đó
+    ngày `03/09/2026`). Đi theo UJ-2 bước 4–8 của EXPERIENCE.md.
+
+    *Mặc định.* Chưa gõ gì: **không** hàng chip dưới khay, ô soạn thảo **không** placeholder.
+
+    *Chỉ từ khóa.* Gõ `phan quyen` ở ô tìm: dưới khay hiện chip `phan quyen` (đúng chữ đã gõ, bo
+    tròn, nền `--chip-bg`), `4 ghi chú` chữ nhạt, và `về hôm nay` gạch chân bị đẩy sát phải. Ô
+    soạn thảo hiện placeholder `gõ vào đây sẽ bỏ mọi điều kiện lọc`. Click chip: không có gì xảy ra.
+
+    *Cả hai.* Gõ thêm `03/09/2026` ở ô ngày: hàng đổi thành `phan quyen` · `03/09/2026` (chữ
+    monospace) · `1 ghi chú`; lưới là phép giao.
+
+    *Không khớp.* Đổi ngày thành một ngày không có ghi chú nào: chip ghi `0 ghi chú`, lưới hiện
+    `Không có ghi chú nào khớp.`, và `về hôm nay` **vẫn còn**.
+
+    *Thứ tự Tab.* Từ nút lịch nhấn `Tab`: tiêu điểm tới `về hôm nay` (có vòng sáng), rồi mới tới
+    mẩu giấy đầu tiên. Chip không bao giờ nhận tiêu điểm.
+
+    *Về hôm nay.* Nhấn `Enter` trên nút (hoặc click): ô tìm và ô ngày về rỗng, lỗi ngày (nếu có)
+    tắt, hàng chip biến mất, placeholder của ô soạn biến mất, lưới về hôm nay, và **tiêu điểm ở ô
+    soạn thảo**.
+
+    *Gõ vào ô soạn KHÔNG bỏ điều kiện — cách hiểu đã chốt.* Đang lọc, gõ vài chữ vào ô soạn: điều
+    kiện **còn nguyên** (chip vẫn đó). Điều kiện chỉ bị bỏ khi **chốt thật** bằng `Ctrl+Enter`
+    (Story 2.3, AD-15): dòng "gõ vào ô soạn thảo" trong bảng sáu dòng được hiểu là "chốt từ ô soạn
+    thảo", và placeholder cảnh báo nói trước điều đó.
+
+    *Tải lại.* Đang lọc, tải lại trang: về khung nhìn mặc định, không hàng chip — điều kiện không
+    bao giờ xuống kho.
+
+    *Cả hai theme.* Lặp phần hàng chip và phần `0 ghi chú` ở bản dark (mục 14): chữ chip, số kết
+    quả và `về hôm nay` đều đọc rõ.

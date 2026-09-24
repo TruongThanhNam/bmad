@@ -615,7 +615,21 @@ describe('app/view/luoi.js — luật của tầng view, cưỡng chế được
       'chanTrang',
       'hopThoai',
       'khayTim',
+      // Story 6.3: hàng chip (tầng 2b) và placeholder cảnh báo của ô soạn thảo đổi theo
+      // `dieuKien`, nên cả hai phải vẽ lại mỗi khi điều kiện đổi.
+      'hangChip',
+      'oSoan',
     ]);
+    // Story 6.3: nút `về hôm nay` xóa điều kiện, xóa ngày gõ dở, vẽ lại, rồi trả tiêu điểm.
+    expect(main).toMatch(
+      /noiHangChip\s*\(\s*store\s*,\s*document\s*,\s*undefined\s*,\s*veHomNay\s*\)/,
+    );
+    const veHomNay = /\bveHomNay\s*=\s*\(\s*\)\s*=>\s*\{([^}]*)\}/.exec(main);
+    expect(veHomNay).not.toBeNull();
+    const buoc = ['xoaHetDieuKien\\s*\\(', 'xoaNhap\\s*\\(', 'veTatCa\\s*\\(', 'ID_O_SOAN', 'focus\\s*\\('];
+    const viTri = buoc.map((b) => veHomNay[1].search(new RegExp(b)));
+    expect(viTri.every((v) => v >= 0)).toBe(true);
+    expect([...viTri].sort((a, b) => a - b)).toEqual(viTri);
     // Khay tìm (Story 6.1) PHẢI nhận móc vẽ lại: thiếu tham số thứ ba thì ô tìm câm.
     expect(main).toMatch(/import\s*\{\s*noiKhayTim\s*\}\s*from\s*'\.\/view\/khay-tim\.js'/);
     expect(main).toMatch(

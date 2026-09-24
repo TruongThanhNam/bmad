@@ -219,6 +219,7 @@ body {
 .hop-thoai-chon:focus-visible,
 .hop-thoai-xoa:focus-visible,
 .chan-link:focus-visible,
+.ve-hom-nay:focus-visible,
 .nut-theme:focus-visible {
   outline: 2px solid var(--focus);
   outline-offset: 2px;
@@ -550,6 +551,61 @@ body {
   margin: var(--space-1) 0 0;
   color: var(--ink);
   font: var(--font-ui);
+}
+
+/* ── Tầng 2b — hàng chip điều kiện (Story 6.3) ──────────────────────────────────────────
+ *
+ * Chỉ có mặt khi có điều kiện (`hidden` do `app/view/hang-chip.js` bật/tắt). Chip là `<span>`
+ * chỉ để nhìn: `condition-chip` của DESIGN.md — nền `--chip-bg`, viền `--rule`, bo `full`,
+ * đệm 3px 10px dựng từ token khoảng cách. Không bóng, không chuyển động. */
+
+.hang-chip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block-start: var(--space-2);
+}
+
+.hang-chip[hidden] {
+  display: none;
+}
+
+.chip {
+  padding: calc(var(--space-1) * 3 / 4) calc(var(--space-2) + var(--space-1) / 2);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-full);
+  background: var(--chip-bg);
+  color: var(--ink);
+  font: var(--font-ui);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* Chip ngày đọc bằng vai thời gian — monospace dành riêng cho thời gian. */
+
+.chip-ngay {
+  font: var(--font-time);
+  letter-spacing: var(--tracking-time);
+}
+
+.hang-chip-dem {
+  color: var(--ink-2);
+  font: var(--font-ui);
+}
+
+/* `về hôm nay`: `<button>` mang dáng link, đúng khuôn `.chan-link`; đẩy sang phải bằng lề. */
+
+.ve-hom-nay {
+  margin-inline-start: auto;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font: var(--font-ui);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
 }
 
 /* ── Tầng 3 — lưới ghi chú ─────────────────────────────────────────────────────────────

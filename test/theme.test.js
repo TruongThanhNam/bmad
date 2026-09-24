@@ -136,6 +136,11 @@ const NEN_CUA = Object.freeze({
   '.luoi-khong-khop': '--bg',
   // Chữ lỗi ô ngày (Story 6.2) đứng dưới khay, thẳng trên nền bàn — không trên `--chip-bg`.
   '.o-ngay-loi-chu': '--bg',
+  // Hàng chip (Story 6.3): chip mang nền `--chip-bg` của chính nó; số kết quả và `về hôm nay`
+  // đứng thẳng trên nền bàn, dưới khay.
+  '.chip': '--chip-bg',
+  '.hang-chip-dem': '--bg',
+  '.ve-hom-nay': '--bg',
   // Hộp thoại xác nhận xóa (Story 5.3): cả ba chỗ có chữ nằm trên nền `--surface` của chính
   // hộp, không trên màn phủ — màn phủ ở DƯỚI hộp, và không một chữ nào đứng trên nó.
   '.hop-thoai-tieu-de': '--surface',

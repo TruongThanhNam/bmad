@@ -27,6 +27,7 @@ import { taoStore } from './core/state.js';
 import { PORT_METHODS } from './ports/index.js';
 import { noiBanner } from './view/banner.js';
 import { noiChanTrang } from './view/chan-trang.js';
+import { noiHangChip } from './view/hang-chip.js';
 import { noiHopThoai } from './view/hop-thoai.js';
 import { noiKhayTim } from './view/khay-tim.js';
 import { CHON_LUOI, noiLuoi } from './view/luoi.js';
@@ -339,9 +340,24 @@ if (typeof document !== 'undefined') {
   // Khay tìm là view THỨ BẢY (Story 6.1), nối SAU sáu view trên. Nó phát `datDieuKien` mỗi phím
   // rồi gọi lượt vẽ chung — lớp bọc lười vì `veTatCa` khai ngay bên dưới, cùng khuôn `latRoiVe`.
   const khayTim = noiKhayTim(store, document, () => veTatCa());
-  // Một callback vẽ chung cho cả BẢY view: đây là chỗ DUY NHẤT biết rằng "vẽ lại" nghĩa là
-  // vẽ lại cả bảy. Treo riêng từng cái vào từng điểm nối là cách một view mới bị quên ở một
-  // trong hai chỗ, và tiêu đề sẽ đứng yên sau lần chốt mà không làm gì đỏ cả.
+  // Hàng chip là view THỨ TÁM (Story 6.3). Nút `về hôm nay` về khung nhìn mặc định trong MỘT
+  // thao tác: xóa điều kiện, xóa cả ngày gõ dở (không ở trong state nên `ve()` không thấy), vẽ
+  // lại, rồi trả tiêu điểm về ô soạn thảo — nút vừa bấm tự biến mất ở chính lượt vẽ đó.
+  const veHomNay = () => {
+    store.xoaHetDieuKien();
+    khayTim.xoaNhap();
+    veTatCa();
+    const o = document.getElementById(ID_O_SOAN);
+    if (o !== null) o.focus();
+  };
+  const hangChip = noiHangChip(store, document, undefined, veHomNay);
+  // Một callback vẽ chung cho MỌI view: đây là chỗ DUY NHẤT biết rằng "vẽ lại" nghĩa là vẽ lại
+  // tất cả. Treo riêng từng cái vào từng điểm nối là cách một view mới bị quên ở một trong hai
+  // chỗ, và tiêu đề sẽ đứng yên sau lần chốt mà không làm gì đỏ cả.
+  //
+  // `oSoan` khai ở bên dưới (nó phải nối trước `khoiDongBanNhap`, sau `veSauChot`), nhưng mọi
+  // lời gọi `veTatCa` đều chạy SAU khi khối này chạy xong — trong một `.then` hay một bộ nghe
+  // sự kiện — nên tham chiếu tới nó không bao giờ rơi vào vùng chết tạm thời.
   const veTatCa = () => {
     luoi.ve();
     tieuDe.ve();
@@ -350,6 +366,8 @@ if (typeof document !== 'undefined') {
     chanTrang.ve();
     hopThoai.ve();
     khayTim.ve();
+    hangChip.ve();
+    oSoan.ve();
   };
   // `notes` nạp BẤT ĐỒNG BỘ, nên lượt vẽ đầu tiên phải chờ kho trả lời — vẽ ngay ở đây chỉ
   // dựng lại một mảng rỗng và nháy một con số sai lên thanh tab. Không có cơ chế subscribe

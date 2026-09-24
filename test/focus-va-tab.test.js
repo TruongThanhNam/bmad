@@ -438,6 +438,7 @@ const FOCUS_DO_VIEW_DUNG = [
   { lop: 'mau-sua', file: 'app/view/mau-giay.js', vi: 'ô sửa tại chỗ (<textarea>, Story 5.1)' },
   { lop: 'hop-thoai-chon', file: 'app/view/hop-thoai.js', vi: 'lựa chọn `hủy` (Story 5.3)' },
   { lop: 'hop-thoai-xoa', file: 'app/view/hop-thoai.js', vi: 'lựa chọn `xóa` (Story 5.3)' },
+  { lop: 've-hom-nay', file: 'app/view/hang-chip.js', vi: 'nút `về hôm nay` (Story 6.3)' },
 ];
 
 // ---------------------------------------------------------------------------
