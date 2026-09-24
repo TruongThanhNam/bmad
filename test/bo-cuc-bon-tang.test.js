@@ -146,6 +146,12 @@ describe('Hình dạng tĩnh của tầng 2 và tầng 4', () => {
     }
   });
 
+  it('Story 6.3: tầng 2b `.hang-chip` rỗng, `hidden`, nằm cuối `.tang-khay .container`', () => {
+    expect(html).toMatch(
+      /<section class="tang tang-khay"[^>]*>\s*<div class="container">(?:(?!<\/section>)[\s\S])*<div class="hang-chip" hidden><\/div>\s*<\/div>\s*<\/section>/,
+    );
+  });
+
   it('Story 6.2: icon lịch bọc trong nút `chọn ngày` ngay sau #o-ngay; chữ lỗi và picker gốc có mặt', () => {
     expect(html).toMatch(
       /id="o-ngay"[^>]*>\s*(?:<!--[\s\S]*?-->\s*)?<button class="nut-lich" type="button" aria-label="chọn ngày">\s*<svg/,
