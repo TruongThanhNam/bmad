@@ -651,7 +651,10 @@ export function taoStore(ports) {
             // nguồn đúng. Dọn TRƯỚC khi gọi cổng thì một lần ghi HỎNG sẽ trả chữ vừa gõ về bản
             // cũ ở lần mở lại kế tiếp — đúng thứ ràng buộc "ghi hỏng thì chữ không bị trả lại"
             // cấm, và nó lặng lẽ vì dải băng vẫn lên đúng như phải thế.
-            chuDangCho.delete(id);
+            // Và CHỈ khi chữ vừa ghi vẫn là chữ mới nhất: nhánh vượt trần không tăng `seq`, nên
+            // hẹn của chữ hợp lệ liền trước vẫn nổ tới đây trong khi `chuDangCho` đã mang chữ vượt
+            // trần mới hơn — dọn nó là nuốt chữ vừa dán trong im lặng (retro Epic 5, B1).
+            if (chuDangCho.get(id) === banGhi.text) chuDangCho.delete(id);
             // Cùng quy tắc với `ghiTruocDatSau`: một phép ghi thành công tắt dải băng (AD-8).
             datLai({
               notes: noiBo.notes.map((mau) => (mau.id === banGhi.id ? banGhi : mau)),

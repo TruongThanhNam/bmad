@@ -1138,6 +1138,25 @@ describe('tuLuuNoiDung — state đổi ngay, phép ghi đi sau với debounce +
     expect(store.state.banner).toBeNull();
   });
 
+  it('ghi xong chữ hợp lệ KHÔNG nuốt chữ vượt trần gõ sau nó — mở lại ô sửa vẫn thấy chữ mới nhất', async () => {
+    // Retro Epic 5, B1. Nhánh vượt trần không tăng `seq`, nên hẹn của chữ hợp lệ liền trước vẫn
+    // nổ và ghi. Nếu lúc ghi xong nó dọn "chữ đang chờ" vô điều kiện thì nó dọn luôn chữ vượt
+    // trần — chữ mới hơn nó — và lần mở lại kế tiếp đọc bản đã ghi, chữ vừa dán biến mất im lặng.
+    vi.useFakeTimers();
+    const { store, kho } = storeVoiKho({ banDau: banGhiMau() });
+    await store.khoiDong();
+    const dai = 'x'.repeat(MAX_NOTE_CHARS + 1);
+    store.vaoCheDoSua('a');
+    store.tuLuuNoiDung('a', 'chữ HỢP LỆ');
+    store.tuLuuNoiDung('a', dai);
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS * 3);
+    expect(kho.banGhi.get('a').text).toBe('chữ HỢP LỆ');
+
+    store.roiCheDoSua();
+    store.vaoCheDoSua('a');
+    expect(store.state.editing.text).toBe(dai);
+  });
+
   it('ghi HỎNG thì chữ vừa gõ KHÔNG bị trả lại — mở lại ô sửa vẫn thấy chữ của Nam', async () => {
     // Ràng buộc đã chốt của story. Dọn "chữ đang chờ" TRƯỚC khi gọi cổng làm nó vỡ trong im
     // lặng: dải băng lên đúng, nhưng lần mở lại kế tiếp đọc bản CŨ trong `notes` và chữ vừa gõ
