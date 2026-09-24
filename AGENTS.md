@@ -1,5 +1,5 @@
 <!-- bmad:context -->
-<!-- Verified 2026-09-24 against 0c36b93. Managed by bmad-project-context; nội dung trong block này bị thay khi refresh. Muốn giữ gì thì để ngoài hai marker. -->
+<!-- Verified 2026-09-24 against 4a84ae9. Managed by bmad-project-context; nội dung trong block này bị thay khi refresh. Muốn giữ gì thì để ngoài hai marker. -->
 
 ## Ghi chú hàng ngày
 
@@ -27,7 +27,11 @@ gốc: `README.md` (vận hành + checklist thủ công 1–36) và
 - `app/core/limits.js` — mọi hằng số, ngưỡng, và `APP_VERSION`
 - `app/core/time.js` — mọi chỗ dựng/đọc `Date`; `app/core/fold.js` — bỏ dấu tiếng Việt
 - `app/core/errors.js` — tập mã lỗi đóng + microcopy; `app/core/banner.js` — bảng ưu tiên dải băng
-- `app/adapters/` không có test tự động theo luật; kiểm nó bằng checklist 1–36 trong `README.md`
+- `app/adapters/` không có test tự động theo luật, trừ đúng hai ngoại lệ hẹp đã duyệt:
+  `test/adapter-session-store.test.js` (khóa lạ, `QuotaExceededError` → `QUOTA`) và
+  `test/adapter-file-io.test.js` (`readChosenFile`). Đừng nới hai file đó hay dựng
+  IndexedDB/trình duyệt giả; ngoại lệ mới phải được chủ repo duyệt trước. Phần còn lại kiểm
+  bằng checklist 1–36 trong `README.md`.
 
 ## Chạy và kiểm chứng
 
