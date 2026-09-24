@@ -25,7 +25,8 @@ const PHIM_CHOT = 'Enter';
  * @param {object} store Khối state của ứng dụng (`app/core/state.js`).
  * @param {object} [goc] Gốc để tìm phần tử — mặc định là `document`. Test truyền một gốc DOM
  *   tối giản vào đây, nên tệp này không tự chạm global nào.
- * @param {() => void} [sauKhiChot] Móc chạy SAU khi lời hứa chốt chốt xong — `app/main.js`
+ * @param {(daXoaDieuKien: boolean) => void} [sauKhiChot] Móc chạy SAU khi lời hứa chốt
+ *   chốt xong, nhận cờ của `chotGhiChu` (điều kiện đã bị xóa hay chưa) — `app/main.js`
  *   treo `luoi.ve` vào đây. Là THAM SỐ chứ không phải một import: hai view không được biết
  *   nhau, chỉ `main.js` biết cả hai — cùng lý do view không được biết adapter. Không có cơ
  *   chế subscribe trong dự án này, và đây là điểm nối duy nhất không sinh một state thứ hai.
@@ -80,14 +81,14 @@ export function noiOSoan(store, goc = document, sauKhiChot = () => {}) {
     if (suKien.altKey) return;
     if (!suKien.ctrlKey || suKien.key !== PHIM_CHOT) return;
     suKien.preventDefault();
-    store.chotGhiChu().then(() => {
+    store.chotGhiChu().then((daXoaDieuKien) => {
       dongBoTuState();
       caoTheoNoiDung();
       // Lưới vẽ lại ở ĐÂY, sau khi state đã nhận mẩu mới — không trước, và không ở bộ nghe
       // `keydown`: chốt hỏng thì `notes` không đổi và lượt vẽ này chỉ dựng lại đúng cái đang
       // có. `chotGhiChu` không bao giờ bị từ chối (hỏng đi ra bằng dải băng), nên một nhánh
       // `.catch` ở đây là một nhánh chết.
-      sauKhiChot();
+      sauKhiChot(daXoaDieuKien === true);
     });
   });
 

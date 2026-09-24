@@ -800,7 +800,7 @@ describe('chotGhiChu — ghi trước, đổi state sau, và hai kho trong MỘT
     });
     await store.khoiDong();
     const truoc = store.state.notes;
-    await expect(store.chotGhiChu()).resolves.toBeUndefined();
+    await expect(store.chotGhiChu()).resolves.toBe(true);
     expect(store.state.notes).toBe(truoc);
     expect(store.state.draft.text).toBe('phở');
     expect(store.state.banner).toBe(MA_LOI.QUOTA);
@@ -2031,7 +2031,7 @@ describe('app/main.js — điểm nối duy nhất, chạy được thật', () 
     // Ca này đứng CUỐI mục và chạm `banner` — một trường mà các ca hàng xóm không đọc, nên
     // chúng không bị nó làm nhiễu.
     storeCuaApp.datBanNhap('x');
-    await expect(storeCuaApp.chotGhiChu()).resolves.toBeUndefined();
+    await expect(storeCuaApp.chotGhiChu()).resolves.toBe(true);
     expect(storeCuaApp.state.banner).toBe(MA_LOI.DB);
     expect(storeCuaApp.state.notes).toEqual([]);
   });

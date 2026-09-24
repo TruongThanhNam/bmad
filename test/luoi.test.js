@@ -589,7 +589,13 @@ describe('app/view/luoi.js — luật của tầng view, cưỡng chế được
     const soan = /noiOSoan\s*\(\s*store\s*,\s*document\s*,\s*([\w$]+)\s*\)/.exec(main);
     expect(treo).not.toBeNull();
     expect(soan).not.toBeNull();
-    expect(treo[1]).toBe(soan[1]);
+    // Nới một lần ở Story 6.2 (sửa sau review): chốt cần thêm `khayTim.xoaNhap()` khi điều kiện
+    // vừa bị xóa, nên `noiOSoan` được nhận một bọc — nhưng bọc đó PHẢI gọi đúng callback chung.
+    if (soan[1] !== treo[1]) {
+      const boc = new RegExp(`\\b${soan[1]}\\s*=\\s*\\([^)]*\\)\\s*=>\\s*\\{([^}]*)\\}`).exec(main);
+      expect(boc).not.toBeNull();
+      expect(boc[1]).toMatch(new RegExp(`\\b${treo[1]}\\s*\\(\\s*\\)`));
+    }
 
     const than = new RegExp(`\\b${treo[1]}\\s*=\\s*\\(\\s*\\)\\s*=>\\s*\\{([^}]*)\\}`).exec(main);
     expect(than).not.toBeNull();

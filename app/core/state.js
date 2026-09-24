@@ -1083,10 +1083,13 @@ export function taoStore(ports) {
    * `Ctrl+Enter` nhiều lần trong vài chục mili giây, và giao dịch chưa chốt xong thì `draft.text`
    * vẫn còn nguyên chữ — hai lời gọi cổng, hai ghi chú trùng nội dung với hai `id` khác nhau.
    *
-   * @returns {Promise<void>} Hoàn tất khi state đã phản ánh kết quả — không bao giờ bị từ chối.
+   * @returns {Promise<boolean>} Hoàn tất khi state đã phản ánh kết quả — không bao giờ bị từ
+   *   chối. `true` khi đã đi tới bước (4), tức khối điều kiện ĐÃ bị xóa (kể cả khi ghi kho hỏng
+   *   sau đó); `false` khi thoát sớm và điều kiện còn nguyên. Khay tìm cần đúng cờ này: ô ngày
+   *   gõ dở chưa từng vào state, nên `ve()` không tự thấy được lần xóa này.
    */
   function chotGhiChu() {
-    if (dangChot) return Promise.resolve();
+    if (dangChot) return Promise.resolve(false);
     const seqMoi = noiBo.draft.seq + 1;
     const text = noiBo.draft.text;
     datLai({ draft: { text, seq: seqMoi } });
@@ -1095,11 +1098,11 @@ export function taoStore(ports) {
       // hết chữ rồi bấm nhầm `Ctrl+Enter` mà không đặt lại hẹn thì chữ đã xóa quay về ở lần
       // tải lại sau. Cùng một phép đặt lại với nhánh ghi hỏng.
       henGhiBanNhapDiSau(seqMoi);
-      return Promise.resolve();
+      return Promise.resolve(false);
     }
     if (text.length > MAX_NOTE_CHARS) {
       datLai({ banner: MA_LOI.TOO_LONG });
-      return Promise.resolve();
+      return Promise.resolve(false);
     }
     xoaHetDieuKien();
     dangChot = true;
@@ -1108,6 +1111,7 @@ export function taoStore(ports) {
       // Ghi hỏng: chữ còn trên màn hình và chưa an toàn ở đâu cả. Đặt lại hẹn tự lưu cho nó —
       // nhưng chỉ khi Nam chưa gõ tiếp, vì một phím gõ sau đó đã tự đặt hẹn của nó rồi.
       if (!daChot && noiBo.draft.seq === seqMoi) henGhiBanNhapDiSau(seqMoi);
+      return true;
     });
   }
 

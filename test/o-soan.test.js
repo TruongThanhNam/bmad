@@ -436,6 +436,23 @@ describe('Ctrl+Enter chốt, Enter trần xuống dòng (Story 2.3)', () => {
     expect(soNotesLucMocChay).toEqual([1]);
   });
 
+  it('móc sauKhiChot nhận cờ daXoaDieuKien: true khi chốt thật, false khi ô trống', async () => {
+    // Khay tìm dựa vào cờ này để xóa chữ ngày gõ dở — cờ sai ở ô trống là mất ngày đang gõ.
+    const o = oGia();
+    const { store } = storeGia();
+    const co = [];
+    noiOSoan(store, gocGia(o), (daXoa) => co.push(daXoa));
+    await store.khoiDongBanNhap();
+
+    o.bam('Enter', { ctrlKey: true });
+    await nhipVi();
+    o.go('phở bò');
+    o.bam('Enter', { ctrlKey: true });
+    await nhipVi();
+
+    expect(co).toEqual([false, true]);
+  });
+
   it('chốt HỎNG thì móc vẫn chạy — vẽ lại đúng danh sách đang có là vô hại', async () => {
     // `chotGhiChu` không bao giờ bị từ chối (hỏng đi ra bằng dải băng), nên móc nằm trong cùng
     // một `.then`. Ghim điều đó để không ai thêm một nhánh điều kiện đọc `banner` vào view.

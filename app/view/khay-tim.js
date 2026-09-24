@@ -5,9 +5,10 @@
 // - View CHỈ ĐỌC state (`dieuKien`) và phát đúng MỘT action: `store.datDieuKien`. Không
 //   debounce, không `Enter`: mỗi phím là một lần phát, và lưới lọc lại ngay ở lượt vẽ theo sau.
 // - View không giữ bản sao điều kiện. Từ khóa và ngày đang lọc sống trong `dieuKien` và CHỈ ở
-//   đó; `ve()` kéo `value` của ô về theo state — nên khi `chotGhiChu` xóa điều kiện, ô cũng về
-//   rỗng. Thứ DUY NHẤT view tự giữ là lỗi tại chỗ của ô ngày: lỗi là của view (không mã lỗi,
-//   không dải băng), và `date` mà lượt vẽ trước đã thấy — để biết `date` đổi "từ nơi khác".
+//   đó; `ve()` kéo `value` của ô về theo state. Thứ DUY NHẤT view tự giữ là lỗi tại chỗ của ô
+//   ngày: lỗi là của view (không mã lỗi, không dải băng), và `date` mà lượt vẽ trước đã thấy —
+//   để biết `date` đổi "từ nơi khác". Chữ ngày gõ dở chưa từng vào state, nên khi `chotGhiChu`
+//   xóa điều kiện lúc `date` vốn đã `null`, `ve()` không thấy gì đổi: `main.js` gọi `xoaNhap()`.
 // - View không bao giờ import `app/adapters/`, và không chạm `document` toàn cục: gốc DOM đi vào
 //   qua THAM SỐ. Gõ vào ô không chạm kho, không chạm cổng nào — `datDieuKien` là đồng bộ.
 //
@@ -32,7 +33,8 @@ const LOP_LOI = 'o-ngay-loi';
  * @param {{ getElementById: Function }} [goc] Gốc để tìm phần tử — mặc định `document`.
  * @param {() => void} [sauKhiDoi] Lượt vẽ chung, do `app/main.js` truyền vào: view không biết
  *   lưới tồn tại, nó chỉ biết điều kiện vừa đổi thì mọi thứ phải vẽ lại.
- * @returns {{ ve: () => void }} `ve` đồng bộ `value` của các ô từ state.
+ * @returns {{ ve: () => void, xoaNhap: () => void }} `ve` đồng bộ `value` của các ô từ state;
+ *   `xoaNhap` đưa ô ngày về rỗng và tắt lỗi — gọi khi điều kiện vừa bị xóa từ nơi khác.
  */
 export function noiKhayTim(store, goc = document, sauKhiDoi = () => {}) {
   const o = goc.getElementById(ID_O_TIM);
@@ -55,13 +57,13 @@ export function noiKhayTim(store, goc = document, sauKhiDoi = () => {}) {
     ngay.ve();
   }
 
-  return { ve };
+  return { ve, xoaNhap: ngay.xoaNhap };
 }
 
 /** Phần ô ngày + nút lịch + picker gốc. Thiếu ô ngày thì `ve` rỗng. */
 function noiONgay(store, goc, sauKhiDoi) {
   const o = goc.getElementById(ID_O_NGAY);
-  if (o === null || o === undefined) return { ve() {} };
+  if (o === null || o === undefined) return { ve() {}, xoaNhap() {} };
   const loiChu = goc.getElementById(ID_LOI_NGAY);
   const boc = o.parentElement ?? null;
   const nut = boc?.querySelector?.('.nut-lich') ?? null;
@@ -149,5 +151,12 @@ function noiONgay(store, goc, sauKhiDoi) {
     hienLoi(false);
   }
 
-  return { ve };
+  /** Chữ gõ dở không ở trong state nên `ve()` không xóa được nó — xóa thẳng ở đây. */
+  function xoaNhap() {
+    dateDaThay = store.state.dieuKien.date;
+    if (o.value !== '') o.value = '';
+    hienLoi(false);
+  }
+
+  return { ve, xoaNhap };
 }

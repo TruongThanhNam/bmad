@@ -371,7 +371,15 @@ if (typeof document !== 'undefined') {
   //
   // `veTatCa` đi vào như THAM SỐ: `o-soan.js` không được import `luoi.js` hay `tieu-de.js` —
   // các view không biết nhau, chỉ file này biết cả ba.
-  const oSoan = noiOSoan(store, document, veTatCa);
+  //
+  // Chốt đã xóa điều kiện thì ô ngày cũng phải về rỗng, kể cả chữ gõ dở chưa từng vào state —
+  // `ve()` không thấy được lần xóa đó khi `date` vốn đã `null`. Chốt thoát sớm (ô soạn rỗng,
+  // chữ vượt trần) thì điều kiện còn nguyên, và ngày đang gõ dở cũng phải còn nguyên.
+  const veSauChot = (daXoaDieuKien) => {
+    if (daXoaDieuKien) khayTim.xoaNhap();
+    veTatCa();
+  };
+  const oSoan = noiOSoan(store, document, veSauChot);
   // Bốn bước khởi động bản nháp của AD-3, cùng một cửa và cùng một lý do.
   //
   // `khoiDongBanNhap()` không bao giờ bị từ chối (hỏng thì đi ra bằng dải băng), nên `.then`

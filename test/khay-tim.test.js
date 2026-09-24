@@ -304,6 +304,26 @@ describe('noiKhayTim — ô ngày (Story 6.2)', () => {
     expect(b.coLoi()).toBe(false);
   });
 
+  it('chốt khi chưa lọc ngày: xoaNhap() đưa chữ gõ dở về rỗng, lỗi tắt', () => {
+    const b = boNgayGia();
+    const store = storeGia();
+    const v = noiKhayTim(store, b.goc(), () => v.ve());
+    b.o.go('12/1');
+    b.o.roi();
+    expect(b.coLoi()).toBe(true);
+    expect(store.state.dieuKien.date).toBeNull();
+    store.xoaHetDieuKien();
+    v.xoaNhap();
+    v.ve();
+    expect(b.o.value).toBe('');
+    expect(b.coLoi()).toBe(false);
+  });
+
+  it('không có ô thì xoaNhap vẫn gọi được', () => {
+    const v = noiKhayTim(storeGia(), { getElementById: () => null });
+    expect(() => v.xoaNhap()).not.toThrow();
+  });
+
   it('ve() không ghi đè chữ đang gõ dở khi date trong state không đổi', () => {
     const b = boNgayGia();
     const store = storeGia();
