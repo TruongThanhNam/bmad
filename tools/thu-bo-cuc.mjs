@@ -569,7 +569,7 @@ try {
       const m = await import('/app/main.js');
       const q = await import('/app/core/query.js');
       const t = await import('/app/core/time.js');
-      return q.locGhiChu(m.store.state.notes, m.store.state.dieuKien, t.nowIso()).length;
+      return q.locGhiChu(m.store.state.notes, m.store.state.dieuKien, t.nowIso()).total;
     `,
     );
 
@@ -701,7 +701,7 @@ try {
       const m = await import('/app/main.js');
       const q = await import('/app/core/query.js');
       const t = await import('/app/core/time.js');
-      return q.locGhiChu(m.store.state.notes, m.store.state.dieuKien, t.nowIso()).length;
+      return q.locGhiChu(m.store.state.notes, m.store.state.dieuKien, t.nowIso()).total;
     `,
     );
     const doiSoMau = async (mong) => {
@@ -821,7 +821,7 @@ try {
         const q = await import('/app/core/query.js');
         const t = await import('/app/core/time.js');
         const ds = q.locGhiChu(m.store.state.notes, m.store.state.dieuKien, t.nowIso());
-        return ds.findIndex((x) => x.id === ${JSON.stringify(id)});
+        return ds.items.findIndex((x) => x.id === ${JSON.stringify(id)});
       `;
       /** Mẩu MỘT-ĐOẠN-DÀI (`CHU_MAU[2]`) — mẩu duy nhất KHÔNG bị cắt (một dòng LOGIC), tức
        *  nhịp 1 vào chế độ sửa luôn. */
@@ -1131,7 +1131,7 @@ try {
       const m = await import('/app/main.js');
       const q = await import('/app/core/query.js');
       const t = await import('/app/core/time.js');
-      return q.locGhiChu(m.store.state.notes, { keyword: null, date: null }, t.nowIso()).length;
+      return q.locGhiChu(m.store.state.notes, { keyword: null, date: null }, t.nowIso()).total;
     `;
     /** Đợi tiêu đề đạt giá trị mong đợi — một lượt vẽ chậm phải hỏng thành TIMEOUT, không
      *  thành một phép so sai. Trả về tiêu đề cuối cùng đọc được, để chỗ gọi ghi lại. */
@@ -2285,7 +2285,7 @@ try {
       const m = await import('/app/main.js');
       const q = await import('/app/core/query.js');
       const t = await import('/app/core/time.js');
-      return q.locGhiChu(m.store.state.notes, m.store.state.dieuKien, t.nowIso()).length;
+      return q.locGhiChu(m.store.state.notes, m.store.state.dieuKien, t.nowIso()).total;
     `,
     );
 

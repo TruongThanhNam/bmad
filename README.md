@@ -698,3 +698,20 @@ Còn lại là thứ không con số nào nói: lần tải lại có **nháy m�
 
     *Cả hai theme.* Lặp phần hàng chip và phần `0 ghi chú` ở bản dark (mục 14): chữ chip, số kết
     quả và `về hôm nay` đều đọc rõ.
+
+35. **Trần 50 kết quả: thấy đủ để biết phải thu hẹp.** Mở trang qua HTTP localhost (mục 1), nạp
+    một file sao lưu có ít nhất 63 ghi chú chứa `Phân` (rải nhiều ngày). Gõ `phan` ở ô tìm.
+
+    *Vượt trần.* Lưới hiện đúng 50 mẩu mới nhất; dưới mẩu cuối là một dòng chữ nhạt trải hết bề
+    ngang: `Hiện 50 ghi chú đầu, còn nhiều hơn. Thêm bộ lọc ngày hoặc gõ thêm chữ để thu hẹp.`
+    Dòng không bấm được, không nhận tiêu điểm khi nhấn `Tab`. Hàng chip ghi `63 ghi chú` (số thật,
+    không phải 50).
+
+    *Thu hẹp.* Gõ thêm chữ hoặc một ngày cho tới khi còn ≤ 50 khớp: dòng biến mất; chip ghi đúng số.
+    Không khớp gì: chỉ còn `Không có ghi chú nào khớp.`, không dòng "còn nhiều hơn".
+
+    *Tiêu đề tab.* Tiêu đề vẫn đếm số ghi chú HÔM NAY, không bị trần cắt.
+
+    *Tốc độ.* Mỗi phím gõ lọc lại không thấy trễ (2.000 ghi chú ≤ 200 ms, `npm test` ghim).
+
+    *Cả hai theme.* Lặp ở bản dark (mục 14): dòng "còn nhiều hơn" đọc rõ.

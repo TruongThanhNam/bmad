@@ -18,6 +18,7 @@
 // thứ tự, và hai đường sẽ lệch.
 
 import { fold } from './fold.js';
+import { MAX_RESULTS } from './limits.js';
 import { localDate } from './time.js';
 
 /**
@@ -28,7 +29,9 @@ import { localDate } from './time.js';
  * @param {string} mocHienTai Mốc hiện tại dạng ISO-8601 có offset — CHUỖI, không phải hàm và
  *   không phải một mốc thời gian. `localDate` chỉ cắt mười ký tự đầu, nên
  *   `localDate({ createdAt: mocHienTai })` là đúng phép mà một bản ghi đi qua, không phải mẹo.
- * @returns {Array<object>} Các bản ghi khớp, theo đúng thứ tự chúng đứng trong `notes`.
+ * @returns {{ items: Array<object>, total: number }} `items` là tối đa `MAX_RESULTS` bản ghi khớp
+ *   đầu tiên, theo đúng thứ tự chúng đứng trong `notes`; `total` là số khớp thật, đếm TRƯỚC khi
+ *   cắt (AD-14). Trần áp cho mọi khung nhìn, kể cả mặc định "hôm nay".
  */
 export function locGhiChu(notes, dieuKien, mocHienTai) {
   // CẢ HAI nửa `null` → hôm nay. Đây là toàn bộ chỗ mà chữ "hôm nay" tồn tại trong sản phẩm.
@@ -38,11 +41,13 @@ export function locGhiChu(notes, dieuKien, mocHienTai) {
   // Điều kiện chữ gấp MỘT LẦN ở đây, không gấp trong vòng lặp: `textFolded` của bản ghi đã
   // gấp sẵn lúc tạo, nên so hai chuỗi đã gấp là đủ — và không dòng nào ở đây tự bỏ dấu.
   const chuGap = dieuKien.keyword === null ? null : fold(dieuKien.keyword);
-  return notes.filter((note) => {
+  const khop = notes.filter((note) => {
     if (ngay !== null && localDate(note) !== ngay) return false;
     // Hai điều kiện là phép GIAO: có chữ thì lọc thêm, không thay cho phép lọc ngày.
     return chuGap === null || note.textFolded.includes(chuGap);
   });
+  // Cắt Ở ĐÂY, không ở view: mọi chỗ đọc kết quả thấy cùng một trần và cùng một con số.
+  return { items: khop.slice(0, MAX_RESULTS), total: khop.length };
 }
 
 /**

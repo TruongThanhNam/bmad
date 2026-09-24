@@ -71,6 +71,25 @@ const BON = [
 const chu = (hang) => hang.con.map((c) => c.textContent);
 
 describe('noiHangChip — I/O Matrix', () => {
+  it('63 khớp: chip ghi `63 ghi chú` — đọc total, không bị trần 50 cắt (Story 6.4)', () => {
+    const { hang, goc } = dungHang();
+    const nhieu = Array.from({ length: 63 }, (_, i) => {
+      const gio = `${String(10 + Math.floor(i / 60)).padStart(2, '0')}:${String(i % 60).padStart(2, '0')}`;
+      return ghiChu(`p${i}`, `phan ${i}`, `2026-09-03T${gio}:00+05:30`);
+    });
+    noiHangChip(storeGia({ keyword: 'phan', date: null }, nhieu), goc, () => MOC).ve();
+    expect(chu(hang)).toEqual(['phan', '63 ghi chú', 'về hôm nay']);
+  });
+
+  it('đúng trần 50 khớp: chip ghi `50 ghi chú` (Story 6.4)', () => {
+    const { hang, goc } = dungHang();
+    const nhieu = Array.from({ length: 50 }, (_, i) =>
+      ghiChu(`p${i}`, `phan ${i}`, `2026-09-03T10:${String(i).padStart(2, '0')}:00+05:30`),
+    );
+    noiHangChip(storeGia({ keyword: 'phan', date: null }, nhieu), goc, () => MOC).ve();
+    expect(chu(hang)).toEqual(['phan', '50 ghi chú', 'về hôm nay']);
+  });
+
   it('mặc định {null,null}: không hàng chip', () => {
     const { hang, goc } = dungHang();
     noiHangChip(storeGia({ keyword: null, date: null }, BON), goc, () => MOC).ve();

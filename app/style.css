@@ -466,7 +466,16 @@ body {
 /* Dòng duy nhất lưới được nói — chỉ khi đang có điều kiện mà không mẩu nào khớp. Nó trải hết
  * bề ngang lưới thay vì chiếm một ô, vì nó không phải một mẩu giấy. */
 
+/* Dòng "còn nhiều hơn" (Story 6.4) cùng khuôn: trải hết bề ngang, `--ink-2` trên `--bg`. */
+
 .luoi-khong-khop {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--ink-2);
+  font: var(--font-ui);
+}
+
+.luoi-them {
   grid-column: 1 / -1;
   margin: 0;
   color: var(--ink-2);

@@ -6,8 +6,8 @@
 //   móc `veHomNay` do `app/main.js` truyền vào — chính `main.js` gọi `xoaHetDieuKien()`, xóa ô
 //   ngày gõ dở, vẽ lại và trả tiêu điểm, bốn việc mà một view không được tự làm.
 // - View không giữ bản sao điều kiện. Mỗi lượt `ve()` dựng lại toàn bộ hàng từ state.
-// - Số kết quả là độ dài đầy đủ `locGhiChu` trả về, CHƯA cắt trần — hàng chip tự lọc, không
-//   nhận số đếm từ lưới (hai view không biết nhau). Story 6.4 sẽ đổi chỗ này sang `total`.
+// - Số kết quả là `total` mà `locGhiChu` trả về — số khớp thật, CHƯA cắt trần (Story 6.4).
+//   Hàng chip tự lọc, không nhận số đếm từ lưới (hai view không biết nhau).
 //
 // Chip là `<span>`: chỉ để nhìn, không bấm được, không nằm trong thứ tự Tab (UX-DR-13).
 
@@ -64,7 +64,7 @@ export function noiHangChip(store, goc = document, mocHienTai = nowIso, veHomNay
     }
     const dem = tai.createElement(THE_CHIP);
     dem.className = LOP_DEM;
-    const soKetQua = locGhiChu(store.state.notes, dieuKien, mocHienTai()).length;
+    const soKetQua = locGhiChu(store.state.notes, dieuKien, mocHienTai()).total;
     dem.textContent = `${soKetQua} ${DUOI_DEM}`;
     con.push(dem);
     const nut = tai.createElement(THE_NUT);

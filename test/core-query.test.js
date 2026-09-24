@@ -8,6 +8,7 @@
 
 import { describe, expect, it } from 'vitest';
 import { fold } from '../app/core/fold.js';
+import { MAX_RESULTS } from '../app/core/limits.js';
 import { khoangKhop, locGhiChu } from '../app/core/query.js';
 
 const HOM_NAY = '2026-09-14';
@@ -39,7 +40,7 @@ describe('locGhiChu — khung nhìn mặc định là VẮNG MẶT của điều
     const notes = [...homNay, ...nen];
     expect(notes).toHaveLength(1200);
 
-    const ra = locGhiChu(notes, RONG, MOC_HOM_NAY);
+    const ra = locGhiChu(notes, RONG, MOC_HOM_NAY).items;
     expect(ra.map((n) => n.text)).toEqual(['phở bò', 'cà phê', 'gọi mẹ', 'đổ xăng']);
   });
 
@@ -52,16 +53,16 @@ describe('locGhiChu — khung nhìn mặc định là VẮNG MẶT của điều
       ban(HOM_QUA, '23:00:00', 'hôm qua'),
       ban(HOM_NAY, '20:00:00', 'muộn'),
     ];
-    expect(locGhiChu(notes, RONG, MOC_HOM_NAY).map((n) => n.text)).toEqual(['sớm', 'muộn']);
+    expect(locGhiChu(notes, RONG, MOC_HOM_NAY).items.map((n) => n.text)).toEqual(['sớm', 'muộn']);
   });
 
   it('hôm nay chưa có gì: mảng RỖNG, không một bản ghi ngày khác nào lọt qua', () => {
     const notes = [ban(HOM_QUA, '23:59:00', 'hôm qua'), ban('2026-09-01', '10:00:00', 'đầu tháng')];
-    expect(locGhiChu(notes, RONG, MOC_HOM_NAY)).toEqual([]);
+    expect(locGhiChu(notes, RONG, MOC_HOM_NAY).items).toEqual([]);
   });
 
   it('kho rỗng: mảng rỗng, không ném', () => {
-    expect(locGhiChu([], RONG, MOC_HOM_NAY)).toEqual([]);
+    expect(locGhiChu([], RONG, MOC_HOM_NAY).items).toEqual([]);
   });
 });
 
@@ -71,13 +72,13 @@ describe('locGhiChu — hai nửa của khối điều kiện', () => {
       ban(HOM_NAY, '10:00:00', 'của hôm nay'),
       ban('2026-09-01', '10:00:00', 'của mùng một'),
     ];
-    const ra = locGhiChu(notes, { keyword: null, date: '2026-09-01' }, MOC_HOM_NAY);
+    const ra = locGhiChu(notes, { keyword: null, date: '2026-09-01' }, MOC_HOM_NAY).items;
     expect(ra.map((n) => n.text)).toEqual(['của mùng một']);
   });
 
   it('keyword so trên textFolded — gõ không dấu vẫn ra mẩu có dấu', () => {
     const notes = [ban(HOM_NAY, '11:00:00', 'phở bò'), ban(HOM_NAY, '10:00:00', 'cà phê')];
-    const ra = locGhiChu(notes, { keyword: 'pho', date: null }, MOC_HOM_NAY);
+    const ra = locGhiChu(notes, { keyword: 'pho', date: null }, MOC_HOM_NAY).items;
     expect(ra.map((n) => n.text)).toEqual(['phở bò']);
   });
 
@@ -89,7 +90,7 @@ describe('locGhiChu — hai nửa của khối điều kiện', () => {
       ban(HOM_NAY, '10:00:00', 'cà phê'),
       ban(HOM_QUA, '11:00:00', 'phở gà'),
     ];
-    const ra = locGhiChu(notes, { keyword: 'phở', date: null }, MOC_HOM_NAY);
+    const ra = locGhiChu(notes, { keyword: 'phở', date: null }, MOC_HOM_NAY).items;
     expect(ra.map((n) => n.text)).toEqual(['phở bò', 'phở gà']);
   });
 
@@ -99,15 +100,15 @@ describe('locGhiChu — hai nửa của khối điều kiện', () => {
       ban('2026-09-01', '10:00:00', 'cà phê'),
       ban(HOM_NAY, '11:00:00', 'phở gà'),
     ];
-    const ra = locGhiChu(notes, { keyword: 'pho', date: '2026-09-01' }, MOC_HOM_NAY);
+    const ra = locGhiChu(notes, { keyword: 'pho', date: '2026-09-01' }, MOC_HOM_NAY).items;
     expect(ra.map((n) => n.text)).toEqual(['phở bò']);
   });
 
   it('có date thì MỐC HIỆN TẠI không còn ảnh hưởng gì', () => {
     const notes = [ban('2026-09-01', '10:00:00', 'của mùng một')];
     const dieuKien = { keyword: null, date: '2026-09-01' };
-    expect(locGhiChu(notes, dieuKien, MOC_HOM_NAY)).toEqual(
-      locGhiChu(notes, dieuKien, '2027-03-08T23:59:59-05:00'),
+    expect(locGhiChu(notes, dieuKien, MOC_HOM_NAY).items).toEqual(
+      locGhiChu(notes, dieuKien, '2027-03-08T23:59:59-05:00').items,
     );
   });
 });
@@ -115,11 +116,11 @@ describe('locGhiChu — hai nửa của khối điều kiện', () => {
 describe('locGhiChu KHÔNG đọc đồng hồ — "hôm nay" đi vào qua tham số', () => {
   it('cùng một notes, hai mốc khác nhau → hai kết quả khác nhau', () => {
     const notes = [ban(HOM_NAY, '00:05:00', 'sau nửa đêm'), ban(HOM_QUA, '23:55:00', 'trước đó')];
-    expect(locGhiChu(notes, RONG, MOC_HOM_NAY).map((n) => n.text)).toEqual(['sau nửa đêm']);
+    expect(locGhiChu(notes, RONG, MOC_HOM_NAY).items.map((n) => n.text)).toEqual(['sau nửa đêm']);
     // Đúng lượt vẽ lúc `00:05` của ngày mới: mẩu vừa chốt hiện ra, mẩu hôm qua rời KHUNG NHÌN
     // cùng lúc — dữ liệu vẫn nguyên trong `notes`, đó là cái giá đã nhận của "không hẹn giờ
     // nửa đêm".
-    expect(locGhiChu(notes, RONG, `${HOM_QUA}T23:55:30+07:00`).map((n) => n.text)).toEqual([
+    expect(locGhiChu(notes, RONG, `${HOM_QUA}T23:55:30+07:00`).items.map((n) => n.text)).toEqual([
       'trước đó',
     ]);
   });
@@ -129,7 +130,7 @@ describe('locGhiChu KHÔNG đọc đồng hồ — "hôm nay" đi vào qua tham 
     // ngày 14 — dù cùng thời điểm đó ở UTC vẫn là ngày 13. Đây đúng là cái AD-4 sinh ra để
     // chặn, và bộ truy vấn phải thừa hưởng nó chứ không tự cắt lại.
     const notes = [ban(HOM_NAY, '00:30:00', 'nửa đêm về sáng')];
-    expect(locGhiChu(notes, RONG, `${HOM_NAY}T00:30:00+07:00`).map((n) => n.text)).toEqual([
+    expect(locGhiChu(notes, RONG, `${HOM_NAY}T00:30:00+07:00`).items.map((n) => n.text)).toEqual([
       'nửa đêm về sáng',
     ]);
   });
@@ -138,21 +139,78 @@ describe('locGhiChu KHÔNG đọc đồng hồ — "hôm nay" đi vào qua tham 
 describe('Story 6.1 — tìm bằng chữ trên toàn bộ dữ liệu', () => {
   it('gõ không dấu tìm ra mẩu HÔM QUA có dấu', () => {
     const notes = [ban(HOM_NAY, '10:00:00', 'cà phê'), ban(HOM_QUA, '10:00:00', 'Phân quyền')];
-    const ra = locGhiChu(notes, { keyword: 'phan quyen', date: null }, MOC_HOM_NAY);
+    const ra = locGhiChu(notes, { keyword: 'phan quyen', date: null }, MOC_HOM_NAY).items;
     expect(ra.map((n) => n.text)).toEqual(['Phân quyền']);
   });
 
   it('keyword KHÔNG bị trim: chuỗi gõ sao so vậy', () => {
     const notes = [ban(HOM_QUA, '10:00:00', 'ab'), ban(HOM_QUA, '09:00:00', 'x ab')];
-    const ra = locGhiChu(notes, { keyword: ' ab', date: null }, MOC_HOM_NAY);
+    const ra = locGhiChu(notes, { keyword: ' ab', date: null }, MOC_HOM_NAY).items;
     expect(ra.map((n) => n.text)).toEqual(['x ab']);
   });
 
-  it('vẫn trả MẢNG và giữ thứ tự đầu vào khi tìm trên nhiều ngày', () => {
+  it('items vẫn là MẢNG và giữ thứ tự đầu vào khi tìm trên nhiều ngày', () => {
     const notes = [ban(HOM_NAY, '10:00:00', 'ab 1'), ban(HOM_QUA, '10:00:00', 'ab 2')];
-    const ra = locGhiChu(notes, { keyword: 'ab', date: null }, MOC_HOM_NAY);
+    const ra = locGhiChu(notes, { keyword: 'ab', date: null }, MOC_HOM_NAY).items;
     expect(Array.isArray(ra)).toBe(true);
     expect(ra.map((n) => n.text)).toEqual(['ab 1', 'ab 2']);
+  });
+});
+
+describe('Story 6.4 — trần kết quả { items, total } (AD-14)', () => {
+  /** `n` mẩu hôm qua chứa `phan`, giảm dần theo giờ. */
+  function nhieu(n) {
+    return Array.from({ length: n }, (_, i) => {
+      const s = 3599 - i;
+      const gio = `${String(Math.floor(s / 60 / 60) + 10).padStart(2, '0')}:${String(Math.floor(s / 60) % 60).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+      return ban(HOM_QUA, gio, `phân ${i}`);
+    });
+  }
+  const PHAN = { keyword: 'phan', date: null };
+
+  it('63 khớp: items là 50 mẩu ĐẦU theo thứ tự đầu vào, total 63', () => {
+    const notes = nhieu(63);
+    const ra = locGhiChu(notes, PHAN, MOC_HOM_NAY);
+    expect(ra.total).toBe(63);
+    expect(ra.items).toHaveLength(MAX_RESULTS);
+    expect(ra.items).toEqual(notes.slice(0, 50));
+  });
+
+  it('đúng trần 50: không cắt gì', () => {
+    const ra = locGhiChu(nhieu(50), PHAN, MOC_HOM_NAY);
+    expect(ra.total).toBe(50);
+    expect(ra.items).toHaveLength(50);
+  });
+
+  it('1 khớp và 0 khớp', () => {
+    expect(locGhiChu(nhieu(1), PHAN, MOC_HOM_NAY).total).toBe(1);
+    expect(locGhiChu(nhieu(3), { keyword: 'zzz', date: null }, MOC_HOM_NAY)).toEqual({
+      items: [],
+      total: 0,
+    });
+  });
+
+  it('trần áp cả cho khung nhìn mặc định: 55 mẩu hôm nay → 50, total 55', () => {
+    const notes = nhieu(55).map((n) => ban(HOM_NAY, n.createdAt.slice(11, 19), n.text));
+    const ra = locGhiChu(notes, RONG, MOC_HOM_NAY);
+    expect(ra.total).toBe(55);
+    expect(ra.items).toHaveLength(50);
+  });
+
+  it('2.000 ghi chú: từ khóa, ngày, và cả hai đều ≤ 200 ms', () => {
+    const notes = Array.from({ length: 2000 }, (_, i) => {
+      const ngay = `2026-0${1 + (i % 9)}-${String(1 + (i % 28)).padStart(2, '0')}`;
+      return ban(ngay, '10:00:00', `ghi chú số ${i} về phân quyền và cà phê buổi sáng `.repeat(4));
+    });
+    for (const dk of [
+      { keyword: 'phan quyen', date: null },
+      { keyword: null, date: '2026-03-03' },
+      { keyword: 'ca phe', date: '2026-03-03' },
+    ]) {
+      const dau = performance.now();
+      locGhiChu(notes, dk, MOC_HOM_NAY);
+      expect(performance.now() - dau).toBeLessThan(200);
+    }
   });
 });
 

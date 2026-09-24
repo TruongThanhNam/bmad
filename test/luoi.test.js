@@ -12,7 +12,7 @@
 // Cũng không dùng jsdom, cùng lý do: `noiLuoi(store, goc)` nhận gốc DOM qua tham số.
 
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { fold } from '../app/core/fold.js';
@@ -739,6 +739,45 @@ describe('noiLuoi — tìm bằng chữ (Story 6.1)', () => {
     expect(luoi.textContent).toBe('');
   });
 
+  it('63 khớp: 50 mẩu + ĐÚNG một dòng `còn nhiều hơn` ở cuối (Story 6.4)', async () => {
+    const luoi = luoiGia();
+    const store = storeVoiKho(Array.from({ length: 63 }, (_, i) => ban(HOM_QUA, `${String(10 + Math.floor(i / 60)).padStart(2, '0')}:${String(i % 60).padStart(2, '0')}:00`, `phân ${i}`)));
+    await store.khoiDong();
+    const v = noiLuoi(store, gocGia(luoi), () => MOC);
+    store.datDieuKien({ keyword: 'phan' });
+    v.ve();
+    expect(luoi.con).toHaveLength(51);
+    expect(luoi.con[50].className).toBe('luoi-them');
+    expect(luoi.con[50].textContent).toBe(
+      'Hiện 50 ghi chú đầu, còn nhiều hơn. Thêm bộ lọc ngày hoặc gõ thêm chữ để thu hẹp.',
+    );
+    expect(luoi.con.filter((c) => c.className === 'luoi-them')).toHaveLength(1);
+  });
+
+  it('đúng 50 khớp, và 0 khớp: không dòng `còn nhiều hơn`', async () => {
+    const luoi = luoiGia();
+    const store = storeVoiKho(Array.from({ length: 50 }, (_, i) => ban(HOM_QUA, `${String(10 + Math.floor(i / 60)).padStart(2, '0')}:${String(i % 60).padStart(2, '0')}:00`, `phân ${i}`)));
+    await store.khoiDong();
+    const v = noiLuoi(store, gocGia(luoi), () => MOC);
+    store.datDieuKien({ keyword: 'phan' });
+    v.ve();
+    expect(luoi.con).toHaveLength(50);
+    expect(luoi.con.some((c) => c.className === 'luoi-them')).toBe(false);
+    store.datDieuKien({ keyword: 'zzz' });
+    v.ve();
+    expect(luoi.con.map((c) => c.className)).toEqual(['luoi-khong-khop']);
+  });
+
+  it('mặc định 55 mẩu hôm nay: 50 mẩu + dòng `còn nhiều hơn` (một chuỗi, một luật)', async () => {
+    const luoi = luoiGia();
+    const store = storeVoiKho(Array.from({ length: 55 }, (_, i) => ban(HOM_NAY, `${String(10 + Math.floor(i / 60)).padStart(2, '0')}:${String(i % 60).padStart(2, '0')}:00`, `m ${i}`)));
+    await store.khoiDong();
+    const v = noiLuoi(store, gocGia(luoi), () => MOC);
+    v.ve();
+    expect(luoi.con).toHaveLength(51);
+    expect(luoi.con[50].className).toBe('luoi-them');
+  });
+
   it('sửa tại chỗ chạy y hệt trên mẩu trong kết quả tìm', async () => {
     const luoi = luoiGia();
     const store = storeVoiKho([ban(HOM_QUA, '10:00:00', 'phở gà')]);
@@ -752,5 +791,17 @@ describe('noiLuoi — tìm bằng chữ (Story 6.1)', () => {
     store.vaoCheDoSua(store.state.notes[0].id);
     v.ve();
     expect(timTheoLop(luoi.con[0], 'mau-sua').value).toBe('phở gà');
+  });
+});
+
+describe('Story 6.4 — view lấy số kết quả từ total, không đếm items.length', () => {
+  it('không tệp nào trong app/view/ chứa `items.length`', () => {
+    const thuMuc = join(repoRoot, 'app', 'view');
+    const tep = readdirSync(thuMuc, { recursive: true }).filter((t) => String(t).endsWith('.js'));
+    expect(tep.length).toBeGreaterThan(0);
+    for (const t of tep) {
+      const nguon = boChuThichJs(readFileSync(join(thuMuc, String(t)), 'utf8'));
+      expect(nguon, String(t)).not.toMatch(/items\s*\.\s*length/);
+    }
   });
 });

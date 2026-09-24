@@ -78,7 +78,7 @@ export function noiTieuDe(store, doc = document, mocHienTai = nowIso) {
   /** Đặt lại tiêu đề từ state. Một phép đọc, một phép đếm, một phép gán — không nhánh nào khác. */
   function ve() {
     const homNay = locGhiChu(store.state.notes, DIEU_KIEN_RONG, mocHienTai());
-    doc.title = tieuDe(homNay.length);
+    doc.title = tieuDe(homNay.total);
   }
 
   return { ve };

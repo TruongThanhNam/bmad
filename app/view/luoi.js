@@ -23,7 +23,7 @@
 // thị cái gì, theo thứ tự nào. "Hiển thị ra sao" là câu hỏi khác, và nó kiểm được từng mẩu một
 // mà không cần cả lưới.
 
-import { COLLAPSED_LINES } from '../core/limits.js';
+import { COLLAPSED_LINES, MAX_RESULTS } from '../core/limits.js';
 import { locGhiChu } from '../core/query.js';
 import { nowIso } from '../core/time.js';
 // Tên thuộc tính và mệnh đề chọn của ô sửa đi VÀO từ `mau-giay.js` — nơi chúng được ĐẶT — chứ
@@ -40,6 +40,12 @@ export const CHON_LUOI = '.luoi';
 const THE_KHONG_KHOP = 'p';
 const LOP_KHONG_KHOP = 'luoi-khong-khop';
 const CHU_KHONG_KHOP = 'Không có ghi chú nào khớp.';
+
+/** Dòng "còn nhiều hơn" (Story 6.4): chỉ khi số khớp thật vượt trần. Chỉ là chữ — không nút,
+ *  không phân trang, không `aria-live`, không focus được. */
+const THE_THEM = 'p';
+const LOP_THEM = 'luoi-them';
+const CHU_THEM = `Hiện ${MAX_RESULTS} ghi chú đầu, còn nhiều hơn. Thêm bộ lọc ngày hoặc gõ thêm chữ để thu hẹp.`;
 
 /**
  * Nối lưới vào store.
@@ -95,7 +101,7 @@ export function noiLuoi(store, goc = document, mocHienTai = nowIso, mocSua = {})
       }
     }
     const dieuKien = store.state.dieuKien;
-    const hienThi = locGhiChu(store.state.notes, dieuKien, mocHienTai());
+    const { items: hienThi, total } = locGhiChu(store.state.notes, dieuKien, mocHienTai());
     // Đang có điều kiện thì kết quả trải qua nhiều ngày: mốc đầy đủ, và phần khớp được tô.
     const coDieuKien = dieuKien.keyword !== null || dieuKien.date !== null;
     const tim = { keyword: dieuKien.keyword, dayDu: coDieuKien };
@@ -148,11 +154,17 @@ export function noiLuoi(store, goc = document, mocHienTai = nowIso, mocSua = {})
         tim,
       );
     });
-    if (coDieuKien && o.length === 0) {
+    if (coDieuKien && total === 0) {
       const khongKhop = luoi.ownerDocument.createElement(THE_KHONG_KHOP);
       khongKhop.className = LOP_KHONG_KHOP;
       khongKhop.textContent = CHU_KHONG_KHOP;
       o.push(khongKhop);
+    }
+    if (total > MAX_RESULTS) {
+      const them = luoi.ownerDocument.createElement(THE_THEM);
+      them.className = LOP_THEM;
+      them.textContent = CHU_THEM;
+      o.push(them);
     }
     // Danh sách rỗng của khung nhìn MẶC ĐỊNH cũng đi qua đúng lời gọi này: lưới sạch trơn,
     // KHÔNG một chữ nào (dòng "không khớp" phía trên chỉ có khi đang có điều kiện). Story

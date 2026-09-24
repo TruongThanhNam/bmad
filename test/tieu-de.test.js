@@ -85,6 +85,14 @@ function docGia() {
 // ---------------------------------------------------------------------------
 
 describe('noiTieuDe — thanh tab nói hôm nay đã ghi bao nhiêu', () => {
+  it('55 ghi chú hôm nay: tiêu đề đếm total `55 - …`, không bị trần 50 cắt (Story 6.4)', async () => {
+    const doc = docGia();
+    const store = storeVoiKho(Array.from({ length: 55 }, (_, i) => ban(HOM_NAY, `${String(10 + Math.floor(i / 60)).padStart(2, '0')}:${String(i % 60).padStart(2, '0')}:00`, `m ${i}`)));
+    await store.khoiDong();
+    noiTieuDe(store, doc, () => MOC).ve();
+    expect(doc.title).toBe(`55 - ${NEN}`);
+  });
+
   it('hôm nay có 4 ghi chú: tiêu đề là `4 - Ghi chú hàng ngày`', async () => {
     const doc = docGia();
     const store = storeVoiKho([
@@ -283,6 +291,7 @@ describe('app/view/tieu-de.js — luật của tầng view, cưỡng chế đư�
     // (không một `demHomNay()` thứ hai), và điều kiện đi vào nó phải là `{null, null}` viết
     // tại chỗ chứ không phải điều kiện đang bật.
     expect(nguon).toMatch(/locGhiChu\s*\(/);
+    expect(nguon).toMatch(/\.total/);
     expect(nguon).toMatch(/keyword\s*:\s*null\s*,\s*date\s*:\s*null/);
     expect(nguon).not.toMatch(/state\s*\.\s*dieuKien/);
   });
