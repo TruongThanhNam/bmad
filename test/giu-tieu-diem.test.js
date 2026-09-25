@@ -19,6 +19,7 @@ import { AUTOSAVE_MS } from '../app/core/limits.js';
 import { taoStore } from '../app/core/state.js';
 import { noiLuongXoa, veGiuTieuDiem } from '../app/main.js';
 import { PORT_METHODS } from '../app/ports/index.js';
+import { CHON_VE_HOM_NAY } from '../app/view/hang-chip.js';
 import { CHON_LUOI, noiLuoi } from '../app/view/luoi.js';
 import { CHON_SUA, CHON_XOA, THUOC_TINH_MAU } from '../app/view/mau-giay.js';
 
@@ -347,6 +348,74 @@ describe('veGiuTieuDiem — mọi hàng tiêu điểm của I/O Matrix Story 7.0
     expect(c.mauCua('x')).toBeNull();
     expect(tieuDiem).not.toBe(THAN_TRANG);
     expect(tieuDiem).toBe(c.oSoan);
+  });
+});
+
+describe('veGiuTieuDiem — nút `về hôm nay` (Story 7.1)', () => {
+  /** Hàng chip giả: mỗi lượt vẽ dựng lại nút (đúng `replaceChildren` của `hang-chip.js`). */
+  function gocCoHangChip(c, conNut) {
+    const hang = phanTuGia('div');
+    hang.gocTaiLieu = true;
+    let nut = null;
+    const veHang = () => {
+      if (nut !== null) nut.cha = null;
+      nut = null;
+      if (conNut()) {
+        nut = phanTuGia('button');
+        nut.className = 've-hom-nay';
+        nut.cha = hang;
+      }
+      hang.con = nut === null ? [] : [nut];
+      if (tieuDiem !== null && tieuDiem !== THAN_TRANG && !trongTaiLieu(tieuDiem)) {
+        tieuDiem = THAN_TRANG;
+      }
+    };
+    veHang();
+    const goc = {
+      get activeElement() {
+        return tieuDiem;
+      },
+      querySelector: (chon) => {
+        if (chon === CHON_VE_HOM_NAY) return nut;
+        return c.goc.querySelector(chon);
+      },
+      getElementById: c.goc.getElementById,
+    };
+    const veTatCa = () => {
+      c.veTatCa();
+      veHang();
+    };
+    return { goc, veTatCa, nut: () => nut };
+  }
+
+  it('tin đến, nút còn: tiêu điểm ở nút MỚI, không rơi về `<body>`', async () => {
+    const c = await dungCanh();
+    const h = gocCoHangChip(c, () => true);
+    const nutCu = h.nut();
+    nutCu.focus();
+    veGiuTieuDiem(h.goc, h.veTatCa);
+    expect(tieuDiem).toBe(h.nut());
+    expect(tieuDiem).not.toBe(nutCu);
+  });
+
+  it('tin đến, nút không còn: tiêu điểm về `#o-soan`', async () => {
+    const c = await dungCanh();
+    let con = true;
+    const h = gocCoHangChip(c, () => con);
+    h.nut().focus();
+    con = false;
+    veGiuTieuDiem(h.goc, h.veTatCa);
+    expect(tieuDiem).toBe(c.oSoan);
+  });
+
+  it('tiêu điểm ở `xóa` của Y, tin đến, Y còn: tiêu điểm vẫn ở `xóa` của Y', async () => {
+    const c = await dungCanh();
+    const nutCu = c.nutXoaCua('y');
+    nutCu.focus();
+    await c.store.napLaiGhiChu();
+    veGiuTieuDiem(c.goc, c.veTatCa);
+    expect(tieuDiem).toBe(c.nutXoaCua('y'));
+    expect(tieuDiem).not.toBe(nutCu);
   });
 });
 

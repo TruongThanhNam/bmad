@@ -584,7 +584,7 @@ describe('app/adapters/broadcast.js — kênh mở LƯỜI, vắng mặt thì im
     }
   });
 
-  it('có BroadcastChannel thì phát thật, và tên kênh mang tiền tố `ghichu.` (AD-9)', async () => {
+  it('có BroadcastChannel thì phát thật, và tên kênh là `ghichu` (AD-7, AD-9)', async () => {
     const daGui = [];
     const tenKenh = [];
     const cu = globalThis.BroadcastChannel;
@@ -606,7 +606,7 @@ describe('app/adapters/broadcast.js — kênh mở LƯỜI, vắng mặt thì im
       const cong = taoBroadcast();
       expect(tenKenh).toEqual([]);
       cong.publish({ v: 1, type: 'session-changed', from: 'tab-cu', appVersion: APP_VERSION });
-      expect(tenKenh).toEqual(['ghichu.tab-sync']);
+      expect(tenKenh).toEqual(['ghichu']);
       expect(daGui).toHaveLength(1);
     } finally {
       if (cu === undefined) delete globalThis.BroadcastChannel;

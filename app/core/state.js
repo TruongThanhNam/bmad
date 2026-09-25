@@ -98,6 +98,15 @@ const KHOA_LAST_BACKUP = 'lastBackupAt';
 /** Loại bản tin phát khi một khóa cấu hình đổi (AD-7). */
 const TIN_PHIEN_DOI = 'session-changed';
 
+/** Loại bản tin phát sau mọi lần ghi thành công vào kho ghi chú (AD-7, Story 7.1). */
+const TIN_GHI_CHU_DOI = 'notes-changed';
+
+/** Đúng hai loại bản tin, không có loại thứ ba (`app/ports/channel.js`). */
+const LOAI_TIN = Object.freeze([TIN_GHI_CHU_DOI, TIN_PHIEN_DOI]);
+
+/** Đúng bốn trường của một bản tin, xếp theo thứ tự chữ cái để so. */
+const TRUONG_BAN_TIN = Object.freeze(['appVersion', 'from', 'type', 'v']);
+
 /** Số hiệu hình dạng bản tin — hiện tại luôn là một (`app/ports/channel.js`). */
 const HINH_DANG_BAN_TIN = 1;
 
@@ -206,14 +215,13 @@ function stateRong() {
     // `:root` của `app/style.css` vẽ ra, nên state và màn hình vẫn nói cùng một câu.
     theme: 'light',
     // Tầng B′ — mốc lần xuất sao lưu gần nhất, sống ở kho cấu hình nên nó dùng chung qua mọi
-    // lần TẢI TRANG (và mọi tab mở sau đó). Chiều NHẬN liên tab thì CHƯA có: mốc chỉ được đọc
-    // đúng một lần lúc khởi động và `app/` không có bộ nghe `session-changed` nào, nên một tab
-    // khác vừa xuất sao lưu không tới được tab này cho tới lần tải lại — lỗ đã biết, để Epic 7.
+    // lần TẢI TRANG (và mọi tab mở sau đó). Chiều NHẬN liên tab có từ Story 7.1: tin
+    // `session-changed` của tab khác làm `nhanBanTin` đọc lại mốc (và theme) từ kho cấu hình.
     //
     // Cùng khuôn `theme` ngay trên, và cùng lý do: `app/view/chan-trang.js` phải dựng dòng nhắc
     // từ giá trị này ở MỌI lượt vẽ chung, và một phép đọc kho trong `ve()` là đường đọc kho bền
     // thứ hai ngoài tệp này (AD-1) — cộng thêm một lần chạm kho mỗi lượt vẽ. Nhờ nó nằm ở đây,
-    // mốc được đọc ĐÚNG MỘT LẦN lúc khởi động, rồi chỉ đổi qua hai đường ghi của UJ-3.
+    // mốc được đọc lúc khởi động và khi có tin, rồi chỉ đổi qua hai đường ghi của UJ-3.
     //
     // `null` là "chưa từng sao lưu", và đó là một giá trị THẬT chứ không phải một chỗ trống:
     // dòng nhắc im lặng tuyệt đối cho tới lần xuất đầu tiên (quyết định đã chốt của Story 4.4).
@@ -402,6 +410,19 @@ export function taoStore(ports) {
    * đúng hành vi cần: chữ vượt trần vẫn là chữ mới nhất Nam đang nhìn.
    */
   const chuDangCho = new Map();
+
+  /**
+   * Lượt đọc lại ghi chú đang bay (lời hứa), hay `null` — cùng khuôn `dangNap`, không phải state.
+   *
+   * Mỗi lúc có tối đa MỘT lượt `readAll` đang bay. Có lý do mới để đọc (một tin đến, hay một phép
+   * ghi của chính tab này chốt xong) trong lúc nó bay thì `docThem` bật, và vòng đọc thêm ĐÚNG
+   * một lượt sau đó — ba tin dồn là tối đa hai lượt đọc, không phải ba.
+   */
+  let luotDocLai = null;
+  let docThem = false;
+
+  /** Các id mẩu-đang-sửa-bị-xóa đã báo bằng dải băng — để một lượt đọc sau không báo lại. */
+  let daBaoMat = new Set();
 
   /** Số đếm tự lưu của một mẩu. `id` chưa từng được gõ vào đọc là `0`, không `undefined`. */
   function soDemSua(id) {
@@ -660,6 +681,7 @@ export function taoStore(ports) {
               notes: noiBo.notes.map((mau) => (mau.id === banGhi.id ? banGhi : mau)),
               banner: null,
             });
+            baoGhiChuDoi();
             xong();
           },
           (loi) => {
@@ -695,9 +717,9 @@ export function taoStore(ports) {
    */
   function khoiDong(themeBanDau) {
     if (THEME_HOP_LE.includes(themeBanDau)) datLai({ theme: themeBanDau });
-    // Mốc sao lưu đọc ĐỒNG BỘ ở đây, và đúng MỘT lần trong cả vòng đời tab: cổng cấu hình là
-    // đồng bộ, dòng nhắc chân trang phải đúng ngay lượt vẽ đầu, và sau lượt này mốc chỉ còn đổi
-    // qua hai đường ghi của UJ-3 (`xuatSaoLuu`, `ghiMocSaoLuuMoiHon`) — không có phép đọc lại.
+    // Mốc sao lưu đọc ĐỒNG BỘ ở đây: cổng cấu hình là đồng bộ và dòng nhắc chân trang phải đúng
+    // ngay lượt vẽ đầu. Sau lượt này mốc đổi qua hai đường ghi của UJ-3 (`xuatSaoLuu`,
+    // `ghiMocSaoLuuMoiHon`), và qua phép đọc lại `napLaiPhien` khi tab khác phát `session-changed`.
     //
     // NUỐT lỗi, và không dải băng: kho cấu hình bị chặn hẳn thì cái mất đi là một dòng chữ nhắc,
     // không phải một ghi chú. Một mã lỗi lúc khởi động vì chuyện đó nói sai về mức nghiêm trọng,
@@ -716,24 +738,167 @@ export function taoStore(ports) {
     // `datLai` nằm NGOÀI `try`, đúng khuôn `ghiMocSaoLuuMoiHon`: chỉ phép đọc cổng mới được
     // nuốt lỗi ở đây, còn một cái ném từ chính khối state là lỗi lập trình và phải đi ra ngoài.
     datLai({ lastBackupAt: mocTuKho });
-    return ports.noteStore.readAll().then(
-      (danhSach) => {
-        try {
-          datLai({ notes: sapGiamDan(danhSach) });
-        } catch {
-          // Một bản ghi mang `createdAt` rác: kho đọc được nhưng không dùng được. Cùng một
-          // đường ra với lỗi kho, vì với người dùng thì đó là cùng một chuyện.
-          datLai({ banner: MA_LOI.DB });
-        }
-      },
-      (loi) => {
+    return napLaiGhiChu();
+  }
+
+  /**
+   * Đọc lại TOÀN BỘ ghi chú từ kho bền và thay `notes` bằng ảnh chụp đó (Story 7.1).
+   *
+   * Đây là chỗ đọc IndexedDB THỨ HAI và cuối cùng (ngoài phép gộp của `napSaoLuu`): khởi động
+   * gọi nó một lần, và mỗi tin `notes-changed` từ tab khác gọi nó thêm. Nó không đụng `draft` —
+   * bản nháp là tầng B, của riêng tab này.
+   *
+   * Dọn `expandedIds`, `editing.seq` và `chuDangCho` của mọi `id` đã mất khỏi kho: chúng khóa
+   * theo `id`, và hẹn tự lưu đang treo của mẩu đã mất bị bỏ vì `seq` của nó về `0` — không `put`
+   * nào dựng lại mẩu tab khác vừa xóa (quyết định OQ1: xóa thắng). `editing.id` và `editing.text`
+   * thì Ở LẠI: ô sửa vẫn mở cho tới khi Nam rời nó, để chữ còn chép ra được.
+   *
+   * Mẩu đang sửa (hay mẩu còn chữ chờ ghi) vừa mất thì dải băng `MAU_SUA_BI_XOA`: chữ đang gõ
+   * không còn chỗ về, và nó không được mất trong im lặng.
+   *
+   * Đọc hỏng thì `notes` giữ nguyên và dải băng mang mã của kho, cùng đường với khởi động.
+   *
+   * @returns {Promise<void>} Chốt khi mọi lượt đọc (kể cả lượt đọc thêm) đã xong — không bao giờ
+   *   bị từ chối.
+   */
+  function napLaiGhiChu() {
+    if (luotDocLai !== null) {
+      docThem = true;
+      return luotDocLai;
+    }
+    const motLuot = () => {
+      docThem = false;
+      return ports.noteStore.readAll().then(
+        (danhSach) => {
+          // Có lý do mới để đọc trong lúc lượt này bay: ảnh chụp này có thể đã cũ — lượt kế tiếp
+          // sẽ thay nó, nên không áp dụng một ảnh cũ dù chỉ một khắc.
+          if (docThem) return;
+          apAnhChup(danhSach);
+        },
+        (loi) => {
+          if (docThem) return;
+          datLai({ banner: maBanner(loi) });
+        },
+      );
+    };
+    const vong = () => motLuot().then(() => (docThem ? vong() : undefined));
+    luotDocLai = Promise.resolve()
+      .then(vong)
+      .catch((loi) => {
+        // `readAll` NÉM đồng bộ (một adapter chưa nối): cùng đường ra với một lời từ chối.
         datLai({ banner: maBanner(loi) });
-      },
+      })
+      .then(() => {
+        luotDocLai = null;
+      });
+    return luotDocLai;
+  }
+
+  /** Thay `notes` bằng một ảnh chụp của kho, dọn bookkeeping của các `id` đã mất. */
+  function apAnhChup(danhSach) {
+    let notes;
+    try {
+      notes = sapGiamDan(danhSach);
+    } catch {
+      // Một bản ghi mang `createdAt` rác: kho đọc được nhưng không dùng được. Cùng một đường ra
+      // với lỗi kho, vì với người dùng thì đó là cùng một chuyện.
+      datLai({ banner: MA_LOI.DB });
+      return;
+    }
+    const conSong = new Set(notes.map((mau) => mau.id));
+    const dangSua = noiBo.editing.id;
+    const matLienQuan = [dangSua, ...chuDangCho.keys()].filter(
+      (id) => id !== null && !conSong.has(id),
+    );
+    // Chỉ báo cho id MỚI mất: mẩu đang sửa vẫn mất ở mọi lượt đọc sau, và báo lại là bật lại dải
+    // băng Nam vừa đóng bằng `✕`. Chỉ nhớ id còn đang sửa — rời ô sửa là quên.
+    const mauSuaMat = matLienQuan.some((id) => !daBaoMat.has(id));
+    daBaoMat = new Set(matLienQuan.filter((id) => id === dangSua));
+    for (const id of [...chuDangCho.keys()]) if (!conSong.has(id)) chuDangCho.delete(id);
+    const seq = {};
+    for (const [id, so] of Object.entries(noiBo.editing.seq)) if (conSong.has(id)) seq[id] = so;
+    const nhanh = {
+      notes,
+      expandedIds: noiBo.expandedIds.filter((id) => conSong.has(id)),
+      editing: { ...noiBo.editing, seq },
+    };
+    datLai(mauSuaMat ? { ...nhanh, banner: LOAI_BANG.MAU_SUA_BI_XOA } : nhanh);
+  }
+
+  /**
+   * Đọc lại hai khóa cấu hình dùng chung (theme, mốc sao lưu) sau một tin `session-changed`.
+   *
+   * NUỐT lỗi, không dải băng: cùng lý do phép đọc mốc lúc khởi động — cái mất đi là một nhãn nút
+   * hay một dòng nhắc, không phải một ghi chú. Theme vắng mặt hay lạ thì giữ theme đang bật:
+   * "theo hệ thống" chỉ sống trong script `<head>`, lõi không biết hệ thống đang nói gì.
+   */
+  function napLaiPhien() {
+    let theme;
+    let moc;
+    try {
+      theme = ports.sessionStore.read(KHOA_THEME);
+      moc = ports.sessionStore.read(KHOA_LAST_BACKUP) ?? null;
+    } catch {
+      return;
+    }
+    datLai(THEME_HOP_LE.includes(theme) ? { theme, lastBackupAt: moc } : { lastBackupAt: moc });
+  }
+
+  /** Bản tin đúng hình dạng bốn trường của `app/ports/channel.js`. */
+  function laBanTinHopLe(tin) {
+    if (!laObjectThuong(tin)) return false;
+    const truong = Object.keys(tin).sort();
+    if (truong.length !== TRUONG_BAN_TIN.length) return false;
+    if (truong.some((ten, i) => ten !== TRUONG_BAN_TIN[i])) return false;
+    return (
+      tin.v === HINH_DANG_BAN_TIN &&
+      LOAI_TIN.includes(tin.type) &&
+      typeof tin.from === 'string' &&
+      typeof tin.appVersion === 'string'
     );
   }
 
   /**
-   * Phát một bản tin `session-changed` tới mọi tab khác (AD-7).
+   * Nhận một bản tin từ tab khác (Story 7.1) — chỗ DUY NHẤT xử lý tin đến.
+   *
+   * Tin sai hình dạng thì bỏ qua IM LẶNG: kênh là cửa mà mọi mã cùng origin gõ được. Tin của
+   * chính tab này cũng bỏ qua. `appVersion` chưa được xét ở đây (Story 7.2).
+   *
+   * @param {unknown} tin Dữ liệu vừa đến qua kênh.
+   * @returns {Promise<void>} Chốt khi state đã phản ánh tin — không bao giờ bị từ chối. `main.js`
+   *   treo lượt vẽ vào đây; đồng bộ thành công thì im lặng.
+   */
+  function nhanBanTin(tin) {
+    if (!laBanTinHopLe(tin)) return Promise.resolve();
+    let cuaMinh = tabCuaMinh;
+    if (cuaMinh === null) {
+      try {
+        cuaMinh = ports.sessionStore.tabIdentity();
+      } catch {
+        cuaMinh = null;
+      }
+    }
+    if (tin.from === cuaMinh) return Promise.resolve();
+    if (tin.type === TIN_PHIEN_DOI) {
+      napLaiPhien();
+      return Promise.resolve();
+    }
+    return napLaiGhiChu();
+  }
+
+  /**
+   * Một phép ghi của CHÍNH tab này vào store `notes` vừa thành công: nếu một lượt đọc lại đang bay
+   * thì ảnh chụp của nó có thể đã cũ (giao dịch đọc mở trước giao dịch ghi), nên đọc thêm một
+   * lượt; rồi gõ chuông `notes-changed` cho tab khác. Gọi SAU `datLai` — ghi → state → phát.
+   */
+  function baoGhiChuDoi() {
+    if (luotDocLai !== null) docThem = true;
+    phatTin(TIN_GHI_CHU_DOI);
+  }
+
+  /**
+   * Phát một bản tin tới mọi tab khác (AD-7) — `notes-changed` hay `session-changed`. Mọi chỗ
+   * phát đi qua ĐÂY (Story 7.1 tổng quát hóa `phatPhienDoi` cũ).
    *
    * Hình dạng đúng bốn trường của `app/ports/channel.js`, và bản tin KHÔNG mang theo giá trị
    * theme: cổng chỉ mang TIN, không mang nội dung — tab nhận đọc lại từ kho bền, nên một tin
@@ -751,7 +916,7 @@ export function taoStore(ports) {
    * `.catch` ngoài cùng và đặt `DB`, tức mã có ưu tiên cao hơn hàng 6 và giết luôn hai con số.
    * Cùng một lý do với nhánh danh tính, chỉ khác chỗ ném.
    */
-  function phatPhienDoi() {
+  function phatTin(type) {
     let nguoiPhat;
     try {
       nguoiPhat = tabCuaMinh ?? ports.sessionStore.tabIdentity();
@@ -761,7 +926,7 @@ export function taoStore(ports) {
     try {
       ports.channel.publish({
         v: HINH_DANG_BAN_TIN,
-        type: TIN_PHIEN_DOI,
+        type,
         from: nguoiPhat,
         appVersion: APP_VERSION,
       });
@@ -812,7 +977,7 @@ export function taoStore(ports) {
         }),
       () => ({ theme: giaTri }),
     ).then(() => {
-      if (xuongKho) phatPhienDoi();
+      if (xuongKho) phatTin(TIN_PHIEN_DOI);
     });
   }
 
@@ -880,7 +1045,7 @@ export function taoStore(ports) {
         // trang sau. Lượt vẽ kéo theo KHÔNG sinh một thông báo nào — nó chỉ GỠ một dòng chữ đi,
         // nên "im lặng tuyệt đối" của AD-16 vẫn nguyên vẹn.
         datLai({ lastBackupAt: exportedAt });
-        phatPhienDoi();
+        phatTin(TIN_PHIEN_DOI);
       },
       () => {
         /* Cổng từ chối: im lặng hoàn toàn, và `lastBackupAt` giữ nguyên giá trị cũ. */
@@ -920,7 +1085,7 @@ export function taoStore(ports) {
     datLai({ lastBackupAt: exportedAt });
     // Chỉ gõ chuông khi có một giá trị MỚI trong kho cho tab khác đọc lại — không ghi thì
     // không có gì đổi, và một bản tin rỗng chỉ làm mọi tab đọc lại đúng thứ chúng đang có.
-    phatPhienDoi();
+    phatTin(TIN_PHIEN_DOI);
   }
 
   /**
@@ -996,6 +1161,7 @@ export function taoStore(ports) {
                 banner: LOAI_BANG.NAP_FILE_XONG,
                 bannerSo: { added: gop.added, skipped: gop.skipped },
               });
+              baoGhiChuDoi();
               ghiMocSaoLuuMoiHon(moc);
             });
           },
@@ -1050,11 +1216,16 @@ export function taoStore(ports) {
       // không phải bất biến — đồng hồ máy lùi lại, hay một bản ghi nạp từ file sao lưu (Epic
       // 4) mang mốc tương lai, đều để lại một mảng lệch thứ tự mà không ai thấy.
       () => ({
-        notes: sapGiamDan([banGhi, ...noiBo.notes]),
+        // Lọc `id` trùng: một lượt đọc lại (tin từ tab khác) có thể đã mang bản ghi này về
+        // trước khi nhánh này chạy — thêm lần hai là một mẩu hiện đôi.
+        notes: sapGiamDan([banGhi, ...noiBo.notes.filter((mau) => mau.id !== banGhi.id)]),
         draft:
           noiBo.draft.seq === seqLucChot ? { text: '', seq: noiBo.draft.seq } : noiBo.draft,
       }),
-    ).then(() => daChot);
+    ).then(() => {
+      if (daChot) baoGhiChuDoi();
+      return daChot;
+    });
   }
 
   /**
@@ -1130,8 +1301,13 @@ export function taoStore(ports) {
       throw new TypeError(`xoaGhiChu nhận id là chuỗi, nhận được ${moTa(id)}`);
     }
     if (!noiBo.notes.some((mau) => mau.id === id)) return Promise.resolve();
+    let daXoa = true;
     return ghiTruocDatSau(
-      () => ports.noteStore.remove(id),
+      () =>
+        ports.noteStore.remove(id).catch((loi) => {
+          daXoa = false;
+          throw loi;
+        }),
       // Hai bảng bookkeeping của chế độ sửa cũng phải quên mẩu này, cùng lý do với
       // `expandedIds` ngay dưới: chúng khóa theo `id`, và một `id` không còn bản ghi nào mang
       // sẽ ở lại tới hết phiên. Dọn trong closure của `dungNhanh` nên nó chỉ chạy khi kho ĐÃ
@@ -1149,7 +1325,9 @@ export function taoStore(ports) {
           editing: { ...noiBo.editing, seq },
         };
       },
-    );
+    ).then(() => {
+      if (daXoa) baoGhiChuDoi();
+    });
   }
 
   /**
@@ -1437,6 +1615,8 @@ export function taoStore(ports) {
     moXacNhanXoa,
     dongXacNhanXoa,
     khoiDong,
+    napLaiGhiChu,
+    nhanBanTin,
     datTheme,
     xuatSaoLuu,
     napSaoLuu,

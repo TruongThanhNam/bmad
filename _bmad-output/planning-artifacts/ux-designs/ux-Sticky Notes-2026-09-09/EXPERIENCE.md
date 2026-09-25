@@ -85,6 +85,9 @@ Mock: [`mockups/key-canh-bao.html`](./mockups/key-canh-bao.html).
 | 2 | AD-21 · **mã lệch phiên bản** | `Đã có bản mới. Tải lại trang — tab này đang ở chế độ chỉ đọc.` |
 | 3 | FR-16 · **file nạp lỗi** | `Không nạp được file này — sai định dạng hoặc file hỏng. Dữ liệu đang có KHÔNG bị đụng tới. Thử file sao lưu khác.` |
 | 4 | FR-18 · **vượt trần 20.000 ký tự** | `Ghi chú này đã đạt 20.000 ký tự — không nhận thêm. Chốt bằng Ctrl+Enter rồi gõ tiếp vào ghi chú mới.` |
+| 5 | Story 7.1 · **mẩu đang sửa bị tab khác xóa** (hàng 5 của `BANG_UU_TIEN` trong `app/core/banner.js`, cùng hàng với `TOO_LONG` và `TOO_LONG_KHI_SUA`; đóng được) | `Ghi chú này vừa bị xóa ở tab khác. Chép chữ ra trước khi rời ô sửa nếu còn cần.` |
+
+**Cập nhật 2026-09-25 (Story 7.1, quyết định OQ1).** Dòng 5 là ca mất chữ thật duy nhất của đồng bộ đa tab. Xóa thắng: ô sửa ở lại cho tới khi rời, không ghi gì xuống kho, rời thì mẩu biến mất và tiêu điểm về ô soạn thảo. Đồng bộ thành công vẫn **im lặng** — không dải băng nào khác cho hai tab song song.
 
 **Cập nhật 2026-09-10 sau `bmad-architecture`.** Hai dòng trên đã đổi, và đây là lý do:
 

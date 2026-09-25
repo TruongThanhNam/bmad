@@ -136,7 +136,9 @@ const THU_TU_AD_17 = [
   // `TOO_LONG_KHI_SUA` gia nhập hàng 5 ở Story 5.1: vượt trần trong ô SỬA của một mẩu đã chốt
   // là cùng một chuyện với vượt trần khi gõ ở ô soạn thảo — chỉ câu chữ khác (mệnh đề
   // `Ctrl+Enter` không đúng trong ô sửa), nên cùng hàng, cùng cờ đóng-được.
-  { loai: ['TOO_LONG', 'TOO_LONG_KHI_SUA'], dongDuoc: true },
+  // `MAU_SUA_BI_XOA` gia nhập hàng 5 ở Story 7.1: mẩu đang sửa bị tab khác xóa — chữ đang gõ
+  // không còn chỗ về trong kho, cùng loại chuyện, đóng được.
+  { loai: ['TOO_LONG', 'TOO_LONG_KHI_SUA', 'MAU_SUA_BI_XOA'], dongDuoc: true },
   { loai: ['NAP_FILE_XONG'], dongDuoc: true },
   { loai: ['DUNG_LUONG_SAP_HET'], dongDuoc: true },
 ];
@@ -246,6 +248,17 @@ describe('core/banner.js — chữ luôn đến từ ánh xạ có sẵn', () =>
     // Tập mã lỗi của AD-18 giữ đúng SÁU giá trị — sentinel không phải một mã thứ bảy.
     expect(Object.values(MA_LOI)).toHaveLength(6);
     expect(Object.values(MA_LOI)).not.toContain(LOAI_BANG.TOO_LONG_KHI_SUA);
+  });
+
+  it('MAU_SUA_BI_XOA (Story 7.1 — quyết định OQ1): nguyên văn, hàng 5, đóng được, không phải mã lỗi', () => {
+    expect(microcopyBanner(LOAI_BANG.MAU_SUA_BI_XOA)).toBe(
+      'Ghi chú này vừa bị xóa ở tab khác. Chép chữ ra trước khi rời ô sửa nếu còn cần.',
+    );
+    expect(dongDuoc(LOAI_BANG.MAU_SUA_BI_XOA)).toBe(true);
+    expect(thayDuoc(LOAI_BANG.TOO_LONG, LOAI_BANG.MAU_SUA_BI_XOA)).toBe(true);
+    expect(thayDuoc(LOAI_BANG.DB, LOAI_BANG.MAU_SUA_BI_XOA)).toBe(false);
+    expect(Object.values(MA_LOI)).toHaveLength(6);
+    expect(Object.values(MA_LOI)).not.toContain(LOAI_BANG.MAU_SUA_BI_XOA);
   });
 
   it('hàng 6 CÓ tham số: nguyên văn từng ký tự, hai con số viết bằng CHỮ SỐ', () => {

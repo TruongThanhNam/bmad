@@ -27,7 +27,7 @@ import { taoStore } from './core/state.js';
 import { PORT_METHODS } from './ports/index.js';
 import { noiBanner } from './view/banner.js';
 import { noiChanTrang } from './view/chan-trang.js';
-import { noiHangChip } from './view/hang-chip.js';
+import { CHON_VE_HOM_NAY, noiHangChip } from './view/hang-chip.js';
 import { noiHopThoai } from './view/hop-thoai.js';
 import { noiKhayTim } from './view/khay-tim.js';
 import { CHON_LUOI, noiLuoi } from './view/luoi.js';
@@ -76,8 +76,9 @@ function congThat() {
     noteStore: taoNoteStore(),
     sessionStore: taoSessionStore(),
     // Kênh liên tab (Story 3.3): mở LƯỜI như hai adapter trên, nên dòng này không chạm một
-    // global nào ở Node — `test/trang-tinh.test.js` import động chính tệp này ở đó.
-    channel: taoBroadcast(),
+    // global nào ở Node — `test/trang-tinh.test.js` import động chính tệp này ở đó. Dựng MỘT lần
+    // ở cấp module (`kenh`) để khối `document` nghe được đúng kênh mà store phát (Story 7.1).
+    channel: kenh,
     // File vào/ra (Story 4.2 + 4.3): `taoFileIo()` chỉ dựng object, `document`/`Blob`/`URL`
     // chỉ bị hỏi tới bên trong `exportFile` và `readChosenFile` — nên dòng này cũng không chạm
     // global nào ở Node.
@@ -98,6 +99,11 @@ const VAI_THAN = 'than';
 const VAI_XOA = 'xoa';
 const VAI_SUA = 'sua';
 
+/** Vai trò NGOÀI lưới duy nhất được neo (Story 7.1): nút `về hôm nay` của hàng chip. Hàng chip
+ *  `replaceChildren` ở mọi lượt vẽ, nên một lượt vẽ do tin từ tab khác gỡ đúng nút đang giữ tiêu
+ *  điểm. Neo mang `id: null` — nút không thuộc mẩu nào. */
+const VAI_VE_HOM_NAY = 've-hom-nay';
+
 /**
  * Neo tiêu điểm hiện tại: `{ id, vaiTro }` khi nó nằm trong một mẩu, `null` khi nằm ở ngoài.
  *
@@ -108,6 +114,7 @@ const VAI_SUA = 'sua';
 function neoTuTieuDiem(goc) {
   const dangDung = goc.activeElement ?? null;
   if (dangDung === null || typeof dangDung.closest !== 'function') return null;
+  if (dangDung.closest(CHON_VE_HOM_NAY) !== null) return { id: null, vaiTro: VAI_VE_HOM_NAY };
   const mau = dangDung.closest(CHON_MAU);
   if (mau === null) return null;
   const id = mau.getAttribute(THUOC_TINH_MAU);
@@ -137,6 +144,8 @@ function neoTuTieuDiem(goc) {
  * - `null` — về ô soạn thảo: tầng 1, thứ `autofocus` của `index.html` đã chọn, chỗ Nam làm việc.
  * - `{ id, vaiTro }` — về đúng phần tử mang vai trò đó của mẩu `id`: `'than'` là chính mẩu,
  *   `'xoa'` là nút `xóa`, `'sua'` là ô sửa (không còn ô sửa thì lấy thân).
+ * - `{ id: null, vaiTro: 've-hom-nay' }` — về nút `về hôm nay` MỚI của hàng chip (Story 7.1);
+ *   nhánh `undefined` tự chụp neo này khi tiêu điểm đang ở nút đó. Nút không còn → `#o-soan`.
  *
  * Tìm mẩu theo `id` (`THUOC_TINH_MAU`), không theo vị trí trong danh sách con: lượt vẽ chạy
  * `locGhiChu` lại với mốc "hôm nay" mới và khối điều kiện đang bật, nên nó có thể dựng một tập
@@ -159,12 +168,22 @@ export function veGiuTieuDiem(goc, veTatCa, neo) {
   veTatCa();
   // Tiêu điểm đang ở ngoài mọi mẩu: lượt vẽ không chạm tới nó, nên không có gì để trả.
   if (neo === undefined && dich === null) return;
-  const mau = dich === null ? null : mauTheoId(goc, dich.id);
-  if (mau !== null) {
-    phanTuTheoVai(mau, dich.vaiTro).focus();
+  // Nút `về hôm nay` vừa được dựng lại: về nút MỚI; nút không còn (điều kiện đã rỗng) thì về
+  // `#o-soan` — không để tiêu điểm rơi về `<body>`.
+  const dichMoi = phanTuTheoNeo(goc, dich);
+  if (dichMoi !== null) {
+    dichMoi.focus();
     return;
   }
   goc.getElementById(ID_O_SOAN)?.focus();
+}
+
+/** Phần tử mang neo trong DOM HIỆN HÀNH (sau lượt vẽ), hay `null` khi nó không còn. */
+function phanTuTheoNeo(goc, dich) {
+  if (dich === null) return null;
+  if (dich.vaiTro === VAI_VE_HOM_NAY) return goc.querySelector(CHON_VE_HOM_NAY) ?? null;
+  const mau = mauTheoId(goc, dich.id);
+  return mau === null ? null : phanTuTheoVai(mau, dich.vaiTro);
 }
 
 /** Mẩu mang `id` trong lưới HIỆN HÀNH (sau lượt vẽ), hay `null`. Chỉ xét con TRỰC TIẾP của
@@ -241,6 +260,9 @@ export function noiLuongXoa(store, goc, veTatCa, choRoiSua = () => Promise.resol
     },
   };
 }
+
+/** Kênh liên tab DUY NHẤT — một adapter, dùng chung cho chiều phát (store) và chiều nghe. */
+const kenh = taoBroadcast();
 
 /** Khối state duy nhất của ứng dụng. */
 export const store = taoStore(congThat());
@@ -425,6 +447,13 @@ if (typeof document !== 'undefined') {
   // nút về đúng chiều ở khung hình đầu: `khoiDong` đặt theme ĐỒNG BỘ, `notes` mới là phần chờ.
   const themeLucTai = document.documentElement.getAttribute('data-theme');
   store.khoiDong(themeLucTai).then(veTatCa);
+  // Chiều NHẬN của kênh liên tab (Story 7.1) — người nghe DUY NHẤT, nối sau `khoiDong`. Lõi lọc
+  // tin rác và tin của chính tab, đọc lại kho, rồi lượt vẽ GIỮ TIÊU ĐIỂM: bản tin đến bất đồng
+  // bộ, lúc tiêu điểm có thể đang ở bất cứ đâu. `nhanBanTin` không bao giờ bị từ chối. Hàm gỡ
+  // mà `subscribe` trả về không cần giữ: bộ nghe sống đúng bằng trang.
+  kenh.subscribe((tin) => {
+    store.nhanBanTin(tin).then(() => veGiuTieuDiem(document, veTatCa));
+  });
   // Lượt vẽ ĐẦU của riêng nút theme chạy ngay, không đợi kho: `khoiDong` đặt `theme` ĐỒNG BỘ
   // (chỉ `notes` là phần bất đồng bộ), nên nhãn về đúng chiều ở khung hình đầu tiên thay vì
   // đọc `nền tối` trên một trang đang tối cho tới khi IndexedDB trả lời.

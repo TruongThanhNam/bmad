@@ -158,6 +158,11 @@ function dungSan(tuyChon = {}) {
   };
 }
 
+/** Chỉ các tin `session-changed` — nạp thành công nay luôn phát thêm `notes-changed` (7.1). */
+function tinPhien(bo) {
+  return bo.daPhat.filter((tin) => tin.type === 'session-changed');
+}
+
 /** Số lần `replaceAll` đã bị gọi — con số quan trọng nhất của cả tệp này. */
 function soLanGhi(bo) {
   return bo.nhatKy.filter((muc) => muc === 'replaceAll').length;
@@ -438,7 +443,9 @@ describe('napSaoLuu — mốc `lastBackupAt` chỉ đi TỚI, không bao giờ l
     await bo.san;
     await bo.store.napSaoLuu();
     expect(bo.daGhiKho).toEqual([['lastBackupAt', MOC_XUAT]]);
+    // Story 7.1: `notes-changed` (kho ghi chú vừa đổi) đi TRƯỚC `session-changed` (mốc).
     expect(bo.daPhat).toEqual([
+      { v: 1, type: 'notes-changed', from: 'tab-nay', appVersion: APP_VERSION },
       { v: 1, type: 'session-changed', from: 'tab-nay', appVersion: APP_VERSION },
     ]);
   });
@@ -448,7 +455,7 @@ describe('napSaoLuu — mốc `lastBackupAt` chỉ đi TỚI, không bao giờ l
     await bo.san;
     await bo.store.napSaoLuu();
     expect(bo.daGhiKho).toEqual([['lastBackupAt', MOC_XUAT]]);
-    expect(bo.daPhat).toHaveLength(1);
+    expect(tinPhien(bo)).toHaveLength(1);
   });
 
   it('`exportedAt` CŨ HƠN: mốc không đổi, và KHÔNG tin nào được phát', async () => {
@@ -456,7 +463,7 @@ describe('napSaoLuu — mốc `lastBackupAt` chỉ đi TỚI, không bao giờ l
     await bo.san;
     await bo.store.napSaoLuu();
     expect(bo.daGhiKho).toEqual([]);
-    expect(bo.daPhat).toEqual([]);
+    expect(tinPhien(bo)).toEqual([]);
     // Nhưng phép nạp vẫn thành công trọn vẹn — hai chuyện không liên quan tới nhau.
     expect(bo.store.state.banner).toBe(LOAI_BANG.NAP_FILE_XONG);
   });
@@ -489,7 +496,7 @@ describe('napSaoLuu — mốc `lastBackupAt` chỉ đi TỚI, không bao giờ l
     await bo.san;
     await bo.store.napSaoLuu();
     expect(bo.daGhiKho).toEqual([]);
-    expect(bo.daPhat).toEqual([]);
+    expect(tinPhien(bo)).toEqual([]);
     expect(bo.store.state.banner).toBe(LOAI_BANG.NAP_FILE_XONG);
     expect(bo.trongKho()).toHaveLength(3);
   });
@@ -514,7 +521,7 @@ describe('napSaoLuu — mốc `lastBackupAt` chỉ đi TỚI, không bao giờ l
     await expect(bo.store.napSaoLuu()).resolves.toBeUndefined();
     expect(bo.store.state.banner).toBe(LOAI_BANG.NAP_FILE_XONG);
     expect(bo.store.state.bannerSo).toEqual({ added: 2, skipped: 1 });
-    expect(bo.daPhat).toEqual([]);
+    expect(tinPhien(bo)).toEqual([]);
     expect(bo.trongKho()).toHaveLength(4);
   });
 });

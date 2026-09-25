@@ -2702,6 +2702,159 @@ try {
       await cdp.taiLai(tab.sessionId);
     }
   }
+
+  // ── Story 7.1: hai tab THẬT trên cùng một kênh `ghichu` ─────────────────────────────────
+  //
+  // Tab A là `tab` ở trên; tab B mở mới trên cùng origin. Mọi phép ghi đi qua action của store
+  // (bản tin phát bởi mã sản phẩm, qua BroadcastChannel thật), và mọi phép đo đọc ở tab KIA.
+  {
+    const A = tab.sessionId;
+    const tabB = await cdp.tabMoi(server.diaChi);
+    const B = tabB.sessionId;
+    const M = `const m = await import('/app/main.js');`;
+    /** Đợi tới khi biểu thức (async, trong tab) ra thật; trả về giá trị cuối cùng đọc được. */
+    const doiTab = async (phien, bieuThuc, soLan = 60) => {
+      let cuoi = false;
+      for (let i = 0; i < soLan; i += 1) {
+        cuoi = await cdp.chay(phien, `${M} return Boolean(${bieuThuc});`);
+        if (cuoi) return true;
+        await nghi(100);
+      }
+      return cuoi;
+    };
+    const CO_CHU = (chu) => `m.store.state.notes.some((x) => x.text === ${JSON.stringify(chu)})`;
+    const ID_CUA = (chu) =>
+      `m.store.state.notes.find((x) => x.text === ${JSON.stringify(chu)})?.id ?? null`;
+    const daTao = [];
+    try {
+      await cdp.doiSan(B);
+      // Hai tab cùng mở thì chỉ một tab có tiêu điểm cửa sổ; giả lập tiêu điểm cho cả hai để
+      // `focus()`/`blur()` của ô sửa chạy như khi Nam đang nhìn tab đó.
+      for (const phien of [A, B]) {
+        await cdp.goi('Emulation.setFocusEmulationEnabled', { enabled: true }, phien);
+      }
+      // B đang gõ dở ô soạn — gõ thật qua sự kiện `input`, không qua action.
+      await cdp.chay(
+        B,
+        `const o = document.querySelector('#o-soan'); o.value = 'dong-bo-7-1 B viết dở';
+         o.dispatchEvent(new Event('input', { bubbles: true })); return true;`,
+      );
+
+      // Chốt ở A → B hiện mẩu, tab title đúng, bản nháp của B nguyên vẹn.
+      const CHU_A = 'dong-bo-7-1 từ A';
+      const tieuDeTruoc = await cdp.chay(B, `return document.title;`);
+      await cdp.chay(A, `${M} m.store.datBanNhap(${JSON.stringify(CHU_A)}); await m.store.chotGhiChu(); return true;`);
+      daTao.push(await cdp.chay(A, `${M} return ${ID_CUA(CHU_A)};`));
+      const tinChot = await doiTab(B, `${CO_CHU(CHU_A)} && document.querySelector('.luoi').textContent.includes(${JSON.stringify(CHU_A)})`);
+      // Tab title của B đếm ghi chú HÔM NAY: mẩu vừa chốt là của hôm nay, nên con số phải tăng
+      // đúng một. (Tab A không tự vẽ lại ở đây — ca này gọi thẳng action, không qua giao diện.)
+      const tieuDe = await cdp.chay(B, `return document.title;`);
+      const so = (t) => Number((/^(\d+) /.exec(t) ?? [0, 0])[1]);
+      const nhapB = await cdp.chay(
+        B,
+        `${M} return [document.querySelector('#o-soan').value, m.store.state.draft.text];`,
+      );
+      ghi(
+        'Story 7.1 — chốt ở A: B hiện mẩu mới, tab title của B tăng đúng một, không F5',
+        tinChot && so(tieuDe) === so(tieuDeTruoc) + 1,
+        `B title ${JSON.stringify(tieuDeTruoc)} → ${JSON.stringify(tieuDe)}`,
+      );
+      ghi(
+        'Story 7.1 — B đang gõ ô soạn: A chốt không đụng ô soạn lẫn bản nháp của B',
+        nhapB[0] === 'dong-bo-7-1 B viết dở' && nhapB[1] === 'dong-bo-7-1 B viết dở',
+        JSON.stringify(nhapB),
+      );
+
+      // Sửa ở A → B hiện chữ mới.
+      const CHU_SUA = 'dong-bo-7-1 A đã sửa';
+      await cdp.chay(
+        A,
+        `${M} const id = ${ID_CUA(CHU_A)}; m.store.vaoCheDoSua(id);
+         await m.store.tuLuuNoiDung(id, ${JSON.stringify(CHU_SUA)}); await m.store.roiCheDoSua(); return true;`,
+      );
+      ghi('Story 7.1 — sửa ở A: B hiện chữ mới sau khi `put` xong', await doiTab(B, CO_CHU(CHU_SUA)));
+
+      // Xóa ở A → B mất mẩu.
+      await cdp.chay(A, `${M} await m.store.xoaGhiChu(${ID_CUA(CHU_SUA)}); return true;`);
+      ghi(
+        'Story 7.1 — xóa ở A: mẩu biến khỏi B',
+        await doiTab(B, `!(${CO_CHU(CHU_SUA)}) && !document.querySelector('.luoi').textContent.includes(${JSON.stringify(CHU_SUA)})`),
+      );
+
+      // Theme lan sang: B đổi `data-theme` và nhãn nút.
+      const themeCu = await cdp.chay(A, `${M} return m.store.state.theme;`);
+      const themeMoi = themeCu === 'dark' ? 'light' : 'dark';
+      const nhanCu = await cdp.chay(B, `return document.querySelector('.nut-theme').textContent;`);
+      await cdp.chay(A, `${M} await m.store.datTheme(${JSON.stringify(themeMoi)}); return true;`);
+      const themeLan = await doiTab(
+        B,
+        `document.documentElement.getAttribute('data-theme') === ${JSON.stringify(themeMoi)}`,
+      );
+      const nhanMoi = await cdp.chay(B, `return document.querySelector('.nut-theme').textContent;`);
+      ghi(
+        'Story 7.1 — đổi theme ở A: B đổi theme và nhãn nút',
+        themeLan && nhanMoi !== nhanCu,
+        `${themeCu}→${themeMoi} · nhãn ${JSON.stringify(nhanCu)}→${JSON.stringify(nhanMoi)}`,
+      );
+      await cdp.chay(A, `${M} await m.store.datTheme(${JSON.stringify(themeCu)}); return true;`);
+      await doiTab(B, `document.documentElement.getAttribute('data-theme') === ${JSON.stringify(themeCu)}`);
+
+      // A đang sửa X, B xóa X → dải băng `MAU_SUA_BI_XOA` ở A, chữ đang gõ còn trong ô.
+      const CHU_X = 'dong-bo-7-1 mẩu X';
+      await cdp.chay(B, `${M} m.store.datBanNhap(${JSON.stringify(CHU_X)}); await m.store.chotGhiChu(); return true;`);
+      await doiTab(A, CO_CHU(CHU_X));
+      const idX = await cdp.chay(A, `${M} return ${ID_CUA(CHU_X)};`);
+      daTao.push(idX);
+      await cdp.chay(
+        A,
+        `${M} const than = document.querySelector('.luoi > [data-mau="' + ${JSON.stringify(idX)} + '"]');
+         than.click(); return true;`,
+      );
+      await doiTab(A, `document.querySelector('.mau-sua') !== null`);
+      await cdp.chay(
+        A,
+        `const o = document.querySelector('.mau-sua'); o.value = ${JSON.stringify(`${CHU_X} chữ đang gõ`)};
+         o.dispatchEvent(new Event('input', { bubbles: true })); return true;`,
+      );
+      await cdp.chay(B, `${M} await m.store.xoaGhiChu(${JSON.stringify(idX)}); return true;`);
+      const coBang = await doiTab(
+        A,
+        `m.store.state.banner === 'MAU_SUA_BI_XOA' && document.querySelector('.dai-bang').textContent.includes('Ghi chú này vừa bị xóa ở tab khác.')`,
+      );
+      const oSuaCon = await cdp.chay(A, `const o = document.querySelector('.mau-sua'); return o === null ? null : o.value;`);
+      // Rời ô sửa: mẩu biến mất, kho không hồi sinh nó.
+      await cdp.chay(A, `document.querySelector('.mau-sua')?.blur(); return true;`);
+      await doiTab(A, `document.querySelector('.mau-sua') === null`);
+      await nghi(1500);
+      const hoiSinh = await cdp.chay(B, `${M} await m.store.napLaiGhiChu(); return m.store.state.notes.some((x) => x.id === ${JSON.stringify(idX)});`);
+      ghi(
+        'Story 7.1 — A sửa X, B xóa X: dải băng ở A, chữ còn trong ô sửa, rời thì mẩu mất và không hồi sinh',
+        coBang && oSuaCon === `${CHU_X} chữ đang gõ` && !hoiSinh,
+        `dải băng=${coBang} · ô sửa=${JSON.stringify(oSuaCon)} · hồi sinh=${hoiSinh}`,
+      );
+      await cdp.chay(A, `${M} m.store.dongDaiBang(); return true;`);
+    } finally {
+      // Dọn: xóa mọi mẩu còn sót, trả ô soạn của B về rỗng, đóng B.
+      await cdp
+        .chay(
+          A,
+          `${M} await m.store.napLaiGhiChu();
+           for (const id of ${JSON.stringify(daTao.filter(Boolean))}) await m.store.xoaGhiChu(id);
+           return true;`,
+        )
+        .catch(() => {});
+      await cdp
+        .chay(
+          B,
+          `const o = document.querySelector('#o-soan'); o.value = '';
+           o.dispatchEvent(new Event('input', { bubbles: true })); return true;`,
+        )
+        .catch(() => {});
+      await nghi(1500);
+      await cdp.goi('Emulation.setFocusEmulationEnabled', { enabled: false }, A).catch(() => {});
+      await cdp.dongTab(tabB.targetId).catch(() => {});
+    }
+  }
 } finally {
   if (tab !== null) await cdp.dongTab(tab.targetId).catch(() => {});
   await cdp.dong();

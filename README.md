@@ -92,6 +92,9 @@ file/thư mục bắt đầu bằng `_`. File rỗng `.nojekyll` ở gốc tắt
 `app/adapters/` không có test tự động — chúng mỏng theo thiết kế và bằng chứng duy nhất là
 danh sách thử tay dưới đây. Các story sau bổ sung thêm mục vào danh sách này.
 
+**Mục 37 (hai tab song song, Story 7.1) chạy được bằng máy qua `npm run thu-bo-cuc`** (khối
+"Story 7.1" ở cuối bộ đo, xem mục "Bố cục bốn tầng" bên dưới).
+
 **Mục 10-13 (bản nháp) và mục 22-23 (chốt, sửa, xóa) chạy được bằng máy:**
 
 ```bash
@@ -742,3 +745,28 @@ Còn lại là thứ không con số nào nói: lần tải lại có **nháy m�
     chữ mới.
 
     *Cả hai theme.* Lặp ở bản dark (mục 14): vòng sáng trên nút `xóa` nhìn rõ.
+
+### Hai tab song song — kênh `ghichu` (Story 7.1)
+
+37. **Tab kia thấy ngay, không F5, và không nói gì.** Mở trang ở **hai tab** cùng origin (mục 1).
+    `npm run thu-bo-cuc` đã lái hai tab thật qua CDP: chốt / sửa / xóa lan sang, theme lan sang,
+    bản nháp tab kia nguyên vẹn, và dải băng khi mẩu đang sửa bị xóa. **Chỉ làm tay** (bộ đo
+    không lái): mốc sao lưu lan sang, tiêu điểm giữ nguyên khi có tin đến, và nút `✕` của dải
+    băng bấm qua giao diện. Các bước còn lại là lần nhìn bằng mắt.
+
+    *Chốt, sửa, xóa.* Chốt một ghi chú ở tab A: tab B hiện mẩu mới và tiêu đề tab của B tăng một,
+    không dải băng nào. Sửa mẩu đó ở A, đợi một giây: B hiện chữ mới. Xóa ở A: mẩu biến khỏi B.
+
+    *Bản nháp.* Gõ dở vào ô soạn của B (đừng chốt), rồi chốt một ghi chú ở A: ô soạn của B còn
+    nguyên chữ, con trỏ vẫn ở đó.
+
+    *Theme và mốc sao lưu.* Lật theme ở A: B đổi màu và nhãn nút. Xuất sao lưu ở A: dòng nhắc sao
+    lưu ở chân trang của B đổi theo.
+
+    *Tiêu điểm.* Ở B, `Tab` tới nút `xóa` của một mẩu (hay tới nút `về hôm nay` khi đang tìm), rồi
+    chốt một ghi chú ở A: vòng sáng ở B vẫn nằm trên đúng nút đó, không rơi về đầu trang.
+
+    *Mẩu đang sửa bị xóa ở tab khác.* Ở A vào chế độ sửa một mẩu và gõ thêm vài chữ. Ở B xóa đúng
+    mẩu đó. A hiện dải băng `Ghi chú này vừa bị xóa ở tab khác. Chép chữ ra trước khi rời ô sửa
+    nếu còn cần.`, ô sửa còn nguyên chữ. Rời ô sửa (`Tab`): mẩu biến mất, con trỏ ở ô soạn thảo,
+    và tải lại B thì mẩu **không** sống lại. Nút `✕` đóng được dải băng.

@@ -30,7 +30,8 @@ import { MA_LOI, MICROCOPY, microcopyLoi } from './errors.js';
  * trị cho BẢY hàng: hàng 4 ("nạp file thất bại") chở BA mã cùng nghĩa với người dùng —
  * `BAD_FILE` · `BAD_VERSION` (đã chung câu từ trước) cộng `TOO_LONG_TU_FILE` (Story 4.3/4.4
  * review — epic-4-context.md đòi ưu tiên 4 cho ca này, ngang với lỗi nạp file, cao hơn hẳn
- * `TOO_LONG` của bàn phím ở hàng 5) — và hàng 5 chở HAI (Story 5.1).
+ * `TOO_LONG` của bàn phím ở hàng 5) — và hàng 5 chở HAI (Story 5.1). Story 7.1 thêm sentinel
+ * thứ năm `MAU_SUA_BI_XOA` vào hàng 5 (nay chở BA): mười một giá trị, vẫn BẢY hàng.
  *
  * `TOO_LONG_TU_FILE` là sentinel RIÊNG của bảng này, KHÔNG một mã của `core/errors.js`'s
  * `MA_LOI` (tập đó vẫn đóng, đúng sáu giá trị — AD-18 không nới): một ghi chú vượt trần được
@@ -62,6 +63,14 @@ export const LOAI_BANG = Object.freeze({
    * `Ctrl+Enter` không làm gì cả, nên nó là một chỉ dẫn dẫn tới không đâu.
    */
   TOO_LONG_KHI_SUA: 'TOO_LONG_KHI_SUA',
+  /**
+   * Hàng 5 — mẩu đang sửa (hay còn chữ chờ ghi) vừa bị tab khác XÓA (Story 7.1).
+   *
+   * Sentinel riêng của bảng, không phải mã của `MA_LOI` (tập đó vẫn đóng): không phép ghi nào
+   * hỏng — chỉ có chữ của Nam sắp không còn chỗ về. Quyết định OQ1: xóa thắng, không hồi sinh.
+   * Hàng 5 vì nó cùng loại chuyện với vượt trần: chữ đang gõ không xuống được kho, và đóng được.
+   */
+  MAU_SUA_BI_XOA: 'MAU_SUA_BI_XOA',
 });
 
 /**
@@ -86,8 +95,13 @@ export const BANG_UU_TIEN = Object.freeze([
   }),
   // Hàng 5 chở HAI loại từ Story 5.1: `TOO_LONG` (ô soạn thảo) và `TOO_LONG_KHI_SUA` (ô sửa của
   // một mẩu đã chốt). Cùng ưu tiên vì với người dùng đây là cùng một chuyện — chỉ câu chữ khác.
+  // Story 7.1 thêm loại thứ ba `MAU_SUA_BI_XOA`: chữ đang gõ không còn chỗ về trong kho.
   Object.freeze({
-    loai: Object.freeze([LOAI_BANG.TOO_LONG, LOAI_BANG.TOO_LONG_KHI_SUA]),
+    loai: Object.freeze([
+      LOAI_BANG.TOO_LONG,
+      LOAI_BANG.TOO_LONG_KHI_SUA,
+      LOAI_BANG.MAU_SUA_BI_XOA,
+    ]),
     dongDuoc: true,
   }),
   Object.freeze({ loai: Object.freeze([LOAI_BANG.NAP_FILE_XONG]), dongDuoc: true }),
@@ -144,6 +158,9 @@ export const MICROCOPY_BANG = Object.freeze({
   [LOAI_BANG.TOO_LONG_TU_FILE]: MICROCOPY[MA_LOI.BAD_FILE],
   // Câu của `TOO_LONG`, CẮT ở hết câu đầu — xem `cauTranKhiSua` ngay trên.
   [LOAI_BANG.TOO_LONG_KHI_SUA]: cauTranKhiSua(),
+  // Nguyên văn quyết định OQ1 của spec 7.1 (namtt, 2026-09-25) — từng ký tự.
+  [LOAI_BANG.MAU_SUA_BI_XOA]:
+    'Ghi chú này vừa bị xóa ở tab khác. Chép chữ ra trước khi rời ô sửa nếu còn cần.',
 });
 
 /** Vị trí của một loại trong bảng, tức ƯU TIÊN của nó. Loại ngoài bảng → `TypeError`, cùng

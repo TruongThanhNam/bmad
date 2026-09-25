@@ -34,8 +34,9 @@
  * Nghe bản tin từ tab khác.
  *
  * @callback ChannelSubscribe
- * @param {(message: ChannelMessage) => void} listener Hàm được gọi cho mỗi tin đến.
- * @returns {void}
+ * @param {(message: ChannelMessage) => void} listener Hàm được gọi cho mỗi tin đến. Tin
+ *   đến có thể không đúng hình dạng — người nghe tự kiểm.
+ * @returns {() => void} Hàm GỠ bộ nghe vừa gắn; gọi nó thì `listener` không nhận thêm tin nào.
  */
 
 /**

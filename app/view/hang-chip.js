@@ -23,6 +23,10 @@ const LOP_CHIP = 'chip';
 const LOP_CHIP_NGAY = 'chip chip-ngay';
 const LOP_DEM = 'hang-chip-dem';
 const LOP_VE = 've-hom-nay';
+
+/** Mệnh đề chọn nút `về hôm nay` — export để `app/main.js` neo tiêu điểm vào nút MỚI sau một
+ *  lượt vẽ (`replaceChildren` dựng lại nút ở mọi lượt), không chép tay tên lớp (Story 7.1). */
+export const CHON_VE_HOM_NAY = `.${LOP_VE}`;
 const KIEU_NUT = 'button';
 const CHU_VE = 'về hôm nay';
 const DUOI_DEM = 'ghi chú';

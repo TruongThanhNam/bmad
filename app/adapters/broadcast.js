@@ -14,13 +14,12 @@
 // của người dùng (AD-17 — dải băng chỉ dành cho chuyện xấu THẬT). Ném ở đây sẽ biến một lần đổi
 // theme thành công thành một dải băng lỗi.
 //
-// `subscribe` được hiện thực đủ nhưng CHƯA AI đăng ký nghe: xử lý tin đến — bỏ tin của chính
-// mình, nạp lại từ kho, phát hiện lệch phiên bản — là Epic 7 và AD-21. Hiện thực nó ngay bây
-// giờ vì `CHANNEL_METHODS` có hai phương thức và `kiemTraPorts` đòi đủ cả hai; một `subscribe`
-// giả trả `undefined` sẽ làm story sau đi gỡ lỗi một adapter đã "có sẵn".
+// `subscribe` có đúng MỘT người nghe: `app/main.js` (Story 7.1). Xử lý tin đến — bỏ tin của
+// chính mình, nạp lại từ kho — sống ở `core/state.js` (`nhanBanTin`), không ở đây. Nó trả về
+// một hàm GỠ bộ nghe, để đường nghe có lối ra dù hôm nay không ai gọi tới.
 
-/** Tên kênh — cùng tiền tố `ghichu.` của AD-9, vì origin có thể dùng chung với app khác. */
-const TEN_KENH = 'ghichu.tab-sync';
+/** Tên kênh DUY NHẤT, cố định vĩnh viễn (AD-7, AD-9): `ghichu`, cùng tên với DB IndexedDB. */
+const TEN_KENH = 'ghichu';
 
 /**
  * Dựng một hiện thực của cổng `channel`.
@@ -72,10 +71,13 @@ export function taoBroadcast() {
 
     subscribe(listener) {
       const mo = moKenh();
-      if (mo === null) return;
+      // Không có kênh thì vẫn trả một hàm gỡ: chỗ gọi không phải phân nhánh theo môi trường.
+      if (mo === null) return () => {};
       // Gỡ `data` ra tại đây: cổng nói bằng BẢN TIN, không bằng sự kiện của trình duyệt — để
       // một `MessageEvent` chảy lên lõi là để tên công nghệ leo qua cổng (AD-2).
-      mo.addEventListener('message', (su) => listener(su.data));
+      const boNghe = (su) => listener(su.data);
+      mo.addEventListener('message', boNghe);
+      return () => mo.removeEventListener('message', boNghe);
     },
   };
 }
