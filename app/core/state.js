@@ -387,6 +387,25 @@ export function taoStore(ports) {
   let dangNap = false;
 
   /**
+   * Tab này đã vào chế độ chỉ đọc hay chưa (Story 7.2) — sống trong CLOSURE, cùng khuôn `dangNap`.
+   *
+   * Không phải một trường state: view không vẽ gì từ nó — lời nói với Nam là dải băng
+   * `VERSION_SKEW`, và `datLai` khóa dải băng đó tại chỗ khi cờ bật. Một chiều: không đường nào
+   * tắt cờ; chỉ một lần tải lại trang (mã mới) mới ra khỏi chế độ này.
+   */
+  let chiDoc = false;
+
+  /**
+   * Vào chế độ chỉ đọc: đặt dải băng hàng 1 TRƯỚC, rồi mới bật cờ — bật cờ trước thì chính
+   * `datLai` sẽ bỏ khóa `banner` của lời gọi này. Gọi lại khi đã chỉ đọc thì không làm gì.
+   */
+  function vaoChiDoc() {
+    if (chiDoc) return;
+    datLai({ banner: MA_LOI.VERSION_SKEW });
+    chiDoc = true;
+  }
+
+  /**
    * Chữ vừa gõ của mỗi mẩu mà hẹn ghi của nó CHƯA nổ — sống trong CLOSURE, không phải state.
    *
    * Vì sao nó cần: `notes` chỉ đổi khi `put` chốt, và `editing.text` chỉ chở chữ của MỘT mẩu
@@ -465,7 +484,14 @@ export function taoStore(ports) {
       throw new TypeError('datLai nhận `bannerSo` mà không có `banner` trong cùng lời gọi');
     }
     let nhanh = nhanhMoi;
-    if (Object.prototype.hasOwnProperty.call(nhanhMoi, 'banner')) {
+    if (chiDoc) {
+      // Chế độ chỉ đọc (Story 7.2): `VERSION_SKEW` đứng tới lúc tải lại. Mọi khóa dải băng khác
+      // bị bỏ — kể cả `banner: null` của một phép ghi đang bay rồi thành công — còn phần còn lại
+      // của phép đổi vẫn vào state.
+      nhanh = { ...nhanhMoi };
+      delete nhanh.banner;
+      delete nhanh.bannerSo;
+    } else if (Object.prototype.hasOwnProperty.call(nhanhMoi, 'banner')) {
       if (thayDuoc(noiBo.banner, nhanhMoi.banner)) {
         // Một phép đặt dải băng KHÔNG nói gì về hai con số thì xoá chúng: chúng chỉ có nghĩa
         // với đúng một hàng, và một cặp số sống sót qua một lần đổi loại là cặp số của một
@@ -656,7 +682,8 @@ export function taoStore(ports) {
   function henGhiDiSau(id, seqCuaHen, dungBanGhi) {
     return new Promise((xong) => {
       setTimeout(() => {
-        if (soDemSua(id) !== seqCuaHen) {
+        // Chỉ đọc (Story 7.2): hẹn treo từ trước lúc vào chế độ đó nổ mà không chạm cổng.
+        if (chiDoc || soDemSua(id) !== seqCuaHen) {
           xong();
           return;
         }
@@ -862,7 +889,9 @@ export function taoStore(ports) {
    * Nhận một bản tin từ tab khác (Story 7.1) — chỗ DUY NHẤT xử lý tin đến.
    *
    * Tin sai hình dạng thì bỏ qua IM LẶNG: kênh là cửa mà mọi mã cùng origin gõ được. Tin của
-   * chính tab này cũng bỏ qua. `appVersion` chưa được xét ở đây (Story 7.2).
+   * chính tab này cũng bỏ qua. Tin hợp lệ của tab khác mang `appVersion` khác `APP_VERSION`
+   * (so bằng `!==`, không so thứ tự — đối xứng, OQ1) đưa tab này vào chế độ chỉ đọc (Story 7.2),
+   * rồi vẫn được đọc lại như mọi tin: chỉ đọc vẫn là đọc.
    *
    * @param {unknown} tin Dữ liệu vừa đến qua kênh.
    * @returns {Promise<void>} Chốt khi state đã phản ánh tin — không bao giờ bị từ chối. `main.js`
@@ -879,6 +908,7 @@ export function taoStore(ports) {
       }
     }
     if (tin.from === cuaMinh) return Promise.resolve();
+    if (tin.appVersion !== APP_VERSION) vaoChiDoc();
     if (tin.type === TIN_PHIEN_DOI) {
       napLaiPhien();
       return Promise.resolve();
@@ -917,6 +947,8 @@ export function taoStore(ports) {
    * Cùng một lý do với nhánh danh tính, chỉ khác chỗ ném.
    */
   function phatTin(type) {
+    // Chỉ đọc: tin mang APP_VERSION cũ sẽ đẩy cả tab mã mới vào chỉ đọc — không phát.
+    if (chiDoc) return;
     let nguoiPhat;
     try {
       nguoiPhat = tabCuaMinh ?? ports.sessionStore.tabIdentity();
@@ -962,6 +994,7 @@ export function taoStore(ports) {
         `datTheme chỉ nhận ${THEME_HOP_LE.join(' hoặc ')}, nhận được ${moTa(giaTri)}`,
       );
     }
+    if (chiDoc) return Promise.resolve();
     // Cờ trong CLOSURE, cùng khuôn `daChot` của `themGhiChu`: `ghiTruocDatSau` không nói cho
     // chỗ gọi biết nhánh nào đã chạy, và đọc `noiBo.theme` để đoán thì một lần bấm lại đúng
     // theme đang bật sẽ gõ chuông kể cả khi kho vừa từ chối.
@@ -1016,6 +1049,8 @@ export function taoStore(ports) {
    *   từ chối, ở cả hai nhánh.
    */
   function xuatSaoLuu() {
+    // Chỉ đọc: RAM của tab này có thể thiếu ghi chú do mã mới viết — tải lại rồi xuất.
+    if (chiDoc) return Promise.resolve();
     let exportedAt;
     let daGoi;
     // Cả phần DỰNG nằm trong `try`, không chỉ lời gọi cổng: `nowIso` và hai hàm của
@@ -1115,7 +1150,7 @@ export function taoStore(ports) {
    * @returns {Promise<void>} Hoàn tất khi state đã phản ánh kết quả — không bao giờ bị từ chối.
    */
   function napSaoLuu() {
-    if (dangNap) return Promise.resolve();
+    if (dangNap || chiDoc) return Promise.resolve();
     dangNap = true;
     // Cả lời gọi cổng nằm trong chuỗi lời hứa: `readChosenFile` có thể NÉM đồng bộ (một adapter
     // chưa nối), và cửa ra của mọi lỗi ở action này là dải băng, không phải một lời hứa bị từ
@@ -1260,7 +1295,8 @@ export function taoStore(ports) {
    *   gõ dở chưa từng vào state, nên `ve()` không tự thấy được lần xóa này.
    */
   function chotGhiChu() {
-    if (dangChot) return Promise.resolve(false);
+    // Chỉ đọc: không đụng state — chữ ở lại trong ô, điều kiện lọc giữ nguyên.
+    if (dangChot || chiDoc) return Promise.resolve(false);
     const seqMoi = noiBo.draft.seq + 1;
     const text = noiBo.draft.text;
     datLai({ draft: { text, seq: seqMoi } });
@@ -1300,7 +1336,7 @@ export function taoStore(ports) {
     if (typeof id !== 'string') {
       throw new TypeError(`xoaGhiChu nhận id là chuỗi, nhận được ${moTa(id)}`);
     }
-    if (!noiBo.notes.some((mau) => mau.id === id)) return Promise.resolve();
+    if (chiDoc || !noiBo.notes.some((mau) => mau.id === id)) return Promise.resolve();
     let daXoa = true;
     return ghiTruocDatSau(
       () =>
@@ -1377,6 +1413,8 @@ export function taoStore(ports) {
     }
     const seqMoi = soDemSua(id) + 1;
     datLai({ editing: { id, text, seq: { ...noiBo.editing.seq, [id]: seqMoi } } });
+    // Chỉ đọc: chữ đã vào RAM và `chuDangCho` ở trên, chỉ không đặt hẹn ghi.
+    if (chiDoc) return Promise.resolve();
     // Chữ RỖNG (hay chỉ toàn khoảng trắng) KHÔNG BAO GIỜ xuống kho (retro Epic 5, B3 — quyết
     // định của Story 7.0). Đường xóa của Story 5.2 (`roiCheDoSua`) là nơi DUY NHẤT xử lý một
     // ghi chú rỗng; để một `put` rỗng đi trước nó là để lại một bản ghi rỗng trong IndexedDB mỗi
@@ -1500,7 +1538,7 @@ export function taoStore(ports) {
    */
   function henGhiBanNhapDiSau(seqCuaHen) {
     setTimeout(() => {
-      if (noiBo.draft.seq !== seqCuaHen) return;
+      if (chiDoc || noiBo.draft.seq !== seqCuaHen) return;
       // Chưa khởi động bản nháp thì chưa có chủ để ghi dưới tên nó.
       if (tabCuaMinh === null) return;
       ghiBanNhap(true);
@@ -1520,6 +1558,7 @@ export function taoStore(ports) {
    * @returns {Promise<void>} Hoàn tất khi state đã phản ánh kết quả — không bao giờ bị từ chối.
    */
   function khoiDongBanNhap() {
+    if (chiDoc) return Promise.resolve();
     let danhTinh;
     try {
       danhTinh = ports.sessionStore.tabIdentity();
@@ -1580,6 +1619,7 @@ export function taoStore(ports) {
       return;
     }
     datLai({ draft: { text, seq: seqMoi } });
+    if (chiDoc) return;
     henGhiBanNhapDiSau(seqMoi);
   }
 
@@ -1595,7 +1635,7 @@ export function taoStore(ports) {
    * @returns {Promise<void>} Hoàn tất khi phép ghi đã chốt — không bao giờ bị từ chối.
    */
   function nhipTimBanNhap() {
-    if (tabCuaMinh === null) return Promise.resolve();
+    if (chiDoc || tabCuaMinh === null) return Promise.resolve();
     // Trần chặn ở MỌI đường xuống kho, không chỉ ở cửa người dùng gõ (AD-14): `datBanNhap` từ
     // chối gọi cổng khi quá trần, nhưng một nhịp tim vô điều kiện sẽ đưa đúng chữ đó xuống kho
     // mười giây sau — tức trần không tồn tại, chỉ chậm lại.

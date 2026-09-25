@@ -696,11 +696,19 @@ describe('app/view/banner.js — luật của tầng view, cưỡng chế đư�
       const ma = boChuThichJs(readFileSync(join(repoRoot, 'app', ...ten.split('/')), 'utf8'));
       for (const loai of ['BAD_FILE', 'BAD_VERSION', 'VERSION_SKEW', 'DUNG_LUONG_SAP_HET',
         'NAP_FILE_XONG']) {
-        if (loai === 'NAP_FILE_XONG' && ten === 'core/state.js') continue;
+        // Story 7.2 gỡ `VERSION_SKEW` theo đúng khuôn đó: hàng 1 nay có người phát (`vaoChiDoc`).
+        if ((loai === 'NAP_FILE_XONG' || loai === 'VERSION_SKEW') && ten === 'core/state.js') {
+          continue;
+        }
         if (ma.includes(loai)) viPham.push(`${ten} — ${loai}`);
       }
     }
     expect(viPham).toEqual([]);
+  });
+
+  it('hàng 1 có ĐÚNG MỘT người phát dưới app/, và đó là `vaoChiDoc` của `core/state.js`', () => {
+    const ma = boChuThichJs(readFileSync(join(repoRoot, 'app', 'core', 'state.js'), 'utf8'));
+    expect([...ma.matchAll(/VERSION_SKEW/g)]).toHaveLength(1);
   });
 
   it('hàng 6 có ĐÚNG MỘT người phát dưới app/, và đó là `core/state.js`', () => {

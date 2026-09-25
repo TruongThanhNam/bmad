@@ -2855,6 +2855,72 @@ try {
       await cdp.dongTab(tabB.targetId).catch(() => {});
     }
   }
+
+  // ── Story 7.2: tin lệch phiên bản đưa tab vào chế độ chỉ đọc ────────────────────────────
+  //
+  // Tin giả gửi từ một BroadcastChannel THỨ HAI mở ngay trong tab (cùng tên `ghichu`): kênh của
+  // app nhận nó như tin từ tab khác. Rồi gõ + chốt qua giao diện thật, tải lại, và đếm kho.
+  {
+    const A = tab.sessionId;
+    const M = `const m = await import('/app/main.js');`;
+    const CHU = 'chi-doc-7-2 không được xuống kho';
+    let tinhTrang = null;
+    try {
+      const khoTruoc = await cdp.chay(A, `${M} await m.store.napLaiGhiChu(); return m.store.state.notes.length;`);
+      await cdp.chay(
+        A,
+        `const k = new BroadcastChannel('ghichu');
+         k.postMessage({ v: 1, type: 'notes-changed', from: 'tab-gia', appVersion: '0.0.0' });
+         k.close(); return true;`,
+      );
+      let coBang = false;
+      for (let i = 0; i < 50 && !coBang; i += 1) {
+        coBang = await cdp.chay(
+          A,
+          `const d = document.querySelector('.dai-bang');
+           return d !== null && d.textContent.includes('Đã có bản mới. Tải lại trang — tab này đang ở chế độ chỉ đọc.');`,
+        );
+        if (!coBang) await nghi(100);
+      }
+      const coNutDong = await cdp.chay(A, `return document.querySelector('.dai-bang .dai-bang-dong') !== null;`);
+      ghi(
+        'Story 7.2 — tin lệch phiên bản: dải băng chỉ đọc hiện đúng microcopy, không có `✕`',
+        coBang && !coNutDong,
+        `dải băng=${coBang} · nút đóng=${coNutDong}`,
+      );
+      await cdp.chay(
+        A,
+        `const o = document.querySelector('#o-soan'); o.focus(); o.value = ${JSON.stringify(CHU)};
+         o.dispatchEvent(new Event('input', { bubbles: true }));
+         o.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true }));
+         return true;`,
+      );
+      await nghi(1500);
+      const oConChu = await cdp.chay(A, `return document.querySelector('#o-soan').value;`);
+      await cdp.taiLai(A);
+      await cdp.doiSan(A);
+      tinhTrang = await cdp.chay(
+        A,
+        `${M} await m.store.napLaiGhiChu();
+         return { so: m.store.state.notes.length, co: m.store.state.notes.some((x) => x.text === ${JSON.stringify(CHU)}), bang: m.store.state.banner };`,
+      );
+      ghi(
+        'Story 7.2 — gõ + chốt khi chỉ đọc: chữ ở lại trong ô, tải lại không thêm mẩu nào, hết chỉ đọc',
+        oConChu === CHU && tinhTrang.so === khoTruoc && !tinhTrang.co && tinhTrang.bang !== 'VERSION_SKEW',
+        `ô=${JSON.stringify(oConChu)} · kho ${khoTruoc} → ${JSON.stringify(tinhTrang)}`,
+      );
+    } finally {
+      // Bản nháp không xuống kho lúc chỉ đọc, nhưng dọn ô soạn cho chắc.
+      await cdp
+        .chay(
+          A,
+          `const o = document.querySelector('#o-soan'); o.value = '';
+           o.dispatchEvent(new Event('input', { bubbles: true })); return true;`,
+        )
+        .catch(() => {});
+      await nghi(1500);
+    }
+  }
 } finally {
   if (tab !== null) await cdp.dongTab(tab.targetId).catch(() => {});
   await cdp.dong();

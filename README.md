@@ -59,6 +59,9 @@ npm run test:watch
    Hằng số nằm ở [`app/core/limits.js`](./app/core/limits.js) — sửa tay giá trị `APP_VERSION`
    ở đó. Trường `version` trong `package.json` **không được app dùng** (nó chỉ phục vụ npm) —
    đừng bump nó thay.
+   **Giới hạn (n = 1):** tab cũ chỉ biết mình cũ khi có một tab mã mới **phát tin** (chốt, sửa,
+   xóa, nạp, theme, sao lưu). Deploy mà không mở tab mới và ghi gì ở đó thì tab cũ không biết và
+   vẫn ghi được. Sau deploy: tải lại mọi tab đang mở (mục thử tay 38).
 2. `npm test` — toàn bộ pass.
 3. Chạy hết danh sách thử tay `app/adapters/` bên dưới.
 4. Commit và push lên nhánh `main`.
@@ -770,3 +773,13 @@ Còn lại là thứ không con số nào nói: lần tải lại có **nháy m�
     mẩu đó. A hiện dải băng `Ghi chú này vừa bị xóa ở tab khác. Chép chữ ra trước khi rời ô sửa
     nếu còn cần.`, ô sửa còn nguyên chữ. Rời ô sửa (`Tab`): mẩu biến mất, con trỏ ở ô soạn thảo,
     và tải lại B thì mẩu **không** sống lại. Nút `✕` đóng được dải băng.
+
+38. **Tab mã cũ vào chế độ chỉ đọc, ồn ào.** `npm run thu-bo-cuc` đã lái phần lõi (khối
+    "Story 7.2"): gửi một tin giả `appVersion: '0.0.0'` vào kênh `ghichu`, kiểm dải băng và việc
+    chốt không xuống kho. Làm tay trên bản deploy thật: mở một tab (A) trước lần deploy, deploy
+    (đã bump `APP_VERSION`), rồi mở tab mới (B) và chốt một ghi chú ở B. A hiện dải băng
+    `Đã có bản mới. Tải lại trang — tab này đang ở chế độ chỉ đọc.`, **không** có nút `✕`, và
+    mẩu mới của B vẫn hiện ở A. Ở A gõ vào ô soạn rồi `Ctrl+Enter`: chữ ở lại trong ô, không
+    mẩu nào thêm; sửa một mẩu, xóa, lật theme, xuất, nạp: không cái nào có tác dụng xuống kho.
+    Tải lại A: dải băng biến mất, và chữ gõ lúc chỉ đọc không còn (đúng như dải băng đã nói).
+    Đối xứng: B cũng vào chỉ đọc nếu nhận tin từ A — tải lại cả hai.
