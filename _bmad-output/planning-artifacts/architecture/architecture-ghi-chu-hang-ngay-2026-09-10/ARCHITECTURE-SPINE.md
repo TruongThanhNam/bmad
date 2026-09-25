@@ -433,7 +433,7 @@ adapter không bao giờ gọi thẳng vào giao diện, kể cả để báo l�
   cách nào đáng tin để bust cả một đồ thị `import` tĩnh — spine này không giả vờ là có.
   `APP_VERSION` là một hằng trong `core/limits.js`, bump bằng tay ở mỗi lần deploy. Nó đi trong mọi
   bản tin BroadcastChannel (AD-7). Tab nào nhận được `appVersion` **khác** của mình thì lập tức vào
-  **chế độ chỉ đọc**: mọi action có ghi bị từ chối với `code = VERSION_SKEW`, hẹn tự lưu bị hủy, và
+  **chế độ chỉ đọc**: mọi action có ghi thành no-op (không lời hứa nào bị từ chối, dải băng `VERSION_SKEW` nói thay), hẹn tự lưu bị hủy, và
   dải băng ưu tiên cao nhất hiện lên đề nghị tải lại trang, **không đóng được**. Chỉ-đọc chứ không
   phải chỉ-cảnh-báo, vì mã cũ vẫn ghi được là đường hỏng thật: RAM lỗi thời của nó sẽ đè lên bản
   ghi do mã mới viết. Kết hợp với AD-13 (bản ghi chỉ được nới ra), điều tệ nhất một tab cũ gây ra

@@ -162,7 +162,7 @@ kiểu hỏng mà mỗi AD viết ở dòng **Prevents** của nó.
 | **Gánh FR/NFR** | FR-20, FR-3, NFR-3; UJ-1 |
 | **AD chi phối** | AD-3, AD-7, AD-13, AD-17 (ưu tiên 1), AD-18, AD-21 |
 | **Phải xong trước** | E2 và E9 (cần dải băng để nói) — nội dung đồng bộ cần E3…E7 đã ghi đúng |
-| **Xong khi** | Đúng một kênh `BroadcastChannel('ghichu')` và đúng một hình dạng bản tin bốn trường, đúng hai `type`; bản tin **không bao giờ mang nội dung** — tab nhận đọc lại từ kho bền; tab bỏ qua tin của chính mình; `notes-changed` phát sau **mọi** lần ghi `notes` thành công; **bản nháp không bao giờ phát tin và không bao giờ bị tab khác đụng** khi tab chủ còn nhịp tim; `appVersion` khác → tab vào **chế độ chỉ đọc**, mọi action ghi trả `VERSION_SKEW`, hẹn tự lưu bị hủy, dải băng ưu tiên 1 không đóng được; không có khóa tab, không có dải băng "đóng tab này". |
+| **Xong khi** | Đúng một kênh `BroadcastChannel('ghichu')` và đúng một hình dạng bản tin bốn trường, đúng hai `type`; bản tin **không bao giờ mang nội dung** — tab nhận đọc lại từ kho bền; tab bỏ qua tin của chính mình; `notes-changed` phát sau **mọi** lần ghi `notes` thành công; **bản nháp không bao giờ phát tin và không bao giờ bị tab khác đụng** khi tab chủ còn nhịp tim; `appVersion` khác → tab vào **chế độ chỉ đọc**, mọi action ghi thành no-op và dải băng `VERSION_SKEW` nói thay, hẹn tự lưu bị hủy, dải băng ưu tiên 1 không đóng được; không có khóa tab, không có dải băng "đóng tab này". |
 
 ### E9 · Dải băng, mã lỗi ra màn hình, và sàn accessibility
 

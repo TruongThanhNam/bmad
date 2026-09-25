@@ -383,7 +383,7 @@ không bảo vệ *nội dung*.
 **Đã sửa thành: bỏ hẳn tham vọng bust cache, chuyển sang phát hiện lệch phiên bản.** `APP_VERSION` là
 một hằng trong `core/limits.js`, bump tay mỗi lần deploy, và **đi trong mọi bản tin
 BroadcastChannel**. Tab nhận `appVersion` khác của mình lập tức vào **chế độ chỉ đọc**: mọi action có
-ghi bị từ chối với `code = VERSION_SKEW`, hẹn tự lưu bị hủy, dải băng ưu tiên cao nhất hiện lên đề
+ghi thành no-op (không lời hứa nào bị từ chối, dải băng `VERSION_SKEW` nói thay), hẹn tự lưu bị hủy, dải băng ưu tiên cao nhất hiện lên đề
 nghị tải lại trang và **không đóng được**. Chỉ-đọc chứ không chỉ-cảnh-báo, chính xác vì lý do ở đoạn
 trên. Spine viết thẳng câu quan trọng nhất: *"không có bước build thì không có cách nào đáng tin để
 bust cả một đồ thị `import` tĩnh — spine này không giả vờ là có."*

@@ -108,7 +108,7 @@ epic nền dựng cây thư mục bằng tay theo Structural Seed, không scaffo
 - **AD-18** · Tập mã lỗi **đóng**: `VERSION_SKEW · QUOTA · DB · BAD_FILE · BAD_VERSION · TOO_LONG`; `core/` ánh xạ `code` sang microcopy; view không bao giờ tự soạn câu chữ từ lỗi thô.
 - **AD-19** · Tab title và theme là **hàm của state**; tab title luôn là số ghi chú có `localDate` = hôm nay, không phụ thuộc điều kiện; theme đọc bằng script **đồng bộ nội tuyến trong `<head>` của `index.html`** trước lần vẽ đầu tiên.
 - **AD-20** · Sàn accessibility là ràng buộc dựng được — sáu mục, mỗi mục có một chỗ dựng cụ thể.
-- **AD-21** · Phát hiện lệch phiên bản, không phá cache — `APP_VERSION` bump tay mỗi lần deploy, đi trong mọi bản tin; tab nhận `appVersion` khác thì vào **chế độ chỉ đọc**, mọi action ghi trả `VERSION_SKEW`, hẹn tự lưu bị hủy, dải băng ưu tiên 1 không đóng được.
+- **AD-21** · Phát hiện lệch phiên bản, không phá cache — `APP_VERSION` bump tay mỗi lần deploy, đi trong mọi bản tin; tab nhận `appVersion` khác thì vào **chế độ chỉ đọc**, mọi action ghi thành no-op (không lời hứa nào bị từ chối) và dải băng `VERSION_SKEW` nói thay, hẹn tự lưu bị hủy, dải băng ưu tiên 1 không đóng được.
 
 **Hạ tầng, deploy và test:**
 
@@ -1589,7 +1589,7 @@ So that bản cũ không đè lên dữ liệu do bản mới viết mà tôi kh
 **Given** một tab nhận bản tin có `appVersion` **khác** của mình
 **When** nó xử lý
 **Then** nó lập tức vào **chế độ chỉ đọc** *(AD-21)*
-**And** **mọi** action có ghi bị từ chối với `code = VERSION_SKEW` *(AD-18)*
+**And** **mọi** action có ghi thành no-op — không xuống kho, không phát tin, không lời hứa nào bị từ chối; dải băng `VERSION_SKEW` (ưu tiên 1, không đóng được) nói thay *(AD-18, AD-21; chốt ở retro Epic 7 F2)*
 **And** **mọi hẹn tự lưu bị hủy** *(AD-21)*
 
 **Given** tab đã vào chế độ chỉ đọc
@@ -1615,6 +1615,22 @@ So that bản cũ không đè lên dữ liệu do bản mới viết mà tôi kh
 
 Trình duyệt không lặng lẽ dọn dữ liệu, và Nam biết **trước** khi hết chỗ. **Nửa cứng đã xong ở
 Epic 1** — epic này mua `persist()` và cảnh báo sớm.
+
+### Story 8.0: Dọn action item retro Epic 7
+
+As Nam, I want mọi action ghi mới bị ép gác chế độ chỉ đọc, so that Epic 8 không thể quên gác.
+
+**Given** store ở chế độ chỉ đọc
+**When** gọi lần lượt từng action trong hằng `ACTION_GHI` của `core/state.js`
+**Then** không cái nào đụng cổng `notes`/`channel`, không lời hứa nào bị từ chối
+**And** một action gọi cổng ghi mà không có tên trong `ACTION_GHI` làm test đỏ *(retro E7 #27)*
+
+**Given** `app/main.js`
+**Then** `taoBroadcast(` xuất hiện đúng một lần, và cùng một định danh đi vào `channel:` lẫn `.subscribe(` — kiểm bằng quét mã nguồn, không dựng kênh giả, không mở ngoại lệ test adapter *(retro E7 #29)*
+
+**Given** một mẩu bị cắt đang có tiêu điểm trên thân
+**When** nhấn Enter (`thu-bo-cuc`, Chrome thật)
+**Then** `document.activeElement` vẫn là thân mẩu đó, không phải `<body>`; nếu đỏ thì `luoi.js` `khiClick` đi qua `veGiuTieuDiem` *(retro E7 #28)*
 
 ### Story 8.1: Xin lưu trữ bền, và nói to hơn khi bị từ chối
 
