@@ -1,5 +1,5 @@
 <!-- bmad:context -->
-<!-- Verified 2026-09-24 against 4a84ae9. Managed by bmad-project-context; nội dung trong block này bị thay khi refresh. Muốn giữ gì thì để ngoài hai marker. -->
+<!-- Verified 2026-09-25 against 186fb70. Managed by bmad-project-context; nội dung trong block này bị thay khi refresh. Muốn giữ gì thì để ngoài hai marker. -->
 
 ## Ghi chú hàng ngày
 
@@ -64,6 +64,9 @@ gốc: `README.md` (vận hành + checklist thủ công 1–36) và
   chuột phải. Cần chuyển động thì nâng bộ quét trong `test/token-style.test.js` trước.
 - Không có state nghĩa là "đang lưu / đã lưu / còn lại bao nhiêu ký tự"; tên biến chứa các
   chữ đó bị test chặn.
+- Action ghi mới trong `core/state.js` phải gác `chiDoc` (no-op khi chỉ đọc) và vào
+  `ACTION_GHI`; `test/core-state-chi-doc.test.js` quét bắc cầu và gọi thật từng tên, quên
+  một nửa là đỏ.
 
 ## Bẫy đã gặp
 
@@ -72,10 +75,12 @@ gốc: `README.md` (vận hành + checklist thủ công 1–36) và
   `xoaHetDieuKienVaNhap()` (làm cả `store.xoaHetDieuKien()` lẫn `khayTim.xoaNhap()`), không
   gọi riêng một nửa; test đếm mỗi lời gọi trần chỉ được xuất hiện một lần.
 - Lượt vẽ nào có thể gỡ phần tử đang giữ tiêu điểm (lưới `replaceChildren`, hộp thoại, nút
-  `✕`) phải đi qua `veGiuTieuDiem(goc, veTatCa, neo)` của `main.js`, không tự `focus()`:
+  `✕`, nút `về hôm nay` của hàng chip) phải đi qua `veGiuTieuDiem(goc, veTatCa, neo)` của `main.js`, không tự `focus()`:
   `undefined` giữ chỗ đang đứng theo id mẩu + vai trò (thân / `xóa` / ô sửa), `null` về
   `#o-soan`, `{ id, vaiTro }` về đúng phần tử đó; mẩu mất thì về `#o-soan`. Neo vào mẩu mà
-  quên vai trò là lỗi B2 (Shift+Tab sang `xóa` bị giật về thân).
+  quên vai trò là lỗi B2 (Shift+Tab sang `xóa` bị giật về thân). Ngoại lệ có tên DUY NHẤT:
+  `vaoSuaRoiVe` (`main.js`) vẽ rồi tự focus ô sửa MỚI — đặt tiêu điểm vào phần tử mới,
+  không trả về chỗ cũ.
 - Đừng đoán "có tab khác đang sống" bằng `heartbeat`: sau một lần tải lại, nhịp tim mới
   tinh chính là của tab này ở kiếp trước, nên nó tự bỏ rơi bản nháp của mình. Dùng khóa
   sống `navigator.locks` (README mục 10–11).
