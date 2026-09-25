@@ -575,6 +575,24 @@ describe('app/view/luoi.js — luật của tầng view, cưỡng chế được
     expect(nguon).not.toMatch(/innerHTML|insertAdjacentHTML|outerHTML/);
   });
 
+  it('mẩu bị cắt: nhịp click đầu đi qua `mocSua.moRong`, và `main.js` neo về thân mẩu đó (Story 8.0)', () => {
+    // Retro Epic 7 #28, đo đỏ trong `thu-bo-cuc`: `store.batTatMoRong` + `ve()` trần gỡ cái thân
+    // đang giữ tiêu điểm và thả nó về `<body>`. Đường trần chỉ còn khi móc vắng (test bố cục).
+    const khiClick = /const\s+khiClick\s*=\s*\(\s*viTri\s*\)\s*=>\s*\{([\s\S]*?)\n {6}\};/.exec(nguon);
+    expect(khiClick).not.toBeNull();
+    expect(khiClick[1]).toMatch(
+      /if\s*\(\s*mocSua\s*\.\s*moRong\s*!==\s*undefined\s*\)\s*\{\s*mocSua\s*\.\s*moRong\s*\(\s*note\s*\.\s*id\s*\)\s*;\s*return\s*;\s*\}\s*store\s*\.\s*batTatMoRong/,
+    );
+    const main = boChuThichJs(readFileSync(join(repoRoot, 'app', 'main.js'), 'utf8'));
+    const moRong = /\bmoRong\s*:\s*\(\s*([\w$]+)\s*\)\s*=>\s*\{([\s\S]*?)\n {4}\},/.exec(main);
+    expect(moRong).not.toBeNull();
+    const [, id, than] = moRong;
+    expect(than).toMatch(new RegExp(`store\\s*\\.\\s*batTatMoRong\\s*\\(\\s*${id}\\s*\\)`));
+    expect(than).toMatch(
+      new RegExp(`veGiuTieuDiem\\s*\\(\\s*document\\s*,\\s*veTatCa\\s*,\\s*\\{\\s*id\\s*(?::\\s*${id}\\s*)?,\\s*vaiTro\\s*:\\s*VAI_THAN\\s*\\}\\s*\\)`),
+    );
+  });
+
   it('app/main.js nối lưới trong cùng khối document: ve treo vào khoiDong, và làm sauKhiChot của noiOSoan', () => {
     // Cả hai nửa vỡ trong IM LẶNG. Bỏ lượt vẽ treo vào `khoiDong` thì lưới trống trơn sau mỗi
     // lần tải trang dù kho đầy ghi chú; bỏ tham số thứ ba của `noiOSoan` thì mẩu vừa chốt
@@ -720,6 +738,21 @@ describe('app/view/luoi.js — luật của tầng view, cưỡng chế được
     expect(sauChot[2]).toMatch(
       new RegExp(`if\\s*\\(\\s*${sauChot[1]}\\s*\\)\\s*xoaHetDieuKienVaNhap\\s*\\(\\s*\\)`),
     );
+  });
+
+  it('app/main.js: kênh dựng MỘT lần, cùng định danh đi vào `channel:` lẫn `.subscribe(` (Story 8.0)', () => {
+    // Retro Epic 7 #29 — không dựng BroadcastChannel giả cho `main.js`, nên quét mã nguồn: hai
+    // lần `taoBroadcast()` là tab tự nghe tin của chính mình qua một kênh khác, hoặc phát trên
+    // kênh không ai đăng ký.
+    const main = boChuThichJs(readFileSync(join(repoRoot, 'app', 'main.js'), 'utf8'));
+    expect([...main.matchAll(/\btaoBroadcast\s*\(/g)]).toHaveLength(1);
+    const dung = /\bconst\s+([\w$]+)\s*=\s*taoBroadcast\s*\(/.exec(main);
+    expect(dung).not.toBeNull();
+    const kenh = dung[1];
+    const moiChannel = [...main.matchAll(/\bchannel\s*:\s*([\w$]+)/g)].map((m) => m[1]);
+    expect(moiChannel).toEqual([kenh]);
+    expect(main).toMatch(new RegExp(`\\b${kenh}\\s*\\.\\s*subscribe\\s*\\(`));
+    expect([...main.matchAll(/\.\s*subscribe\s*\(/g)]).toHaveLength(1);
   });
 
   it('import view-sang-view DUY NHẤT dưới app/view/ là `luoi.js → mau-giay.js` (Story 7.0)', () => {

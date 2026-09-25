@@ -56,8 +56,9 @@ const CHU_THEM = `Hiện ${MAX_RESULTS} ghi chú đầu, còn nhiều hơn. Thê
  * @param {() => string} [mocHienTai] Nguồn mốc hiện tại, mặc định `nowIso` của `core/time.js`.
  *   Là HÀM chứ không phải một chuỗi: nó phải được hỏi lại ở mỗi lượt vẽ.
  * @param {{ vao?: (id: string, viTri: number|null) => void, roi?: (id: string) => void,
- *   go?: (id: string, text: string) => void, xoa?: (id: string) => void }} [mocSua] Ba móc của
- *   chế độ sửa cộng móc `xoa` của Story 5.3, do `app/main.js` nối vào — chúng gọi action của
+ *   go?: (id: string, text: string) => void, xoa?: (id: string) => void,
+ *   moRong?: (id: string) => void }} [mocSua] Ba móc của chế độ sửa cộng móc `xoa` của Story
+ *   5.3 và móc `moRong` của Story 8.0, do `app/main.js` nối vào — chúng gọi action của
  *   lõi VÀ gọi lượt vẽ, hai việc mà một view không được tự làm cả hai. Vắng mặt thì lưới vẫn vẽ
  *   được, chỉ không sửa và không xóa được (đường của test bố cục).
  * @returns {{ ve: () => void }} `ve` dựng lại toàn bộ ô của lưới từ state.
@@ -112,6 +113,12 @@ export function noiLuoi(store, goc = document, mocHienTai = nowIso, mocSua = {})
       // này CHỈ mở rộng; mọi trường hợp khác (mẩu ngắn, hay mẩu đã mở rộng) thì vào chế độ sửa.
       const khiClick = (viTri) => {
         if (soDong(note.text) > COLLAPSED_LINES && !moRong) {
+          // Có móc thì `main.js` mở rộng và vẽ lại giữ tiêu điểm trên thân mẩu này (Story 8.0);
+          // đường dưới chỉ còn cho test bố cục, nơi không có `main.js`.
+          if (mocSua.moRong !== undefined) {
+            mocSua.moRong(note.id);
+            return;
+          }
           store.batTatMoRong(note.id);
           ve();
           return;

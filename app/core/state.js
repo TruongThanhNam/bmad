@@ -110,6 +110,26 @@ const TRUONG_BAN_TIN = Object.freeze(['appVersion', 'from', 'type', 'v']);
 /** Số hiệu hình dạng bản tin — hiện tại luôn là một (`app/ports/channel.js`). */
 const HINH_DANG_BAN_TIN = 1;
 
+/**
+ * Đúng các action của store chạm (trực tiếp hay bắc cầu) một cổng ghi — kho ghi chú, phiên,
+ * file, kênh (Story 8.0, retro E7 #27). Luật: action mới nào chạm cổng ghi PHẢI có tên ở đây và
+ * PHẢI gác `chiDoc` thành no-op. Đây là nguồn sự thật cho `test/core-state-chi-doc.test.js`:
+ * một test quét mã nguồn đòi tập này bằng đúng tập action chạm cổng ghi, một test gọi từng tên
+ * khi chỉ đọc và đòi không cổng ghi nào bị gọi.
+ */
+export const ACTION_GHI = Object.freeze([
+  'datTheme',
+  'xuatSaoLuu',
+  'napSaoLuu',
+  'chotGhiChu',
+  'xoaGhiChu',
+  'tuLuuNoiDung',
+  'roiCheDoSua',
+  'khoiDongBanNhap',
+  'datBanNhap',
+  'nhipTimBanNhap',
+]);
+
 // Chép tại chỗ từ `core/time.js` có chủ ý: gom thành helper dùng chung là thêm một phụ thuộc
 // giữa hai module lõi chỉ để tiết kiệm hai dòng.
 function moTa(giaTri) {

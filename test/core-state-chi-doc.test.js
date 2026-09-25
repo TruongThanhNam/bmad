@@ -8,7 +8,9 @@ import { SCHEMA_VERSION } from '../app/core/backup.js';
 import { fold } from '../app/core/fold.js';
 import { MA_LOI, loiUngDung } from '../app/core/errors.js';
 import { APP_VERSION, AUTOSAVE_MS } from '../app/core/limits.js';
-import { taoStore } from '../app/core/state.js';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { ACTION_GHI, taoStore } from '../app/core/state.js';
 import { PORT_METHODS } from '../app/ports/index.js';
 
 afterEach(() => {
@@ -27,6 +29,17 @@ const CONG_GHI = Object.freeze([
   'fileIO.exportFile',
   'fileIO.readChosenFile',
   'channel.publish',
+  // Story 8.0: ghép với PORT_METHODS lộ ra phép ghi này bị sót; state.js hiện không gọi nó.
+  'sessionStore.remove',
+]);
+
+/** Các phương thức cổng chỉ đọc — cùng `CONG_GHI` phủ đúng toàn bộ `PORT_METHODS`. */
+const CONG_DOC = Object.freeze([
+  'noteStore.readAll',
+  'sessionStore.read',
+  'sessionStore.tabIdentity',
+  'channel.subscribe',
+  'quota.estimate',
 ]);
 
 function ban(id, text, gio = '09:00:00') {
@@ -262,5 +275,99 @@ describe('Story 7.2 — chế độ chỉ đọc từ chối mọi action ghi', 
     t.kho.tuChoiDoc = MA_LOI.DB;
     await t.store.nhanBanTin(tin('notes-changed', APP_VERSION));
     expect(t.store.state.banner).toBe(MA_LOI.VERSION_SKEW);
+  });
+});
+
+// Story 8.0 (retro E7 #27) — ép gác chỉ đọc thay cho trí nhớ. Hai ca bù nhau: (b) quét mã nguồn
+// bắt action ghi "quên đăng ký" vào `ACTION_GHI`, (a) gọi thật bắt action "đăng ký mà quên gác".
+describe('Story 8.0 — ACTION_GHI là tập action ghi, mỗi cái gác chỉ đọc', () => {
+  /** Một ca gọi cho mỗi action ghi; phần dựng trước (vào sửa, gõ nháp) không chạm cổng ghi. */
+  const GOI = Object.freeze({
+    datTheme: (t) => t.store.datTheme(t.store.state.theme === 'dark' ? 'light' : 'dark'),
+    xuatSaoLuu: (t) => t.store.xuatSaoLuu(),
+    napSaoLuu: (t) => t.store.napSaoLuu(),
+    chotGhiChu: (t) => {
+      t.store.datBanNhap('chữ mới');
+      return t.store.chotGhiChu();
+    },
+    xoaGhiChu: (t) => t.store.xoaGhiChu('x'),
+    tuLuuNoiDung: (t) => {
+      t.store.vaoCheDoSua('x');
+      return t.store.tuLuuNoiDung('x', 'phở bò');
+    },
+    roiCheDoSua: (t) => {
+      t.store.vaoCheDoSua('x');
+      t.store.tuLuuNoiDung('x', '');
+      return t.store.roiCheDoSua();
+    },
+    khoiDongBanNhap: (t) => t.store.khoiDongBanNhap(),
+    datBanNhap: (t) => t.store.datBanNhap('nháp'),
+    nhipTimBanNhap: (t) => t.store.nhipTimBanNhap(),
+  });
+
+  it('CONG_GHI và CONG_DOC rời nhau và phủ đúng mọi phương thức trong PORT_METHODS', () => {
+    const moi = Object.entries(PORT_METHODS).flatMap(([cong, ds]) => ds.map((p) => `${cong}.${p}`));
+    expect(CONG_GHI.filter((x) => CONG_DOC.includes(x))).toEqual([]);
+    expect([...CONG_GHI, ...CONG_DOC].sort()).toEqual([...moi].sort());
+  });
+
+  it('Mỗi tên trong ACTION_GHI có đúng một ca gọi, không ca thừa', () => {
+    expect(Object.keys(GOI).sort()).toEqual([...ACTION_GHI].sort());
+  });
+
+  it.each([...ACTION_GHI])('Chỉ đọc: %s không chạm cổng ghi, không ném, không reject', async (ten) => {
+    vi.useFakeTimers();
+    const t = dungTab();
+    await khoiDongDu(t);
+    await vaoChiDoc(t);
+    const ketQua = GOI[ten](t);
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS * 2);
+    // Lời hứa bị từ chối làm `await` ném và ca đỏ.
+    await ketQua;
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS * 2);
+    expect(t.ghi()).toEqual([]);
+  });
+
+  it('Quét taoStore: tập action export chạm cổng ghi (bắc cầu) bằng đúng ACTION_GHI', () => {
+    const nguon = readFileSync(fileURLToPath(new URL('../app/core/state.js', import.meta.url)), 'utf8');
+    const dau = nguon.indexOf('export function taoStore(');
+    const cuoi = nguon.indexOf('  return Object.freeze({', dau);
+    expect(dau).toBeGreaterThan(-1);
+    expect(cuoi).toBeGreaterThan(dau);
+    // Bỏ comment trước: JSDoc của hàm sau nằm ở đuôi khúc của hàm trước, nhắc tên là tạo cạnh giả.
+    const than = nguon
+      .slice(dau, cuoi)
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(^|\s)\/\/.*$/gm, '$1');
+    const khuc = new Map();
+    const mauHam = /^ {2}(?:(?:async )?function (\w+)\(|const (\w+) = (?:async )?\()/gm;
+    const moc = [...than.matchAll(mauHam)];
+    moc.forEach((m, i) => {
+      khuc.set(m[1] ?? m[2], than.slice(m.index + m[0].length, i + 1 < moc.length ? moc[i + 1].index : undefined));
+    });
+    const tenHam = [...khuc.keys()];
+    const chamThang = new Set();
+    const canh = new Map();
+    for (const [ten, doan] of khuc) {
+      for (const [, cong, phuongThuc] of doan.matchAll(/ports\.(\w+)\s*\.(\w+)\s*\(/g)) {
+        if (CONG_GHI.includes(`${cong}.${phuongThuc}`)) chamThang.add(ten);
+      }
+      canh.set(
+        ten,
+        tenHam.filter((khac) => khac !== ten && new RegExp(`\\b${khac}\\b`).test(doan)),
+      );
+    }
+    function chamGhi(ten, daQua = new Set()) {
+      if (chamThang.has(ten)) return true;
+      if (daQua.has(ten)) return false;
+      daQua.add(ten);
+      return canh.get(ten).some((k) => chamGhi(k, daQua));
+    }
+    const khoiExport = nguon.slice(cuoi, nguon.indexOf('});', cuoi));
+    const tenExport = [...khoiExport.matchAll(/^ {4}(\w+),?$/gm)].map((m) => m[1]);
+    expect(tenExport.length).toBeGreaterThan(10);
+    for (const ten of tenExport) expect(khuc.has(ten), `không tìm thấy hàm ${ten}`).toBe(true);
+    const chamThat = tenExport.filter((ten) => chamGhi(ten)).sort();
+    expect(chamThat).toEqual([...new Set(ACTION_GHI)].sort());
   });
 });

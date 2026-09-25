@@ -341,6 +341,13 @@ if (typeof document !== 'undefined') {
     xoa: (id) => {
       luongXoa.moHoi(id);
     },
+    // Nhịp click đầu trên mẩu bị cắt (Story 8.0, retro E7 #28): mở rộng rồi vẽ lại lưới. Lượt
+    // vẽ `replaceChildren` gỡ đúng cái thân đang giữ tiêu điểm, nên phải neo về thân mới của
+    // chính mẩu đó — không thì `Enter` trên mẩu bị cắt thả tiêu điểm về `<body>`.
+    moRong: (id) => {
+      store.batTatMoRong(id);
+      veGiuTieuDiem(document, veTatCa, { id, vaiTro: VAI_THAN });
+    },
   };
   // ── Xóa qua hộp thoại xác nhận (Story 5.3) ─────────────────────────────────────────────
   //

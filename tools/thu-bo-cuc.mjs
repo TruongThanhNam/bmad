@@ -2498,6 +2498,8 @@ try {
       rong: 'thu-7-0 rời rỗng',
       tim: 'thu-7-0 kqtim70',
       nhanh: 'thu-7-0 kqnhanh70',
+      // Story 8.0: năm dòng, quá `COLLAPSED_LINES` — mẩu hiện bị cắt.
+      cat: 'thu-8-0 dòng một\nthu-8-0 dòng hai\nthu-8-0 dòng ba\nthu-8-0 dòng bốn\nthu-8-0 dòng năm',
     };
     const khoTruoc = await cdp.chay(
       tab.sessionId,
@@ -2683,6 +2685,33 @@ try {
           `kho còn chữ cũ lúc rời=${chuaGhi} · ${JSON.stringify(sauNhanh)}`,
         );
         await goVao('#o-tim', '');
+      }
+
+      // ── Enter trên mẩu bị cắt (retro E7 #28): `khiClick` mở rộng rồi vẽ lại lưới ─────────
+      //
+      // Lượt vẽ `replaceChildren` gỡ thân đang giữ tiêu điểm; không qua `veGiuTieuDiem` thì tiêu
+      // điểm rơi về `<body>`.
+      {
+        await doi(TREN_LUOI(id.cat));
+        await datTieuDiem(thanMau(id.cat));
+        const truoc = await dung();
+        await nhanPhim(ENTER);
+        const moRa = await doi(
+          `(await import('/app/main.js')).store.state.expandedIds.includes(${JSON.stringify(id.cat)})`,
+        );
+        // Đợi tiêu điểm về thân; hết hạn thì vẫn đo tiếp để ca đỏ có chi tiết.
+        await doi(`document.activeElement === document.querySelector(${JSON.stringify(thanMau(id.cat))})`);
+        const sauCat = await dung();
+        const conSua = await cdp.chay(tab.sessionId, `return document.querySelector('.mau-sua') !== null;`);
+        const laThan = await cdp.chay(
+          tab.sessionId,
+          `return document.activeElement === document.querySelector(${JSON.stringify(thanMau(id.cat))});`,
+        );
+        ghi(
+          'Story 8.0: Enter trên mẩu bị cắt — mẩu mở, tiêu điểm ở lại thân mẩu đó',
+          truoc.mau === id.cat && moRa && !sauCat.body && sauCat.mau === id.cat && laThan && !conSua,
+          `trước ${JSON.stringify(truoc)} · mở=${moRa} · sau ${JSON.stringify(sauCat)} · ô sửa=${conSua}`,
+        );
       }
     } finally {
       const conLai = await cdp.chay(

@@ -178,7 +178,7 @@ function ban(id, text, gio) {
 /** Hai mẩu của hôm nay: `x` mới hơn nên đứng TRƯỚC `y` trên lưới. */
 const HAI_MAU = [ban('x', 'phở', '09:10:00'), ban('y', 'bún', '09:00:00')];
 
-async function dungCanh(ghiChu = HAI_MAU) {
+async function dungCanh(ghiChu = HAI_MAU, mocThem = {}) {
   const ports = portsDay();
   ports.noteStore = {
     ...ports.noteStore,
@@ -192,7 +192,10 @@ async function dungCanh(ghiChu = HAI_MAU) {
   const nhatKy = [];
   let luong = null;
   // Móc `xoa` của lưới THẬT — đúng chỗ cắm `mocSua.xoa` của `main.js`: nút `xóa` mở câu hỏi.
-  const luoi = noiLuoi(store, dom.goc, () => MOC, { xoa: (id) => luong.moHoi(id) });
+  const luoi = noiLuoi(store, dom.goc, () => MOC, {
+    xoa: (id) => luong.moHoi(id),
+    ...mocThem,
+  });
   const veTatCa = () => {
     luoi.ve();
     nhatKy.push('ve');
@@ -245,6 +248,23 @@ describe('veGiuTieuDiem — mọi hàng tiêu điểm của I/O Matrix Story 7.0
     await xaHet();
     expect(c.store.state.xacNhanXoa).toBe('x');
     expect(c.store.state.editing.id).toBeNull();
+  });
+
+  it('Enter trên mẩu bị cắt (Story 8.0): móc `moRong` mở rộng, tiêu điểm ở thân MỚI của mẩu đó', async () => {
+    // Đúng chỗ cắm `mocSua.moRong` của `main.js`; `c` gán sau nên móc đọc nó lười.
+    let c = null;
+    const moRong = (id) => {
+      c.store.batTatMoRong(id);
+      veGiuTieuDiem(c.goc, c.veTatCa, { id, vaiTro: 'than' });
+    };
+    c = await dungCanh([ban('x', 'một\nhai\nba\nbốn\nnăm', '09:10:00'), ban('y', 'bún', '09:00:00')], { moRong });
+    const thanCu = c.mauCua('x');
+    thanCu.focus();
+    thanCu.boNghe.keydown({ key: 'Enter', target: thanCu, preventDefault() {} });
+    expect(c.store.state.expandedIds).toContain('x');
+    expect(c.store.state.editing.id).toBeNull();
+    expect(tieuDiem).toBe(c.mauCua('x'));
+    expect(tieuDiem).not.toBe(thanCu);
   });
 
   it('Tab ra mẩu kế: đang sửa X, Tab tới thân Y → tiêu điểm ở thân Y của lưới mới', async () => {
