@@ -13,7 +13,7 @@
 // `document` chỉ được hỏi tới bên trong `exportFile`. `test/trang-tinh.test.js` import động
 // `app/main.js` ở NODE, nơi không có `document` lẫn `Blob`.
 //
-// Test tự động phủ đúng MỘT nửa (quy ước repo, xem `test/adapter-session-store.test.js`):
+// Test tự động phủ đúng MỘT nửa (quy ước repo trong `AGENTS.md`, mục `app/adapters/`):
 // `test/adapter-file-io.test.js` là ngoại lệ hẹp cho `readChosenFile` — nó chỉ cần một
 // `document` vài dòng, và nó là cửa mà toàn bộ chiều nạp đi qua. `exportFile` thì VẪN kiểm tay
 // (checklist trong `README.md`): mọi thứ ở đó là hành vi của trình duyệt thật, và một bản giả

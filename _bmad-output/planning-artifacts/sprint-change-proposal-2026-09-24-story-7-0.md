@@ -30,8 +30,8 @@ Epic 7, nhưng `epics.md` chưa có dòng nào nói về ca này.
 |---|---|
 | PRD | Không đổi. |
 | Epics (`epics.md`) | Thêm Story 7.0 ở đầu Epic 7; thêm một AC B4 vào Story 7.1. |
-| Architecture spine | Chỉ đổi nếu namtt duyệt Q3 (hợp thức hóa `luoi → mau-giay`); việc sửa nằm trong 7.0. |
-| UX (`EXPERIENCE.md`) | Chỉ đổi nếu namtt duyệt Q1 (sửa `tám ngày` → chữ số); việc sửa nằm trong 7.0. |
+| Architecture spine | Đổi theo Q3 đã duyệt (hợp thức hóa `luoi → mau-giay`); việc sửa nằm trong 7.0. |
+| UX (`EXPERIENCE.md`) | Đổi theo Q1 đã duyệt (sửa `tám ngày` → chữ số); việc sửa nằm trong 7.0. |
 | `sprint-status.yaml` | Thêm khóa `7-0-…: backlog`; đóng `epic-4-retro-item-8` (namtt đã xác nhận chạy tay trong retro Epic 5). |
 | Mã | `app/main.js`, `app/core/backup.js`, có thể `app/core/state.js` (Q2), test, `tools/thu-bo-cuc.mjs`, README. Bump `APP_VERSION` 0.7.1 → 0.7.2. |
 

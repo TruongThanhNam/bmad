@@ -117,8 +117,10 @@ function neoTuTieuDiem(goc) {
 }
 
 /**
- * Lượt vẽ GIỮ TIÊU ĐIỂM — hàm DUY NHẤT của ứng dụng vừa vẽ lại vừa đặt tiêu điểm (Story 7.0,
- * gộp ba hàm `traTieuDiem` / `veGiuTieuDiem` / `dongRoiVe` cũ, retro Epic 5 B2+A2).
+ * Lượt vẽ GIỮ TIÊU ĐIỂM — hàm DUY NHẤT của ứng dụng vừa vẽ lại vừa TRẢ tiêu điểm về (Story 7.0,
+ * gộp ba hàm `traTieuDiem` / `veGiuTieuDiem` / `dongRoiVe` cũ, retro Epic 5 B2+A2). Ngoại lệ có
+ * tên duy nhất là `vaoSuaRoiVe` trong khối `document`: nó không trả tiêu điểm về chỗ cũ mà đặt
+ * vào ô sửa vừa SINH RA ở chính lượt vẽ đó, kèm vị trí con trỏ.
  *
  * Một lớp lỗi, ba nguồn: nút `✕` của dải băng, hộp thoại xác nhận, và `replaceChildren` của lưới
  * đều GỠ khỏi DOM đúng phần tử đang giữ tiêu điểm ở chính lượt vẽ do chúng gây ra — và một phần
@@ -379,8 +381,10 @@ if (typeof document !== 'undefined') {
   // (Story 7.1 sẽ thêm) gọi hàm này, không gọi riêng một nửa — `test/luoi.test.js` ghim rằng
   // `xoaHetDieuKien(` và `xoaNhap(` mỗi thứ chỉ xuất hiện đúng một lần trong tệp này.
   //
-  // `store.xoaHetDieuKien()` ở đường chốt là lần thứ hai (`chotBanNhap` đã tự xóa trong lõi), và
-  // lần thứ hai đó vô hại: điều kiện đã rỗng thì nó không đổi gì.
+  // `store.xoaHetDieuKien()` ở đường chốt là lần thứ hai (`chotBanNhap` đã tự xóa trong lõi).
+  // Thường thì lần thứ hai đó không đổi gì vì điều kiện đã rỗng. Có một khe: điều kiện gõ vào ô
+  // tìm trong lúc `commitDraft` còn đang ghi xuống kho (vài ms) cũng bị xóa theo. Khe này được
+  // nhận có chủ ý (spec 7.0): đường chốt phải đi qua hàm chung.
   const xoaHetDieuKienVaNhap = () => {
     store.xoaHetDieuKien();
     khayTim.xoaNhap();

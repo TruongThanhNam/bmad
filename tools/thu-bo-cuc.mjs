@@ -2423,6 +2423,10 @@ try {
     // Cùng điều kiện với khối Story 3.2: không có nó thì phím gửi vào tab headless không dời
     // được tiêu điểm, và mọi dòng dưới đây đo đúng không gì cả.
     await cdp.goi('Emulation.setFocusEmulationEnabled', { enabled: true }, tab.sessionId);
+    // `doiSan` chỉ đợi `store` tồn tại, không đợi `khoiDong` nạp xong `notes`. Đọc `khoTruoc`
+    // hay chốt mẩu trước lúc ấy là đếm sai kho, và lượt `readAll` về muộn có thể đè mất mẩu vừa
+    // chốt. Cùng cách đợi với khối theme.
+    await nghi(400);
 
     /** Một phím THẬT. `modifiers: 8` là Shift. `text` chỉ cho phím sinh ký tự (`Enter`), để
      *  `<button>` nhận phép kích hoạt mặc định của nó. */
@@ -2493,6 +2497,7 @@ try {
       shift: 'thu-7-0 shift tab',
       rong: 'thu-7-0 rời rỗng',
       tim: 'thu-7-0 kqtim70',
+      nhanh: 'thu-7-0 kqnhanh70',
     };
     const khoTruoc = await cdp.chay(
       tab.sessionId,
@@ -2644,6 +2649,38 @@ try {
           'sửa kết quả tìm tới hết khớp: mẩu đứng yên lúc gõ, biến mất khi rời, tiêu điểm về `#o-soan`',
           chiMotMau === 1 && conKhiGo && khongKhop && !sauTim.body && sauTim.id === 'o-soan',
           `khớp ${chiMotMau} mẩu · còn lúc gõ=${conKhiGo} · không khớp=${khongKhop} · ${JSON.stringify(sauTim)}`,
+        );
+        await goVao('#o-tim', '');
+      }
+
+      // ── Như trên, nhưng rời TRƯỚC khi hẹn `AUTOSAVE_MS` nổ ──────────────────────────────
+      //
+      // Đây là đường mà `mocSua.go` phải đi qua `veGiuTieuDiem`. Lượt vẽ hoãn của `roi` còn thấy
+      // chữ cũ nên mẩu còn khớp, và tiêu điểm ở lại nút `xóa`. Rồi `put` xong, và CHÍNH lượt vẽ
+      // của `go` gỡ mẩu cùng nút đó. Ca trên đợi `put` xong trước khi rời, nên không đi vào đây.
+      {
+        await goVao('#o-tim', 'kqnhanh70');
+        await doi(TREN_LUOI(id.nhanh));
+        await datTieuDiem(thanMau(id.nhanh));
+        await nhanPhim(ENTER);
+        await doi(`document.activeElement !== null && document.activeElement.matches('.mau-sua')`);
+        await goVao('.mau-sua', 'thu-7-0 rời nhanh đã hết khớp');
+        await nhanPhim({ ...TAB, shift: true });
+        // Ghim thứ tự: lúc vừa rời, kho CHƯA mang chữ mới. Nếu đã mang thì ca này chỉ lặp lại ca trên.
+        const chuaGhi = await cdp.chay(
+          tab.sessionId,
+          `return (await import('/app/main.js')).store.state.notes.some((x) => x.id === ${JSON.stringify(id.nhanh)} && x.text === ${JSON.stringify(CHU.nhanh)});`,
+        );
+        await doi(
+          `(await import('/app/main.js')).store.state.notes.some((x) => x.id === ${JSON.stringify(id.nhanh)} && x.text === 'thu-7-0 rời nhanh đã hết khớp')`,
+        );
+        await doi(`!(${TREN_LUOI(id.nhanh)})`);
+        await nghi(100);
+        const sauNhanh = await dung();
+        ghi(
+          'rời ô sửa kết quả tìm TRƯỚC hẹn tự lưu: lượt vẽ của `put` gỡ mẩu, tiêu điểm về `#o-soan` — không `<body>`',
+          chuaGhi && !sauNhanh.body && sauNhanh.id === 'o-soan',
+          `kho còn chữ cũ lúc rời=${chuaGhi} · ${JSON.stringify(sauNhanh)}`,
         );
         await goVao('#o-tim', '');
       }

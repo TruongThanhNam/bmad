@@ -295,8 +295,8 @@ describe('veGiuTieuDiem — mọi hàng tiêu điểm của I/O Matrix Story 7.0
     expect(c.mauCua('x')).not.toBeNull();
 
     vaoSua(c, 'x');
-    // Móc `go` của `main.js`: một action mỗi phím, lượt vẽ treo vào lời hứa của nó.
-    c.store.tuLuuNoiDung('x', 'xyz').then(c.veTatCa);
+    // Móc `go` của `main.js`: một action mỗi phím, lượt vẽ GIỮ TIÊU ĐIỂM treo vào lời hứa của nó.
+    c.store.tuLuuNoiDung('x', 'xyz').then(() => veGiuTieuDiem(c.goc, c.veTatCa));
     await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
     // `put` đã xong và `notes` mang `xyz` — nhưng lưới GÁC ô sửa đang gõ, nên X còn đứng đó.
     expect(c.store.state.notes.find((m) => m.id === 'x').text).toBe('xyz');
