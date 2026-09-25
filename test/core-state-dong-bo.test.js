@@ -521,8 +521,12 @@ describe('Story 7.1 — một kênh duy nhất', () => {
       }
     };
     di(goc);
+    // Bỏ chú thích trước khi quét: `main.js` nhắc tên API trong chú thích đầu tệp. Quét MỌI lần
+    // chữ `BroadcastChannel` xuất hiện trong mã, không chỉ `new …(` — `globalThis.BroadcastChannel`
+    // hay một bí danh cũng là một cửa mở kênh thứ hai (review Story 7.1).
+    const boChuThich = (ma) => ma.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '');
     const coKenh = tep.filter((duong) =>
-      /new\s+BroadcastChannel\s*\(/.test(readFileSync(duong, 'utf8')),
+      /BroadcastChannel/.test(boChuThich(readFileSync(duong, 'utf8'))),
     );
     expect(coKenh.map((d) => d.replaceAll('\\', '/').split('/app/')[1])).toEqual([
       'adapters/broadcast.js',
@@ -530,6 +534,9 @@ describe('Story 7.1 — một kênh duy nhất', () => {
     const nguon = readFileSync(coKenh[0], 'utf8');
     const ten = [...nguon.matchAll(/TEN_KENH\s*=\s*'([^']*)'/g)].map((k) => k[1]);
     expect(ten).toEqual(['ghichu']);
+    // Kênh chỉ được mở bằng đúng hằng đó — một chuỗi trần ở chỗ mở là tên kênh thứ hai.
+    const choMo = [...boChuThich(nguon).matchAll(/new\s+BroadcastChannel\s*\(([^)]*)\)/g)];
+    expect(choMo.map((k) => k[1].trim())).toEqual(['TEN_KENH']);
     expect(nguon).not.toMatch(/ghichu\.tab-sync/);
   });
 });

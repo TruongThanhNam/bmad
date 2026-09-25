@@ -92,7 +92,7 @@ file/thư mục bắt đầu bằng `_`. File rỗng `.nojekyll` ở gốc tắt
 `app/adapters/` không có test tự động — chúng mỏng theo thiết kế và bằng chứng duy nhất là
 danh sách thử tay dưới đây. Các story sau bổ sung thêm mục vào danh sách này.
 
-**Mục 37 (hai tab song song, Story 7.1) chạy được bằng máy qua `npm run thu-bo-cuc`** (khối
+**Mục 37 (hai tab song song, Story 7.1) chạy được bằng máy một phần qua `npm run thu-bo-cuc`** (khối
 "Story 7.1" ở cuối bộ đo, xem mục "Bố cục bốn tầng" bên dưới).
 
 **Mục 10-13 (bản nháp) và mục 22-23 (chốt, sửa, xóa) chạy được bằng máy:**
