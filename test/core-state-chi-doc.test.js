@@ -4,6 +4,7 @@
 // vào `nhatKy` để đếm các cổng GHI — ở chế độ chỉ đọc số đó phải bằng 0.
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { SCHEMA_VERSION } from '../app/core/backup.js';
 import { fold } from '../app/core/fold.js';
 import { MA_LOI, loiUngDung } from '../app/core/errors.js';
 import { APP_VERSION, AUTOSAVE_MS } from '../app/core/limits.js';
@@ -72,7 +73,7 @@ function dungTab({ ghiChu = [ban('x', 'phở')], putHoan = false } = {}) {
     channel: { publish: () => {}, subscribe: () => () => {} },
     fileIO: {
       exportFile: () => Promise.resolve(),
-      readChosenFile: () => Promise.resolve(null),
+      readChosenFile: () => kho.chonFile ?? Promise.resolve(null),
     },
   };
   const ports = {};
@@ -211,8 +212,10 @@ describe('Story 7.2 — chế độ chỉ đọc từ chối mọi action ghi', 
     const t = dungTab();
     await khoiDongDu(t);
     await vaoChiDoc(t);
+    const themTruoc = t.store.state.theme;
+    const themKhac = themTruoc === 'dark' ? 'light' : 'dark';
     await expect(t.store.xoaGhiChu('x')).resolves.toBeUndefined();
-    await expect(t.store.datTheme('dark')).resolves.toBeUndefined();
+    await expect(t.store.datTheme(themKhac)).resolves.toBeUndefined();
     await expect(t.store.xuatSaoLuu()).resolves.toBeUndefined();
     await expect(t.store.napSaoLuu()).resolves.toBeUndefined();
     await expect(t.store.nhipTimBanNhap()).resolves.toBeUndefined();
@@ -222,7 +225,24 @@ describe('Story 7.2 — chế độ chỉ đọc từ chối mọi action ghi', 
     await expect(t.store.roiCheDoSua()).resolves.toBeUndefined();
     expect(t.ghi()).toEqual([]);
     expect(t.store.state.notes).toHaveLength(1);
-    expect(t.store.state.theme).not.toBe('dark');
+    expect(t.store.state.theme).toBe(themTruoc);
+    expect(t.store.state.lastBackupAt).toBeNull();
+  });
+
+  it('Nạp đang chờ hộp chọn file lúc vào chỉ đọc: chọn xong không replaceAll, không ghi mốc', async () => {
+    const t = dungTab();
+    let traFile;
+    t.kho.chonFile = new Promise((giai) => {
+      traFile = giai;
+    });
+    await khoiDongDu(t);
+    const nap = t.store.napSaoLuu();
+    await vaoChiDoc(t);
+    const exportedAt = '2026-09-14T10:00:00+07:00';
+    traFile({ text: JSON.stringify({ schemaVersion: SCHEMA_VERSION, exportedAt, notes: [ban('y', 'bún')] }) });
+    await expect(nap).resolves.toBeUndefined();
+    expect(t.ghi()).toEqual([]);
+    expect(t.store.state.banner).toBe(MA_LOI.VERSION_SKEW);
     expect(t.store.state.lastBackupAt).toBeNull();
   });
 

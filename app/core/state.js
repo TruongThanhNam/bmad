@@ -1161,6 +1161,9 @@ export function taoStore(ports) {
         // Nam bấm Huỷ ở hộp chọn file: `null` là câu trả lời HỢP LỆ của cổng, không phải lỗi.
         // Im lặng tuyệt đối — không dải băng, không một trường state nào đổi.
         if (daChon === null || daChon === undefined) return undefined;
+        // Hộp chọn file có thể mở lâu tùy Nam: tin lệch đến giữa chừng thì file vừa chọn không
+        // được xuống kho (README mục 38), dù action đã qua cửa vào lúc còn ghi được.
+        if (chiDoc) return undefined;
         let tuFile;
         try {
           tuFile = docFileSaoLuu(daChon.text);
