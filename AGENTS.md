@@ -1,11 +1,11 @@
 <!-- bmad:context -->
-<!-- Verified 2026-09-25 against 186fb70. Managed by bmad-project-context; nội dung trong block này bị thay khi refresh. Muốn giữ gì thì để ngoài hai marker. -->
+<!-- Verified 2026-09-25 against 0d469e8. Managed by bmad-project-context; nội dung trong block này bị thay khi refresh. Muốn giữ gì thì để ngoài hai marker. -->
 
 ## Ghi chú hàng ngày
 
 App ghi chú tĩnh chạy thẳng trong trình duyệt: ES module thuần, không bundler, không
 transpile, không thư viện runtime. `package.json` tồn tại chỉ để chạy Vitest. Tài liệu
-gốc: `README.md` (vận hành + checklist thủ công 1–36) và
+gốc: `README.md` (vận hành + checklist thủ công) và
 `_bmad-output/planning-artifacts/architecture/architecture-ghi-chu-hang-ngay-2026-09-10/ARCHITECTURE-SPINE.md`
 — spine thắng khi lệch với `solution-design.md`.
 
@@ -31,7 +31,7 @@ gốc: `README.md` (vận hành + checklist thủ công 1–36) và
   `test/adapter-session-store.test.js` (khóa lạ, `QuotaExceededError` → `QUOTA`) và
   `test/adapter-file-io.test.js` (`readChosenFile`). Đừng nới hai file đó hay dựng
   IndexedDB/trình duyệt giả; ngoại lệ mới phải được chủ repo duyệt trước. Phần còn lại kiểm
-  bằng checklist 1–36 trong `README.md`.
+  bằng checklist thủ công trong `README.md`.
 
 ## Chạy và kiểm chứng
 
