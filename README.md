@@ -157,6 +157,22 @@ trước đó thì gọi qua `import('./app/main.js')` trong Console.
    `(await import('./app/adapters/localstorage.js')).taoSessionStore().read('mau')` phải ném
    `TypeError` nêu cả ba khóa hợp lệ.
 
+### `app/adapters/quota.js` — xin lưu trữ bền (Story 8.1)
+
+Mục không đánh số để khỏi xê dịch số các mục đã được tham chiếu.
+
+- **Chromium (Chrome/Edge), hai kết quả đều hợp lệ.** Mở trang trên localhost mới (hồ sơ sạch):
+  `persist()` thường trả `false` → Local Storage có `ghichu.persistDenied` = `1`, và dòng nhắc
+  chân trang hiện khi lần sao lưu gần nhất đã quá **3** ngày (thay vì 7). Bookmark trang (hoặc
+  dùng nó một lúc) rồi tải lại: `persist()` có thể trả `true` → khóa `ghichu.persistDenied`
+  **mất**, ngưỡng về 7 ngày. Console không có lỗi, tab Network không có request mới nào.
+  Kiểm nhanh: `await navigator.storage.persisted()` trong Console khớp với việc khóa có/vắng.
+- **Firefox.** Lần mở đầu hiện hộp hỏi quyền lưu trữ bền. Bỏ qua (đóng, không trả lời) rồi tải
+  lại: hộp hiện **lại** — đó là cách AD-10 thử lại. Chọn Chặn hoặc Cho phép: tải lại thì hộp
+  **không** hiện nữa. Hướng dẫn cho người dùng: "Nếu Firefox hỏi quyền lưu trữ, hãy chọn Cho
+  phép — nếu không, hộp này sẽ hỏi lại mỗi lần mở."
+- **Không có dải băng nào** vì lần xin này, ở cả hai kết quả.
+
 ### `app/adapters/indexeddb.js` — bản nháp riêng từng tab
 
 Bốn bước khởi động bản nháp (AD-3) chạy trong **một** giao dịch, và tính nguyên tử đó chỉ

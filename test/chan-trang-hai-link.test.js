@@ -12,7 +12,7 @@
 // tự tab thật và đã kiểm chúng sống sót ở các bề rộng. Cái nó CHƯA đo là khoảng `gap` ma của
 // chỗ đứng dòng nhắc lúc rỗng; điều đó chỉ thành đo được khi Story 4.4 có chữ để so hai cảnh.
 
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -426,6 +426,20 @@ describe('Dòng nhắc thụ động: chữ vào `.chan-nhac`, và không gì kh
     expect(cho.textContent).toMatch(/^Lần sao lưu gần nhất cách đây \d+ ngày\.$/);
   });
 
+  it('cờ `persistDenied` đi vào đúng vị trí tham số thứ ba: 5 ngày thì nói, cờ tắt thì im (Story 8.1)', () => {
+    vi.useFakeTimers({ now: new Date('2026-09-20T12:00:00+05:30') });
+    try {
+      const moc = '2026-09-15T12:00:00+05:30';
+      const bat = taiLieuDayDu();
+      noiChanTrang({ ...storeVoiMoc(moc), state: { lastBackupAt: moc, persistDenied: true } }, bat.doc).ve();
+      expect(bat.cho.textContent).toBe('Lần sao lưu gần nhất cách đây 5 ngày.');
+      const tat = taiLieuDayDu();
+      noiChanTrang({ ...storeVoiMoc(moc), state: { lastBackupAt: moc, persistDenied: false } }, tat.doc).ve();
+      expect(tat.cho.textContent).toBe('');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   it('không có gì để nói thì `textContent` RỖNG TUYỆT ĐỐI', () => {
     // `''` chứ không phải một khoảng trắng: `.chan-nhac:empty { display: none }` là thứ giữ
     // chân trang khỏi một khoảng `gap` ma, và một node chỉ chứa khoảng trắng phá đúng luật đó.

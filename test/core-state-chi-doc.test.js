@@ -29,8 +29,10 @@ const CONG_GHI = Object.freeze([
   'fileIO.exportFile',
   'fileIO.readChosenFile',
   'channel.publish',
-  // Story 8.0: ghép với PORT_METHODS lộ ra phép ghi này bị sót; state.js hiện không gọi nó.
+  // Story 8.0: ghép với PORT_METHODS lộ ra phép ghi này bị sót; Story 8.1 dùng nó để xóa cờ.
   'sessionStore.remove',
+  // Story 8.1: xin quyền là tác dụng phụ — không phải phép đọc.
+  'quota.persist',
 ]);
 
 /** Các phương thức cổng chỉ đọc — cùng `CONG_GHI` phủ đúng toàn bộ `PORT_METHODS`. */
@@ -80,6 +82,7 @@ function dungTab({ ghiChu = [ban('x', 'phở')], putHoan = false } = {}) {
     sessionStore: {
       read: () => null,
       write: () => {},
+      remove: () => {},
       tabIdentity: () => 'tab-minh',
       writeTabIdentity: () => {},
     },
@@ -88,6 +91,7 @@ function dungTab({ ghiChu = [ban('x', 'phở')], putHoan = false } = {}) {
       exportFile: () => Promise.resolve(),
       readChosenFile: () => kho.chonFile ?? Promise.resolve(null),
     },
+    quota: { persist: () => Promise.resolve(false) },
   };
   const ports = {};
   for (const tenCong of Object.keys(PORT_METHODS)) {
@@ -303,6 +307,7 @@ describe('Story 8.0 — ACTION_GHI là tập action ghi, mỗi cái gác chỉ �
     khoiDongBanNhap: (t) => t.store.khoiDongBanNhap(),
     datBanNhap: (t) => t.store.datBanNhap('nháp'),
     nhipTimBanNhap: (t) => t.store.nhipTimBanNhap(),
+    xinLuuTruBen: (t) => t.store.xinLuuTruBen(),
   });
 
   it('CONG_GHI và CONG_DOC rời nhau và phủ đúng mọi phương thức trong PORT_METHODS', () => {

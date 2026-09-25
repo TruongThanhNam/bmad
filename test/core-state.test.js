@@ -59,6 +59,9 @@ const KHOA_STATE = [
   'draft',
   'theme',
   'lastBackupAt',
+  // Nới ở Story 8.1: cờ "trình duyệt từ chối lưu trữ bền", tầng B′ — dòng nhắc chân trang đọc
+  // nó ở mọi lượt vẽ, cùng lý do `lastBackupAt`. Không phải trạng thái "đang/đã lưu".
+  'persistDenied',
   'dieuKien',
   'expandedIds',
   'editing',
@@ -82,6 +85,7 @@ describe('taoStore — khởi tạo', () => {
       // Tầng B′ thứ hai (Story 4.4): `null` là "chưa từng sao lưu", và dòng nhắc chân trang im
       // lặng tuyệt đối cho tới lần xuất đầu tiên.
       lastBackupAt: null,
+      persistDenied: false,
       dieuKien: { keyword: null, date: null },
       expandedIds: [],
       // `editing.seq` là một BẢNG theo `id`, không một con số (Story 5.1, review vòng 1): một

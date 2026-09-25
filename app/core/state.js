@@ -95,6 +95,10 @@ const KHOA_THEME = 'theme';
 /** Khóa cấu hình mang mốc xuất sao lưu gần nhất — nguồn duy nhất của dòng nhắc Story 4.4. */
 const KHOA_LAST_BACKUP = 'lastBackupAt';
 
+/** Khóa cấu hình mang cờ "trình duyệt từ chối lưu trữ bền" (Story 8.1, AD-10). Giá trị `'1'`
+ *  là cờ bật; mọi giá trị khác (kể cả rác) đọc là tắt. */
+const KHOA_PERSIST_DENIED = 'persistDenied';
+
 /** Loại bản tin phát khi một khóa cấu hình đổi (AD-7). */
 const TIN_PHIEN_DOI = 'session-changed';
 
@@ -128,6 +132,7 @@ export const ACTION_GHI = Object.freeze([
   'khoiDongBanNhap',
   'datBanNhap',
   'nhipTimBanNhap',
+  'xinLuuTruBen',
 ]);
 
 // Chép tại chỗ từ `core/time.js` có chủ ý: gom thành helper dùng chung là thêm một phụ thuộc
@@ -204,7 +209,7 @@ function banGhiSua(cu, text) {
  * Ba tầng phạm vi của AD-3, tất cả cùng sống trong RAM ở đây:
  * - tầng A (bền, dùng chung): `notes`.
  * - tầng B (bền, riêng tab): `draft`.
- * - tầng B′ (bền, dùng chung, kho cấu hình): `theme`, `lastBackupAt`.
+ * - tầng B′ (bền, dùng chung, kho cấu hình): `theme`, `lastBackupAt`, `persistDenied`.
  * - tầng C (phù du): `dieuKien`, `expandedIds`, `editing`, `banner`, `readOnly`.
  *
  * `seq` là số đếm chống hẹn tự lưu sống lâu hơn thứ nó định ghi (AD-8): hẹn nào nổ ra mà
@@ -246,6 +251,9 @@ function stateRong() {
     // `null` là "chưa từng sao lưu", và đó là một giá trị THẬT chứ không phải một chỗ trống:
     // dòng nhắc im lặng tuyệt đối cho tới lần xuất đầu tiên (quyết định đã chốt của Story 4.4).
     lastBackupAt: null,
+    // Tầng B′ — trình duyệt đã từ chối `persist()` ở lần xin gần nhất (Story 8.1). Bật thì dòng
+    // nhắc sao lưu hạ ngưỡng từ `BACKUP_NUDGE_DAYS` xuống `BACKUP_NUDGE_DAYS_PERSIST_DENIED`.
+    persistDenied: false,
     // Tầng C — điều kiện đang bật. `{null, null}` là VẮNG MẶT điều kiện (AD-15).
     dieuKien: { keyword: null, date: null },
     // Tầng C — TẬP mẩu đang mở rộng, và mẩu đang sửa cùng nội dung đang gõ của nó.
@@ -785,6 +793,14 @@ export function taoStore(ports) {
     // `datLai` nằm NGOÀI `try`, đúng khuôn `ghiMocSaoLuuMoiHon`: chỉ phép đọc cổng mới được
     // nuốt lỗi ở đây, còn một cái ném từ chính khối state là lỗi lập trình và phải đi ra ngoài.
     datLai({ lastBackupAt: mocTuKho });
+    // Cờ `persistDenied` đọc trong `try` RIÊNG: đọc cờ hỏng không được làm mất mốc ở trên.
+    let tuChoi;
+    try {
+      tuChoi = ports.sessionStore.read(KHOA_PERSIST_DENIED) === '1';
+    } catch {
+      tuChoi = false;
+    }
+    datLai({ persistDenied: tuChoi });
     return napLaiGhiChu();
   }
 
@@ -888,7 +904,15 @@ export function taoStore(ports) {
     } catch {
       return;
     }
-    datLai(THEME_HOP_LE.includes(theme) ? { theme, lastBackupAt: moc } : { lastBackupAt: moc });
+    // Cờ đọc trong `try` riêng, SAU theme/mốc: đọc ném thì cờ GIỮ giá trị đang có.
+    let tuChoi = noiBo.persistDenied;
+    try {
+      tuChoi = ports.sessionStore.read(KHOA_PERSIST_DENIED) === '1';
+    } catch {
+      /* giữ giá trị đang có */
+    }
+    const nhanh = { lastBackupAt: moc, persistDenied: tuChoi };
+    datLai(THEME_HOP_LE.includes(theme) ? { theme, ...nhanh } : nhanh);
   }
 
   /** Bản tin đúng hình dạng bốn trường của `app/ports/channel.js`. */
@@ -1104,6 +1128,63 @@ export function taoStore(ports) {
       },
       () => {
         /* Cổng từ chối: im lặng hoàn toàn, và `lastBackupAt` giữ nguyên giá trị cũ. */
+      },
+    );
+  }
+
+  /**
+   * Xin trình duyệt lưu trữ bền (Story 8.1, AD-10) — gọi ở MỌI lần khởi động, không nhớ "đã
+   * thử": đã được cấp thì `persist()` trả `true` ngay mà không hỏi.
+   *
+   * Gần khuôn `xuatSaoLuu`: không `ghiTruocDatSau`, `datLai` trần, không bao giờ dải băng. Khác
+   * có chủ ý (quyết định Q3A): state theo KẾT QUẢ `persist()`, kể cả khi ghi/xóa cờ ở kho cấu
+   * hình hỏng — cái Nam cần biết là trình duyệt nói gì, không phải kho có nhớ được hay không.
+   * Chuông `session-changed` chỉ gõ khi phép ghi/xóa thành công VÀ state đổi.
+   *
+   * Nhánh `true` LUÔN gọi `remove` (vô hại khi khóa vắng; dọn được cờ mà `khoiDong` đọc hỏng).
+   * `null` (API vắng) là no-op. Cổng ném hay từ chối: nuốt.
+   *
+   * @returns {Promise<void>} Không bao giờ bị từ chối.
+   */
+  function xinLuuTruBen() {
+    if (chiDoc) return Promise.resolve();
+    let dangXin;
+    try {
+      dangXin = ports.quota.persist();
+    } catch {
+      return Promise.resolve();
+    }
+    return Promise.resolve(dangXin).then(
+      (duocCap) => {
+        // Lớp gác thứ hai: resolve muộn sau khi tab đã vào chỉ đọc thì không chạm gì.
+        if (chiDoc) return;
+        if (duocCap === false) {
+          if (noiBo.persistDenied === true) return;
+          try {
+            ports.sessionStore.write(KHOA_PERSIST_DENIED, '1');
+          } catch {
+            datLai({ persistDenied: true });
+            return;
+          }
+          datLai({ persistDenied: true });
+          phatTin(TIN_PHIEN_DOI);
+          return;
+        }
+        if (duocCap === true) {
+          const doi = noiBo.persistDenied !== false;
+          try {
+            ports.sessionStore.remove(KHOA_PERSIST_DENIED);
+          } catch {
+            if (doi) datLai({ persistDenied: false });
+            return;
+          }
+          if (!doi) return;
+          datLai({ persistDenied: false });
+          phatTin(TIN_PHIEN_DOI);
+        }
+      },
+      () => {
+        /* Cổng từ chối: im lặng, không dải băng. */
       },
     );
   }
@@ -1691,5 +1772,6 @@ export function taoStore(ports) {
     khoiDongBanNhap,
     datBanNhap,
     nhipTimBanNhap,
+    xinLuuTruBen,
   });
 }

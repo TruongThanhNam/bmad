@@ -80,7 +80,7 @@ export function noiChanTrang(store, doc = document, sauKhiNap = () => {}) {
    */
   function veNhac() {
     if (choNhac === null || choNhac === undefined) return;
-    choNhac.textContent = cauNhacSaoLuu(store.state.lastBackupAt) ?? '';
+    choNhac.textContent = cauNhacSaoLuu(store.state.lastBackupAt, undefined, store.state.persistDenied) ?? '';
   }
 
   // Hai link gắn ĐỘC LẬP, không cùng một cửa trả sớm: một tài liệu chỉ có một trong hai (test

@@ -25,9 +25,18 @@
  */
 
 /**
+ * Xin trình duyệt đừng tự dọn kho dữ liệu của ứng dụng (lưu trữ bền, AD-10).
+ *
+ * @callback QuotaPersistCall
+ * @returns {Promise<boolean | null>} `true` được cấp, `false` bị từ chối, `null` khi hiện thực
+ *   không hỗ trợ việc xin.
+ */
+
+/**
  * @typedef {object} QuotaPort
  * @property {QuotaEstimateCall} estimate
+ * @property {QuotaPersistCall} persist
  */
 
 /** Tên các phương thức mà một hiện thực của cổng này bắt buộc phải có. */
-export const QUOTA_METHODS = Object.freeze(['estimate']);
+export const QUOTA_METHODS = Object.freeze(['estimate', 'persist']);

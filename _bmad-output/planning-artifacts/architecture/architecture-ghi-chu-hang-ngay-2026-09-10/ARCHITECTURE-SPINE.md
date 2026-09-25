@@ -568,6 +568,9 @@ cấm thu hẹp bản ghi.
   cho tử tế, không phải cộng thêm.
 - **`persist()` bị từ chối vĩnh viễn.** AD-10 mới chỉ thử lại và nói to hơn; chưa giải quyết được
   gốc. Cần dữ liệu thật xem trình duyệt trên máy công ty có cho hay không.
+- **Firefox: bỏ qua hộp hỏi quyền thì nó hiện lại mỗi lần mở** (AD-10 thử lại mỗi lần khởi
+  động). Mở lại khi Firefox thành trình duyệt dùng thật; hướng ưu tiên là xin sau lần chốt ghi
+  chú đầu tiên của phiên (B), không phải giãn nhịp (C).
 - **Cách ly khỏi các project site khác cùng origin.** Rủi ro đã ghi ở AD-9. Đường ra duy nhất là
   một tên miền riêng, và nó kéo theo quy trình chuyển dữ liệu bắt buộc của NFR-8. Chỉ mở lại khi
   tài khoản này host mã của người khác.

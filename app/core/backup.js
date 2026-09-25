@@ -15,7 +15,7 @@
 
 import { MA_LOI, loiUngDung } from './errors.js';
 import { fold } from './fold.js';
-import { BACKUP_NUDGE_DAYS, MAX_NOTE_CHARS } from './limits.js';
+import { BACKUP_NUDGE_DAYS, BACKUP_NUDGE_DAYS_PERSIST_DENIED, MAX_NOTE_CHARS } from './limits.js';
 import { daysBetween, localDate, nowIso } from './time.js';
 
 /** Số hiệu hình dạng file. Story 4.3 từ chối mọi giá trị khác — hợp đồng chỉ có một phiên bản. */
@@ -266,9 +266,11 @@ export function gopTheoId(dangCo, tuFile) {
  * @param {unknown} lastBackupAt Mốc xuất gần nhất, ISO-8601 có offset — hoặc bất cứ thứ gì.
  * @param {string} [bayGio] Mốc "bây giờ", ISO-8601 có offset. Test bơm vào đây để không ca nào
  *   phải phụ thuộc ngày chạy máy.
+ * @param {boolean} [biTuChoi] Trình duyệt đã từ chối lưu trữ bền (Story 8.1): ngưỡng hạ xuống
+ *   `BACKUP_NUDGE_DAYS_PERSIST_DENIED`. Đứng CUỐI để các lời gọi sẵn có không phải đổi.
  * @returns {string|null} Câu nhắc, hoặc `null` khi không hiện gì.
  */
-export function cauNhacSaoLuu(lastBackupAt, bayGio = nowIso()) {
+export function cauNhacSaoLuu(lastBackupAt, bayGio = nowIso(), biTuChoi = false) {
   if (typeof lastBackupAt !== 'string') return null;
   let soNgay;
   try {
@@ -279,6 +281,7 @@ export function cauNhacSaoLuu(lastBackupAt, bayGio = nowIso()) {
   } catch {
     return null;
   }
-  if (soNgay <= BACKUP_NUDGE_DAYS) return null;
+  const nguong = biTuChoi ? BACKUP_NUDGE_DAYS_PERSIST_DENIED : BACKUP_NUDGE_DAYS;
+  if (soNgay <= nguong) return null;
   return `Lần sao lưu gần nhất cách đây ${soNgay} ngày.`;
 }

@@ -22,6 +22,7 @@ import { taoBroadcast } from './adapters/broadcast.js';
 import { taoFileIo } from './adapters/file-io.js';
 import { taoNoteStore } from './adapters/indexeddb.js';
 import { taoSessionStore } from './adapters/localstorage.js';
+import { taoQuota } from './adapters/quota.js';
 import { DRAFT_BEAT_MS } from './core/limits.js';
 import { taoStore } from './core/state.js';
 import { PORT_METHODS } from './ports/index.js';
@@ -63,8 +64,8 @@ export function congTam() {
 }
 
 /**
- * Tập cổng của ứng dụng: adapter thật cho hai kho bền, kênh liên tab và file vào/ra; cổng tạm
- * cho cổng còn lại (`quota` của Epic 8).
+ * Tập cổng của ứng dụng: adapter thật cho mọi cổng — hai kho bền, kênh liên tab, file vào/ra
+ * và hạn mức lưu trữ (`quota`, Story 8.1). `congTam()` vẫn trải trước làm lưới an toàn.
  *
  * Adapter đặt SAU `congTam()` trong phép trải: nếu ai đó đảo thứ tự thì cổng tạm ghi đè
  * adapter thật và mọi phép ghi lại ném "chưa nối adapter" — xanh ở mọi test, hỏng ở mọi lần
@@ -83,6 +84,8 @@ function congThat() {
     // chỉ bị hỏi tới bên trong `exportFile` và `readChosenFile` — nên dòng này cũng không chạm
     // global nào ở Node.
     fileIO: taoFileIo(),
+    // Hạn mức lưu trữ (Story 8.1): mở lười, `navigator.storage` chỉ bị hỏi trong từng phương thức.
+    quota: taoQuota(),
   };
 }
 
@@ -454,6 +457,9 @@ if (typeof document !== 'undefined') {
   // nút về đúng chiều ở khung hình đầu: `khoiDong` đặt theme ĐỒNG BỘ, `notes` mới là phần chờ.
   const themeLucTai = document.documentElement.getAttribute('data-theme');
   store.khoiDong(themeLucTai).then(veTatCa);
+  // Xin lưu trữ bền ở MỌI lần khởi động (Story 8.1, AD-10). Trên Firefox lời hứa có thể resolve
+  // vài phút sau, lúc Nam đang gõ — nên lượt vẽ GIỮ TIÊU ĐIỂM. Không bao giờ bị từ chối.
+  store.xinLuuTruBen().then(() => veGiuTieuDiem(document, veTatCa));
   // Chiều NHẬN của kênh liên tab (Story 7.1) — người nghe DUY NHẤT, nối sau `khoiDong`. Lõi lọc
   // tin rác và tin của chính tab, đọc lại kho, rồi lượt vẽ GIỮ TIÊU ĐIỂM: bản tin đến bất đồng
   // bộ, lúc tiêu điểm có thể đang ở bất cứ đâu. `nhanBanTin` không bao giờ bị từ chối. Hàm gỡ
