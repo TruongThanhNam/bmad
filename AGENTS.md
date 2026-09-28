@@ -43,6 +43,12 @@ gốc: `README.md` (vận hành + checklist thủ công) và
   cài sẵn, đặt `GHICHU_BROWSER` nếu nó dò không ra. `thu-tay` chậm có chủ ý (chờ hết
   `DRAFT_STALE_MS`). Ca "tải lại: mọi mẩu về thu gọn" của `thu-bo-cuc` chập chờn từ trước
   Epic 6 (một mẩu đo 128 → 106); ca đỏ nào khác mới là hồi quy.
+- Mỗi chỗ nối mới trong `main.js` phải có một ca `thu-bo-cuc` chạy thật, không chỉ một regex
+  quét mã nguồn — `.then` treo nhầm lời hứa vẫn xanh dưới regex.
+- Stub `navigator.storage.estimate`/`persist` trong tab riêng của khối "Story 8.1/8.2"
+  (`tools/thu-bo-cuc.mjs`, cài bằng `Page.addScriptToEvaluateOnNewDocument`) là ngoại lệ có tên
+  đã duyệt, không phải giấy phép dựng trình duyệt giả: không IndexedDB giả, không stub gì khác.
+  Ca mới cần dung lượng thì dùng lại stub đó; ngoại lệ mới phải được chủ repo duyệt trước.
 - Suite ghim `TZ=Asia/Kolkata`; đừng gỡ — múi lệch nửa giờ là thứ duy nhất bắt được lỗi
   dựng hậu tố offset.
 - Không có lint/formatter/CI. Test là cổng duy nhất.

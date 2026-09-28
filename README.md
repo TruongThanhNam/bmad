@@ -172,6 +172,10 @@ Mục không đánh số để khỏi xê dịch số các mục đã được t
   phép — nếu không, hộp này sẽ hỏi lại mỗi lần mở."
 - **Không có dải băng nào** vì lần xin này, ở cả hai kết quả.
 
+Từ Story 8.3, phần lõi của mục này (cờ, ngưỡng 3/7 ngày, `persist()` resolve muộn) đã chạy bằng
+máy trong khối "Story 8.1/8.2" của `npm run thu-bo-cuc`; các bước tay trên giữ nguyên, nhất là
+nửa Firefox mà bộ đo không với tới.
+
 ### `app/adapters/quota.js` — cảnh báo trước ngưỡng dung lượng (Story 8.2)
 
 Mục không đánh số, cùng lý do mục trên. Mở trang qua HTTP localhost trên Chrome/Edge, DevTools
@@ -210,6 +214,9 @@ Stub cũng thử được vế tỉ lệ 80% (vd `{ usage: 90e9, quota: 100e9 }`
 - **Ghi thành công không tắt nó.** Với cảnh báo đang hiện (chưa bấm `✕`): gõ bản nháp, đổi
   theme, xuất sao lưu — cảnh báo vẫn đứng đó. Chỉ lần kiểm sau chốt/sửa/nạp/xóa đo dưới ngưỡng
   mới tắt nó.
+
+Từ Story 8.3, phần lõi của mục này (vế byte, Q1, Q3, Q5, Q6, tải lại, `estimate()` thật) đã chạy
+bằng máy trong khối "Story 8.1/8.2" của `npm run thu-bo-cuc`; các bước tay trên giữ nguyên.
 
 ### `app/adapters/indexeddb.js` — bản nháp riêng từng tab
 
@@ -351,6 +358,22 @@ chất đang đo chính là *chiều dài lưới không phụ thuộc tổng s�
 bằng đồng hồ **trong tab**, tính từ lúc điều hướng tới lúc **gõ được thật**: con trỏ đã ở trong ô
 *và* bộ nghe `input` của `o-soan.js` đã gắn xong. Trần là **2 giây**. Dọn theo `id` đã bơm trong
 `finally`, rồi tải lại để các khối sau không thừa hưởng 2.000 bản ghi.
+
+Từ Story 8.3 nó lái thật các chỗ nối 8.1/8.2 của `main.js` (`xinLuuTruBen().then(...)`,
+`kiemRoiVe` và neo tiêu điểm của nó) trong một **tab riêng**, đóng khi xong. Tab đó mang một stub
+của `navigator.storage.estimate`/`persist` cài bằng `Page.addScriptToEvaluateOnNewDocument` —
+ngoại lệ có tên đã duyệt, không phải giấy phép dựng trình duyệt giả: không IndexedDB giả, không
+gì khác của `navigator.storage` bị thay. Stub đọc cấu hình từ `window.name` lúc gọi và trả ngay,
+trả giá trị cho trước, hoặc **treo** tới khi bộ đo nhả; nhờ vậy nó đo được: `persist()` từ chối
+ghi cờ `ghichu.persistDenied` và hạ ngưỡng dòng nhắc về 3 ngày, được cấp lại thì xóa cờ; một
+`persist()` **resolve muộn** hiện dòng nhắc mà không cần tải lại; khởi động không gọi
+`estimate()`; vượt vế byte hiện hàng 7 đúng câu; phép ghi thành công lúc lần kiểm còn treo không
+tắt hàng 7 (Q3); xóa qua hộp thoại khi dưới ngưỡng tắt nó (Q6); lần kiểm gỡ hàng 7 lúc `✕` đang
+giữ tiêu điểm đưa tiêu điểm về `#o-soan`, không `<body>` (Q5); `Enter` trên `✕` im tới hết phiên
+(Q1) và tải lại thì quên; `estimate()` thật khớp `vuotNguongDungLuong` của chính số thật. Mọi thao
+tác đi qua phím và DOM thật. Dọn bằng **ảnh chụp** chụp từ tab chính trước khi tab riêng tới origin
+(`notes`, bản nháp có chữ, `localStorage`), không `deleteDatabase` — tab chính còn cầm kết nối —
+rồi tải lại tab chính và đo lại.
 
 Nó **không** đo được phóng trình duyệt: CDP không đặt được mức zoom thật (`width` của
 `Emulation.setDeviceMetricsOverride` đã tính bằng điểm ảnh CSS, `deviceScaleFactor` chỉ đổi mật

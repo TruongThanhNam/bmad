@@ -13,7 +13,7 @@
 // Cần Edge hoặc Chrome; đặt GHICHU_BROWSER nếu nó nằm chỗ khác.
 
 import { fileURLToPath } from 'node:url';
-import { phucVuTinh, moTrinhDuyet, nghi } from './cdp.mjs';
+import { phucVuTinh, moTrinhDuyet, nghi, DOC_NOTES, DOC_DRAFTS } from './cdp.mjs';
 
 const ketQua = [];
 function ghi(ten, dat, chiTiet) {
@@ -2948,6 +2948,444 @@ try {
         )
         .catch(() => {});
       await nghi(1500);
+    }
+  }
+
+  // ── Story 8.1/8.2: `persist()` và `estimate()` lái bằng stub, trong một tab RIÊNG ─────────
+  //
+  // Chỗ nối 8.1/8.2 của `main.js` (`xinLuuTruBen().then(...)`, `kiemRoiVe` và neo Q5 của nó) chỉ
+  // chạy được trong trình duyệt thật, và trên máy phát triển ngưỡng dung lượng không bao giờ nổ.
+  // Nên tab riêng mang một stub của `navigator.storage.estimate`/`persist`, cài bằng
+  // `Page.addScriptToEvaluateOnNewDocument` — NGOẠI LỆ CÓ TÊN đã duyệt (Story 8.3, Q1 proposal
+  // 2026-09-28), không phải giấy phép dựng trình duyệt giả: không IndexedDB giả, không gì khác
+  // của `navigator.storage` bị thay. Stub điều khiển được: trả ngay, trả giá trị cho trước, hay
+  // TREO tới khi bộ đo nhả — đủ để lái persist muộn, và lần kiểm gỡ hàng 7 lúc `✕` giữ tiêu điểm.
+  //
+  // Cấu hình nằm trong `window.name` (sống qua tải lại cùng origin) và được đọc LÚC GỌI. Vắng
+  // hay đọc hỏng thì cả hai TREO: lần tải đầu của tab riêng chạy trước khi `window.name` mang cấu
+  // hình, và một `persist()` thật ở đó sẽ ghi cờ rồi phát `session-changed` sang tab chính.
+  //
+  // Dọn bằng ẢNH CHỤP chứ không `DON_SACH`: `deleteDatabase` khi tab chính còn cầm kết nối ép nó
+  // đóng qua `onversionchange`. Ảnh chụp đọc từ tab chính TRƯỚC khi tab riêng chạm origin.
+  {
+    const A = tab.sessionId;
+    const M = `const m = await import('/app/main.js');`;
+    const MB = 1024 * 1024;
+    const GB = 1024 * MB;
+    const VUOT = { usage: 5 * MB, quota: 40 * MB }; // vế byte: trống 35 MB, tỉ lệ 12,5 %
+    const DUOI = { usage: 5 * MB, quota: 60 * GB };
+    const CAU7 = 'Dung lượng sắp hết. Xuất sao lưu trước khi nó hết.';
+    const HANG7 = 'DUNG_LUONG_SAP_HET';
+    const BO_BA = ['ghichu.theme', 'ghichu.lastBackupAt', 'ghichu.persistDenied'];
+    const TIEN_TO = 'thu-8-3:';
+    const STUB = `
+      (() => {
+        const kho = navigator.storage;
+        if (!kho) return;
+        const uocThat = kho.estimate.bind(kho);
+        const TIEN_TO = ${JSON.stringify(TIEN_TO)};
+        const cauHinh = () => {
+          try {
+            return window.name.startsWith(TIEN_TO) ? JSON.parse(window.name.slice(TIEN_TO.length)) : {};
+          } catch {
+            return {};
+          }
+        };
+        const hangUoc = [];
+        const hangPersist = [];
+        window.__soLanUoc = 0;
+        window.__uocThat = null;
+        window.__soUocTreo = () => hangUoc.length;
+        window.__soPersistTreo = () => hangPersist.length;
+        window.__nhaUoc = (v) => { for (const ok of hangUoc.splice(0)) ok(v); return true; };
+        window.__nhaPersist = (v) => { for (const ok of hangPersist.splice(0)) ok(v); return true; };
+        kho.estimate = function () {
+          window.__soLanUoc += 1;
+          const che = cauHinh().uoc;
+          if (che === 'that') {
+            return uocThat().then((kq) => {
+              window.__uocThat = { usage: kq.usage, quota: kq.quota };
+              return kq;
+            });
+          }
+          if (che !== null && typeof che === 'object') return Promise.resolve({ ...che });
+          return new Promise((ok) => hangUoc.push(ok));
+        };
+        kho.persist = function () {
+          const che = cauHinh().persist;
+          if (che === true || che === false) return Promise.resolve(che);
+          return new Promise((ok) => hangPersist.push(ok));
+        };
+      })();
+    `;
+    const DOC_LS = `return Object.fromEntries(Object.keys(localStorage).sort().map((k) => [k, localStorage.getItem(k)]));`;
+    const DOC_CHAN = `return document.querySelector('.chan-nhac')?.textContent ?? null;`;
+
+    let anhChup = null;
+    let tabR = null;
+    let boNghe = null;
+    const loiR = [];
+    const mangR = [];
+    try {
+      // Ảnh chụp TRƯỚC khi tab riêng tới origin — lần ghi cờ đầu của stub không lọt vào "gốc".
+      const notesGoc = await cdp.chay(A, DOC_NOTES);
+      const draftsGoc = await cdp.chay(A, DOC_DRAFTS);
+      const lsGoc = await cdp.chay(A, DOC_LS);
+      const chanGoc = await cdp.chay(A, DOC_CHAN);
+      // Bản nháp RỖNG là rác mà chính app dọn ở MỌI lần `claimDraft` (bước 4 của AD-3, kể cả bản
+      // của tab khác và của chính tab chính khi nó tải lại) — nên tập so là các bản nháp CÓ CHỮ,
+      // cộng luật "không khóa nào ngoài ảnh chụp". Bản có chữ bị tab riêng nhận (bỏ rơi) thì trả.
+      const coChu = (x) => typeof x.text === 'string' && x.text !== '';
+      anhChup = {
+        notes: notesGoc.map((x) => x.id).sort(),
+        drafts: draftsGoc.map((x) => x.tabId).sort(),
+        draftsCoChu: draftsGoc.filter(coChu).map((x) => x.tabId).sort(),
+        banNhapCoChu: draftsGoc.filter(coChu),
+        ls: lsGoc,
+        chan: chanGoc,
+      };
+
+      tabR = await cdp.tabMoi('about:blank');
+      const s = tabR.sessionId;
+      boNghe = (ev) => {
+        const m = JSON.parse(ev.data);
+        if (m.sessionId !== s) return;
+        if (m.method === 'Runtime.exceptionThrown') {
+          const d = m.params.exceptionDetails;
+          loiR.push(d.exception?.description ?? d.text);
+        }
+        if (m.method === 'Runtime.consoleAPICalled' && m.params.type === 'error') {
+          loiR.push(JSON.stringify(m.params.args.map((a) => a.value ?? a.description)));
+        }
+        if (m.method === 'Network.requestWillBeSent') mangR.push(m.params.request.url);
+      };
+      cdp.ws.addEventListener('message', boNghe);
+      await cdp.goi('Page.enable', {}, s);
+      await cdp.goi('Runtime.enable', {}, s);
+      await cdp.goi('Network.enable', {}, s);
+      await cdp.goi('Emulation.setFocusEmulationEnabled', { enabled: true }, s);
+      await cdp.goi('Page.addScriptToEvaluateOnNewDocument', { source: STUB }, s);
+      await cdp.goi('Page.navigate', { url: server.diaChi }, s);
+      await cdp.doiSan(s);
+
+      const chay = (than) => cdp.chay(s, than);
+      /** Thăm dò có trần: đợi biểu thức (async, có `m`) ra thật; trả về giá trị cuối cùng. */
+      const doi = async (bieuThuc, soLan = 80) => {
+        let cuoi = false;
+        for (let i = 0; i < soLan; i += 1) {
+          cuoi = await chay(`${M} return Boolean(${bieuThuc});`);
+          if (cuoi) return true;
+          await nghi(100);
+        }
+        return cuoi;
+      };
+      const datCauHinh = (ch) => chay(`window.name = ${JSON.stringify(TIEN_TO + JSON.stringify(ch))}; return true;`);
+      const soUoc = () => chay(`return window.__soLanUoc;`);
+      const co = () => chay(`return localStorage.getItem('ghichu.persistDenied');`);
+      const chan = () => chay(DOC_CHAN);
+      /** Lượt vẽ ĐẦU của kho đã chạy: `notes` khớp kho và `document.title` mang đúng số hôm nay
+       *  (khác chuỗi tĩnh — mẩu mồi bảo đảm hôm nay có ít nhất một mẩu). State và tiêu đề đổi
+       *  trong cùng một chuỗi microtask, nên không lần đọc nào rơi vào giữa hai thứ. */
+      const doiVeDau = async () => {
+        const kho = (await chay(DOC_NOTES)).length;
+        return doi(`await (async () => {
+          const t = await import('/app/view/tieu-de.js');
+          const q = await import('/app/core/query.js');
+          const g = await import('/app/core/time.js');
+          const so = q.locGhiChu(m.store.state.notes, { keyword: null, date: null }, g.nowIso()).total;
+          return so > 0 && m.store.state.notes.length === ${kho} && document.title === t.tieuDe(so);
+        })()`);
+      };
+      /** Chốt qua phím thật: gõ vào `#o-soan`, rồi `Ctrl+Enter`. Trả về `true` khi lượt vẽ của
+       *  chính lần chốt đã chạy — ô soạn trống VÀ `notes` +1 mang đúng chữ. */
+      const chot = async (chu) => {
+        const truoc = await chay(`${M} return m.store.state.notes.length;`);
+        await chay(`document.querySelector('#o-soan').focus(); return true;`);
+        await cdp.goi('Input.insertText', { text: chu }, s);
+        const phim = { key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, modifiers: 2 };
+        await cdp.goi('Input.dispatchKeyEvent', { type: 'keyDown', ...phim }, s);
+        await cdp.goi('Input.dispatchKeyEvent', { type: 'keyUp', ...phim }, s);
+        return doi(
+          `document.querySelector('#o-soan').value === '' && m.store.state.notes.length === ${truoc + 1} && m.store.state.notes.some((x) => x.text === ${JSON.stringify(chu)})`,
+        );
+      };
+      /** `Enter` trên phần tử đang giữ tiêu điểm — `text: '\r'` để nút nhận `click` như phím thật. */
+      const enter = async () => {
+        await cdp.goi('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r' }, s);
+        await cdp.goi('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 }, s);
+      };
+      const doc = () =>
+        chay(`${M}
+          const c = document.querySelector('.dai-bang-chu');
+          const a = document.activeElement;
+          return {
+            loai: m.store.state.banner,
+            chu: c === null ? null : c.textContent,
+            dong: document.querySelector('.dai-bang-dong') !== null,
+            tieuDiem: a === null || a === document.body ? 'body' : a.id || String(a.className),
+          };`);
+      const HANG7_HIEN = `m.store.state.banner === ${JSON.stringify(HANG7)} && document.querySelector('.dai-bang-chu')?.textContent === ${JSON.stringify(CAU7)} && document.querySelector('.dai-bang-dong') !== null`;
+      const KHONG_BANG = `m.store.state.banner === null && document.querySelector('.dai-bang-chu') === null && document.querySelector('.dai-bang-dong') === null`;
+      const idCua = (chu) => chay(`${M} return m.store.state.notes.find((x) => x.text === ${JSON.stringify(chu)})?.id ?? null;`);
+
+      // Chuẩn bị: cấu hình rồi TẢI LẠI (window.name không chắc sống qua about:blank → origin),
+      // và một mẩu mồi hôm nay để `document.title` phân biệt được lượt vẽ đầu của kho.
+      await datCauHinh({ persist: 'treo', uoc: DUOI });
+      await cdp.taiLai(s);
+      await doi(`m.store.state.notes.length === ${(await chay(DOC_NOTES)).length}`);
+      const moi = await chot('thu-8-3 mẩu mồi');
+      ghi('Story 8.1 — chuẩn bị: tab riêng mang stub, chốt được mẩu mồi, không dải băng', moi && (await doc()).loai === null, JSON.stringify(await doc()));
+
+      // 8.1 từ chối: cờ gỡ và khẳng định VẮNG trước, rồi `persist` → false và tải lại.
+      await chay(`localStorage.removeItem('ghichu.persistDenied'); return true;`);
+      const coVang = (await co()) === null;
+      await datCauHinh({ persist: false, uoc: DUOI });
+      await cdp.taiLai(s);
+      const tuChoi = await doi(`localStorage.getItem('ghichu.persistDenied') === '1' && m.store.state.persistDenied === true`);
+      const khoa = Object.keys(await chay(DOC_LS));
+      ghi(
+        'Story 8.1 — persist() từ chối: cờ ghichu.persistDenied = "1", state bật, localStorage chỉ khóa trong bộ ba',
+        coVang && tuChoi && khoa.every((k) => BO_BA.includes(k)),
+        `cờ vắng trước=${coVang} · cờ/state=${tuChoi} · khóa ${JSON.stringify(khoa)}`,
+      );
+
+      // 8.1 ngưỡng 3: cờ bật, mốc sao lưu 4 ngày trước → dòng nhắc hiện (4 > 3).
+      await chay(`localStorage.setItem('ghichu.lastBackupAt', new Date(Date.now() - 4 * 86400000).toISOString()); return true;`);
+      const coBat = (await co()) === '1';
+      await cdp.taiLai(s);
+      const veDau2 = await doiVeDau();
+      const nhac3 = await doi(`(document.querySelector('.chan-nhac')?.textContent ?? '').includes('cách đây 4 ngày')`);
+      ghi(
+        'Story 8.1 — cờ bật + mốc sao lưu 4 ngày trước: dòng nhắc hiện (ngưỡng 3)',
+        coBat && veDau2 && nhac3,
+        `cờ bật trước=${coBat} · vẽ đầu=${veDau2} · chân ${JSON.stringify(await chan())}`,
+      );
+
+      // 8.1 được cấp lại: `persist` → true, tải lại → cờ bị xóa, dòng nhắc rỗng (4 ≤ 7).
+      const nhacTruoc = await chan();
+      await datCauHinh({ persist: true, uoc: DUOI });
+      await cdp.taiLai(s);
+      const goCo = await doi(`localStorage.getItem('ghichu.persistDenied') === null && m.store.state.persistDenied === false`);
+      const veDau3 = await doiVeDau();
+      const nhacSau = await chan();
+      ghi(
+        'Story 8.1 — persist() được cấp lại: cờ bị xóa, sau lượt vẽ đầu của kho dòng nhắc rỗng (ngưỡng 7)',
+        (nhacTruoc ?? '').includes('cách đây 4 ngày') && goCo && veDau3 && nhacSau === '',
+        `chân trước ${JSON.stringify(nhacTruoc)} · cờ gỡ=${goCo} · vẽ đầu=${veDau3} · chân sau ${JSON.stringify(nhacSau)}`,
+      );
+
+      // 8.1 persist muộn: cờ vắng, `persist` TREO, tải lại. Đợi lượt vẽ đầu của kho, khẳng định
+      // chân trang rỗng + cờ vắng + lời xin đang treo; rồi nhả `false` — dòng nhắc phải hiện
+      // KHÔNG cần tải lại (đó là lượt vẽ `xinLuuTruBen().then(...)` của `main.js`).
+      const coVang4 = (await co()) === null;
+      await datCauHinh({ persist: 'treo', uoc: DUOI });
+      await cdp.taiLai(s);
+      const veDau4 = await doiVeDau();
+      const truocNha = await chay(`window.__moc83 = 1; return { chan: document.querySelector('.chan-nhac').textContent, co: localStorage.getItem('ghichu.persistDenied'), treo: window.__soPersistTreo() };`);
+      await chay(`return window.__nhaPersist(false);`);
+      const hienMuon = await doi(`(document.querySelector('.chan-nhac')?.textContent ?? '').includes('cách đây 4 ngày') && localStorage.getItem('ghichu.persistDenied') === '1'`, 30);
+      const cungTaiLieu = await chay(`return window.__moc83 === 1;`);
+      ghi(
+        'Story 8.1 — persist() resolve muộn (false): dòng nhắc hiện và cờ = "1" mà không tải lại',
+        coVang4 && veDau4 && truocNha.chan === '' && truocNha.co === null && truocNha.treo === 1 && hienMuon && cungTaiLieu,
+        `cờ vắng=${coVang4} · vẽ đầu=${veDau4} · trước nhả ${JSON.stringify(truocNha)} · sau nhả=${hienMuon} ${JSON.stringify(await chan())} · cùng tài liệu=${cungTaiLieu}`,
+      );
+
+      // 8.2 khởi động: tài liệu này chưa chốt gì, và nó đã chạy qua lượt vẽ đầu của kho.
+      const uocKhoiDong = await soUoc();
+      ghi('Story 8.2 — khởi động: estimate() được gọi 0 lần', uocKhoiDong === 0, `__soLanUoc=${uocKhoiDong}`);
+
+      // 8.2 vượt vế byte: chốt → ô soạn trống, hàng 7 đúng câu, có `✕`, không chữ số/`%`.
+      const khongBang6 = await doi(KHONG_BANG, 1);
+      await datCauHinh({ persist: 'treo', uoc: VUOT });
+      const CHU_VUOT = 'thu-8-3 vượt vế byte';
+      const chot6 = await chot(CHU_VUOT);
+      const hien6 = await doi(HANG7_HIEN);
+      const d6 = await doc();
+      ghi(
+        'Story 8.2 — vượt vế byte: ô soạn trống, hàng 7 đúng câu, có ✕, không chữ số hay %',
+        khongBang6 && chot6 && hien6 && !/[%\d]/.test(d6.chu ?? '0'),
+        JSON.stringify({ khongBangTruoc: khongBang6, chot: chot6, ...d6 }),
+      );
+
+      // Q3: hàng 7 đang hiện, lần kiểm TREO; chốt tiếp → trong lúc treo hàng 7 VẪN hiện (phép ghi
+      // thành công không tắt nó — `tatSauKhiGhi()`); nhả VUOT → vẫn còn.
+      const hien7 = await doi(HANG7_HIEN, 1);
+      await datCauHinh({ persist: 'treo', uoc: 'treo' });
+      const u7 = await soUoc();
+      const chot7 = await chot('thu-8-3 Q3 chốt khi đang kiểm');
+      const dangTreo7 = await doi(`window.__soLanUoc === ${u7 + 1} && window.__soUocTreo() === 1`, 20);
+      const conTrongLucTreo = await doi(HANG7_HIEN, 1);
+      await chay(`return window.__nhaUoc(${JSON.stringify(VUOT)});`);
+      const conSauNha = await doi(`window.__soUocTreo() === 0 && ${HANG7_HIEN}`, 20);
+      ghi(
+        'Story 8.2 — Q3: chốt thành công lúc lần kiểm treo không tắt hàng 7; nhả vượt → vẫn còn',
+        hien7 && chot7 && dangTreo7 && conTrongLucTreo && conSauNha,
+        `trước=${hien7} · chốt=${chot7} · treo=${dangTreo7} · còn lúc treo=${conTrongLucTreo} · còn sau nhả=${conSauNha}`,
+      );
+
+      // Q6: dưới ngưỡng, xóa mẩu CỦA KHỐI qua hộp thoại → hàng 7 tắt.
+      const hien8 = await doi(HANG7_HIEN, 1);
+      await datCauHinh({ persist: 'treo', uoc: DUOI });
+      const idXoa = await idCua(CHU_VUOT);
+      const u8 = await soUoc();
+      const CHON_NUT_XOA = `.luoi > [data-mau="${idXoa}"] .mau-xoa`;
+      await chay(`document.querySelector(${JSON.stringify(CHON_NUT_XOA)})?.click(); return true;`);
+      const coHop = await doi(`document.querySelector('.hop-thoai-xoa') !== null`, 30);
+      await chay(`document.querySelector('.hop-thoai-xoa')?.click(); return true;`);
+      const tat8 = await doi(`!m.store.state.notes.some((x) => x.id === ${JSON.stringify(idXoa)}) && window.__soLanUoc === ${u8 + 1} && ${KHONG_BANG}`);
+      ghi(
+        'Story 8.2 — Q6: xóa qua hộp thoại khi dưới ngưỡng → hàng 7 tắt',
+        hien8 && idXoa !== null && coHop && tat8,
+        `trước=${hien8} · id=${idXoa} · hộp=${coHop} · sau ${JSON.stringify(await doc())}`,
+      );
+
+      // Q5: dựng lại hàng 7; lần kiểm TREO qua lượt chốt; tiêu điểm lên `✕`; nhả dưới ngưỡng →
+      // hàng 7 bị gỡ cùng `✕` đang giữ tiêu điểm → tiêu điểm về `#o-soan`, không `<body>`.
+      await datCauHinh({ persist: 'treo', uoc: VUOT });
+      const dung9 = (await chot('thu-8-3 Q5 dựng lại hàng 7')) && (await doi(HANG7_HIEN));
+      await datCauHinh({ persist: 'treo', uoc: 'treo' });
+      const u9 = await soUoc();
+      const chot9 = await chot('thu-8-3 Q5 chốt khi đang kiểm');
+      const treo9 = await doi(`window.__soLanUoc === ${u9 + 1} && window.__soUocTreo() === 1`, 20);
+      const trenDong = await chay(`document.querySelector('.dai-bang-dong')?.focus(); return document.activeElement?.matches('.dai-bang-dong') ?? false;`);
+      await chay(`return window.__nhaUoc(${JSON.stringify(DUOI)});`);
+      const tat9 = await doi(KHONG_BANG, 30);
+      const d9 = await doc();
+      ghi(
+        'Story 8.2 — Q5: lần kiểm gỡ hàng 7 lúc ✕ giữ tiêu điểm → tiêu điểm về #o-soan, không <body>',
+        dung9 && chot9 && treo9 && trenDong && tat9 && d9.tieuDiem === 'o-soan',
+        `dựng=${dung9} · chốt=${chot9} · treo=${treo9} · trên ✕=${trenDong} · tắt=${tat9} · ${JSON.stringify(d9)}`,
+      );
+
+      // Q1: dựng lại hàng 7, `Enter` trên `✕` → đóng, tiêu điểm `#o-soan`; chốt tiếp khi vẫn vượt
+      // → estimate không được gọi, hàng 7 không hiện lại (neo SAU lượt vẽ của chính lần chốt).
+      await datCauHinh({ persist: 'treo', uoc: VUOT });
+      const dung10 = (await chot('thu-8-3 Q1 dựng lại hàng 7')) && (await doi(HANG7_HIEN));
+      const trenDong10 = await chay(`document.querySelector('.dai-bang-dong')?.focus(); return document.activeElement?.matches('.dai-bang-dong') ?? false;`);
+      await enter();
+      const dong10 = await doi(KHONG_BANG, 30);
+      const d10 = await doc();
+      const u10 = await soUoc();
+      const chot10 = await chot('thu-8-3 Q1 chốt sau khi đóng');
+      const u10Sau = await soUoc();
+      const im10 = await doi(KHONG_BANG, 1);
+      ghi(
+        'Story 8.2 — Q1: Enter trên ✕ đóng hàng 7, tiêu điểm #o-soan; chốt tiếp khi vẫn vượt → không kiểm, không hiện lại',
+        dung10 && trenDong10 && dong10 && d10.tieuDiem === 'o-soan' && chot10 && u10Sau === u10 && im10,
+        `dựng=${dung10} · trên ✕=${trenDong10} · đóng ${JSON.stringify(d10)} · chốt=${chot10} · estimate ${u10}→${u10Sau} · im=${im10}`,
+      );
+
+      // Tải lại là quên `daDongCanhBao`: chốt khi vượt → hàng 7 hiện lại.
+      await cdp.taiLai(s);
+      const veDau11 = await doiVeDau();
+      const uocTai = await soUoc();
+      const chot11 = await chot('thu-8-3 sau tải lại');
+      const hien11 = await doi(HANG7_HIEN);
+      ghi(
+        'Story 8.2 — tải lại sau khi đóng: estimate 0 lần lúc khởi động, chốt khi vượt → hàng 7 hiện lại',
+        veDau11 && uocTai === 0 && chot11 && hien11,
+        `vẽ đầu=${veDau11} · estimate lúc tải=${uocTai} · chốt=${chot11} · hiện=${hien11}`,
+      );
+
+      // Estimate thật: stub nhường hàm thật; so với `vuotNguongDungLuong` của CHÍNH số thật mà
+      // app vừa thấy (`__uocThat`) — không phụ thuộc đĩa máy, không gọi estimate lần hai.
+      const bangTruoc = (await doc()).loai;
+      await datCauHinh({ persist: 'treo', uoc: 'that' });
+      const u12 = await soUoc();
+      const chot12 = await chot('thu-8-3 estimate thật');
+      const coThat = await doi(`window.__soLanUoc === ${u12 + 1} && window.__uocThat !== null`, 50);
+      const that = await chay(`
+        const s = await import('/app/core/state.js');
+        const u = window.__uocThat;
+        return u === null ? null : { ...u, vuot: s.vuotNguongDungLuong({ used: u.usage, limit: u.quota }) };`);
+      const mongDoi = that === null ? undefined : that.vuot === true ? HANG7 : that.vuot === false ? null : bangTruoc;
+      const khop12 =
+        mongDoi !== undefined &&
+        (await doi(
+          mongDoi === HANG7 ? HANG7_HIEN : mongDoi === null ? KHONG_BANG : `m.store.state.banner === ${JSON.stringify(mongDoi)}`,
+          30,
+        ));
+      ghi(
+        'Story 8.2 — estimate thật: gọi đúng một lần, dải băng khớp vuotNguongDungLuong của chính số thật',
+        chot12 && coThat && khop12,
+        `usage=${that?.usage} · quota=${that?.quota} · vượt=${that?.vuot} · trước=${bangTruoc} · mong=${mongDoi} · thấy=${(await doc()).loai}`,
+      );
+
+      const ngoai = mangR.filter((u) => !u.startsWith(server.diaChi) && !u.startsWith('about:') && !u.startsWith('data:'));
+      ghi('Story 8.2 — tab riêng: 0 lỗi console/ngoại lệ', loiR.length === 0, JSON.stringify(loiR));
+      ghi('Story 8.2 — tab riêng: 0 request ra ngoài origin', ngoai.length === 0, JSON.stringify(ngoai));
+    } catch (loi) {
+      ghi('Story 8.2 — khối Story 8.1/8.2 chạy hết không ném', false, String(loi?.stack ?? loi));
+    } finally {
+      if (boNghe !== null) cdp.ws.removeEventListener('message', boNghe);
+      // Tab riêng đóng TRƯỚC: bước dọn không phụ thuộc nó còn sống.
+      if (tabR !== null) await cdp.dongTab(tabR.targetId).catch(() => {});
+      if (anhChup === null) {
+        ghi('Story 8.2 — dọn sạch: kho và localStorage về đúng ảnh chụp', false, 'chưa chụp được ảnh — bỏ bước trả, không clear()');
+      } else {
+        // Một giao dịch `readwrite` trần trên `notes` + `drafts` (không `deleteDatabase`, nên không
+        // `versionchange`): xóa mọi khóa không có trong ảnh chụp. Rồi trả `localStorage` y cũ.
+        await cdp
+          .chay(
+            A,
+            `const giuNotes = new Set(${JSON.stringify(anhChup.notes)});
+             const giuDrafts = new Set(${JSON.stringify(anhChup.drafts)});
+             const kho = await new Promise((ok, no) => {
+               const y = indexedDB.open('ghichu');
+               y.onsuccess = () => ok(y.result);
+               y.onerror = () => no(y.error);
+             });
+             await new Promise((ok, no) => {
+               const gd = kho.transaction(['notes', 'drafts'], 'readwrite');
+               for (const [ten, giu] of [['notes', giuNotes], ['drafts', giuDrafts]]) {
+                 const st = gd.objectStore(ten);
+                 const y = st.getAllKeys();
+                 y.onsuccess = () => {
+                   for (const k of y.result) if (!giu.has(k)) st.delete(k);
+                   if (ten !== 'drafts') return;
+                   const co = new Set(y.result);
+                   for (const b of ${JSON.stringify(anhChup.banNhapCoChu)}) if (!co.has(b.tabId)) st.put(b);
+                 };
+               }
+               gd.oncomplete = ok;
+               gd.onerror = () => no(gd.error);
+               gd.onabort = () => no(gd.error);
+             });
+             kho.close();
+             const cu = ${JSON.stringify(anhChup.ls)};
+             for (const k of Object.keys(localStorage)) if (!(k in cu)) localStorage.removeItem(k);
+             for (const [k, v] of Object.entries(cu)) localStorage.setItem(k, v);
+             return true;`,
+          )
+          .catch(() => {});
+        // Ghi thô vào `localStorage` không phát tin, và tab chính đang giữ mốc/cờ bị nhiễm qua
+        // `napLaiPhien` — tải lại là đường duy nhất đưa state của nó về đúng kho.
+        await cdp.taiLai(A).catch(() => {});
+        let chanSau = null;
+        for (let i = 0; i < 50; i += 1) {
+          chanSau = await cdp
+            .chay(A, `const m = await import('/app/main.js'); return m.store.state.notes.length === ${anhChup.notes.length} ? document.querySelector('.chan-nhac')?.textContent ?? null : undefined;`)
+            .catch(() => undefined);
+          if (chanSau === anhChup.chan) break;
+          await nghi(100);
+        }
+        const notesSau = (await cdp.chay(A, DOC_NOTES).catch(() => [])).map((x) => x.id).sort();
+        const banNhapSau = await cdp.chay(A, DOC_DRAFTS).catch(() => []);
+        const draftsSau = banNhapSau.map((x) => x.tabId).sort();
+        const draftsCoChuSau = banNhapSau.filter((x) => typeof x.text === 'string' && x.text !== '').map((x) => x.tabId).sort();
+        const lsSau = await cdp.chay(A, DOC_LS).catch(() => null);
+        const bang = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+        ghi(
+          'Story 8.2 — dọn sạch: notes, drafts, localStorage về đúng ảnh chụp; chân trang tab chính khớp trước khối',
+          bang(notesSau, anhChup.notes) &&
+            draftsSau.every((k) => anhChup.drafts.includes(k)) &&
+            bang(draftsCoChuSau, anhChup.draftsCoChu) &&
+            bang(lsSau, anhChup.ls) &&
+            chanSau === anhChup.chan,
+          `notes ${anhChup.notes.length}→${notesSau.length} · drafts ${JSON.stringify(anhChup.drafts)}→${JSON.stringify(draftsSau)} (có chữ ${anhChup.draftsCoChu.length}→${draftsCoChuSau.length}) · ls ${JSON.stringify(anhChup.ls)}→${JSON.stringify(lsSau)} · chân ${JSON.stringify(anhChup.chan)}→${JSON.stringify(chanSau)}`,
+        );
+      }
     }
   }
 } finally {
