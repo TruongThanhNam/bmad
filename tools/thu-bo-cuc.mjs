@@ -3149,9 +3149,11 @@ try {
         `cờ vắng trước=${coVang} · cờ/state=${tuChoi} · khóa ${JSON.stringify(khoa)}`,
       );
 
-      // 8.1 ngưỡng 3: cờ bật, mốc sao lưu 4 ngày trước → dòng nhắc hiện (4 > 3).
+      // 8.1 ngưỡng 3: cờ bật, mốc sao lưu 4 ngày trước → dòng nhắc hiện (4 > 3). `persist` TREO để
+      // dòng nhắc chỉ có thể đến từ cờ đã lưu đọc lúc khởi động, không từ lần xin mới bị từ chối.
       await chay(`localStorage.setItem('ghichu.lastBackupAt', new Date(Date.now() - 4 * 86400000).toISOString()); return true;`);
       const coBat = (await co()) === '1';
+      await datCauHinh({ persist: 'treo', uoc: DUOI });
       await cdp.taiLai(s);
       const veDau2 = await doiVeDau();
       const nhac3 = await doi(`(document.querySelector('.chan-nhac')?.textContent ?? '').includes('cách đây 4 ngày')`);

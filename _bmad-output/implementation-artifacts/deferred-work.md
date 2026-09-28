@@ -246,3 +246,9 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-3-khoi-kiem-dung-luong-chay-that-trong-thu-bo-cuc.md`
   summary: Luật AGENTS.md "mỗi chỗ nối mới trong main.js phải có một ca thu-bo-cuc" không nói ai chạy `npm run thu-bo-cuc` và lúc nào, trong khi nó nằm ngoài `npm test` — cổng duy nhất.
   evidence: Không có CI; không nói rõ thì luật không kiểm được. Gợi ý: chạy trước mỗi lần push chạm `app/main.js`. Hoãn vì sửa tệp ngữ cảnh agent.
+
+## Deferred from: code review of spec-8-3-khoi-kiem-dung-luong-chay-that-trong-thu-bo-cuc.md — lượt 2 (2026-09-28)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-3-khoi-kiem-dung-luong-chay-that-trong-thu-bo-cuc.md`
+  summary: Ca "Story 8.1 — persist() resolve muộn" không đặt tiêu điểm/chữ vào `#o-soan` trước khi nhả, nên đổi `xinLuuTruBen().then(() => veGiuTieuDiem(...))` thành `.then(veTatCa)` trần vẫn xanh — đúng lý do chỗ nối dùng `veGiuTieuDiem` (Firefox resolve lúc Nam đang gõ) không được đo.
+  evidence: `tools/thu-bo-cuc.mjs:3180-3192` chỉ khẳng định chân trang + cờ. Cùng họ với mục nhánh `undefined` của `kiemRoiVe` ở trên. Cần: focus `#o-soan`, gõ chữ, rồi nhả `false`; khẳng định `activeElement` vẫn là `#o-soan` và giá trị còn nguyên.

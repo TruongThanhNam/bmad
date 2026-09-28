@@ -73,12 +73,40 @@ context:
 - [x] `README.md` -- đoạn mô tả khối mới; trỏ từ mục 8.1/8.2.
 - [x] `deferred-work.md` -- gạch `:216` và `:230` kèm `resolved:`.
 - [x] `AGENTS.md` -- qua `bmad-project-context`.
-- [ ] `sprint-status.yaml` -- khóa story theo trạng thái build; `epic-8-retro-item-32` → `done`.
+- [x] `sprint-status.yaml` -- khóa story theo trạng thái build; `epic-8-retro-item-32` → `done`.
 
 **Acceptance Criteria:**
 - Given `npm run thu-bo-cuc` trên Edge/Chrome, when chạy, then mọi ca `Story 8.1 —`/`Story 8.2 —` PASS và chỉ ca chập chờn "tải lại: mọi mẩu về thu gọn" được phép đỏ.
 - Given một chỗ nối bị đổi thử (bỏ `.then(() => veGiuTieuDiem(...))` sau `xinLuuTruBen`; neo `kiemRoiVe` đổi thành `undefined` trần; `tatSauKhiGhi()` đổi thành `{ banner: null }`), when chạy lại, then đúng ca tương ứng (persist muộn / Q5 / Q3) đỏ — thử từng cái rồi hoàn tác, `git diff -- app/` rỗng sau cùng, ghi kết quả vào Implementation Notes.
 - Given `npm test`, when chạy, then xanh (không đổi gì).
+
+### Review Findings
+
+Lượt review 2 (2026-09-28), diff `106911f..709a020`, 4 lớp (blind, edge, verification-gap, acceptance).
+
+- [x] [Review][Patch] Ca "8.1 ngưỡng 3" tải lại khi stub vẫn `persist: false` — dòng nhắc hiện nhờ lượt vẽ của lần xin MỚI bị từ chối, không chứng minh khởi động đọc cờ đã lưu; đặt `datCauHinh({ persist: 'treo', uoc: DUOI })` trước `cdp.taiLai(s)` để ca đo đúng tên nó [tools/thu-bo-cuc.mjs:3153]
+- [x] [Review][Patch] README đoạn "Bố cục bốn tầng" còn ghi khối đo "hạ ngưỡng dòng nhắc về 3 ngày" — cùng lỗi Triage #3 đã vá ở mục 8.1 nhưng sót chỗ này; mọi ca chỉ đo mốc 4 ngày [README.md:368]
+- [x] [Review][Defer] Ca "persist() resolve muộn" không đặt tiêu điểm/chữ trong `#o-soan` trước khi nhả, nên đổi `.then(() => veGiuTieuDiem(...))` thành `.then(veTatCa)` vẫn xanh — lý do chỗ nối dùng `veGiuTieuDiem` (Firefox resolve lúc Nam đang gõ) không được đo [tools/thu-bo-cuc.mjs:3180-3192] — deferred: cùng họ Triage #2 (nhánh giữ tiêu điểm của chỗ nối 8.1/8.2 chưa có ca), ngoài Matrix 8.3
+
+**Rejected:**
+- Hai chỗ nối `mocSua.go`/`napRoiVe` không có ca chạy thật (VG + blind) — trùng Triage #1, đã defer.
+- Nhánh `undefined` của neo `kiemRoiVe` không có ca (blind) — trùng Triage #2, đã defer.
+- README "phím và DOM thật" vs `.click()`/`.focus()` (blind + edge) — trùng Triage #4, false.
+- `chot()` không xóa `#o-soan` trước khi gõ (blind + edge) — trùng Triage #5.
+- Stub im lặng khi thiếu `navigator.storage` (blind) — trùng Triage #9, false.
+- `truocNha` đọc `.chan-nhac` không `?.` (edge) — trùng Triage #8, false.
+- Chạy vắt qua nửa đêm (blind + edge) — trùng Triage #14.
+- Q6 không kiểm tiêu điểm sau hộp thoại (blind) — trùng Triage #7.
+- `persist()` muộn chỉ nhả `false`, không nhả `true` (blind) — low: ngoài Matrix, sửa là thêm ca.
+- README 8.2 không nói vế tỉ lệ ≥80% vẫn tay (blind) — false: đoạn liệt kê rõ "vế byte" và ghi "các bước tay trên giữ nguyên".
+- Ca "estimate thật" chỉ đọc số lần gọi một lúc (blind) — false: thăm dò đòi đúng `u12 + 1`; gọi đôi cho `+2` thì không bao giờ khớp → đỏ.
+- Nhãn "Story 8.2 —" cho ca chung của khối (blind) — low: tiền tố là quy ước AC dùng để nhận ca của khối; đổi là chạm cách nhận.
+- `closeTarget` trả về trước khi tab riêng gỡ xong, ghi muộn lọt sau dọn (edge) — low/maybe: tab riêng chờ `persist`/`estimate` treo, không ghi gì sau ca cuối; nếu lọt thì ca "dọn sạch" đỏ ầm.
+- Cửa sổ `4 * 86400000` vắt qua DST (edge) — low: máy chạy múi không DST, sửa là thêm nhánh.
+- "Sạch" chỉ nghe tab riêng, không tab chính (acceptance) — low: tên ca ghi rõ "tab riêng"; sửa là thêm bộ nghe thứ hai.
+- Đột biến 3 làm đỏ lan sang Q6… (acceptance) — false: AC đòi ca tương ứng đỏ, Q3 đỏ; ca sau đỏ theo vì mất hàng 7 là hệ quả đúng, đã ghi ở Implementation Notes.
+- Hai commit thay vì một `test:` (acceptance) — false: commit thứ hai là bản vá của lượt review, khuôn các story trước.
+- `sprint-status.yaml` và `epic-8-retro-item-32` chưa `done` (acceptance) — không phải lỗi mã; bước đồng bộ trạng thái của chính lượt review này xử lý.
 
 ## Implementation Notes
 

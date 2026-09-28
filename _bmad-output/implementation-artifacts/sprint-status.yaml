@@ -92,7 +92,7 @@ development_status:
   8-0-dọn-action-item-retro-epic-7: done
   8-1-xin-lưu-trữ-bền-và-nói-to-hơn-khi-bị-từ-chối: done
   8-2-cảnh-báo-trước-ngưỡng-dung-lượng: done
-  8-3-khối-kiểm-dung-lượng-chạy-thật-trong-thu-bo-cuc: review
+  8-3-khối-kiểm-dung-lượng-chạy-thật-trong-thu-bo-cuc: done
   8-4-lượt-vẽ-bất-đồng-bộ-không-thả-tiêu-điểm-không-vẽ-trước-kho: backlog
   epic-8-retrospective: done
 action_items:
@@ -308,7 +308,7 @@ action_items:
     action: "Dua khoi kiem 8.1/8.2 (stub estimate) vao tools/thu-bo-cuc.mjs, gach
       deferred-work 216 va 230 (F2)"
     owner: "namtt"
-    status: in-progress
+    status: done
     note: "Gop vao Story 8.3 (sprint-change-proposal-2026-09-28)."
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-09-28.md"
   - id: "epic-8-retro-item-33-readme-8-2-buoc-a-doi-quota-khong-canh-b"

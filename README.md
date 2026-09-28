@@ -365,7 +365,8 @@ của `navigator.storage.estimate`/`persist` cài bằng `Page.addScriptToEvalua
 ngoại lệ có tên đã duyệt, không phải giấy phép dựng trình duyệt giả: không IndexedDB giả, không
 gì khác của `navigator.storage` bị thay. Stub đọc cấu hình từ `window.name` lúc gọi và trả ngay,
 trả giá trị cho trước, hoặc **treo** tới khi bộ đo nhả; nhờ vậy nó đo được: `persist()` từ chối
-ghi cờ `ghichu.persistDenied` và hạ ngưỡng dòng nhắc về 3 ngày, được cấp lại thì xóa cờ; một
+ghi cờ `ghichu.persistDenied`, cờ bật thì mốc 4 ngày hiện dòng nhắc ngay lúc khởi động (không đo
+sát biên 3/7), được cấp lại thì xóa cờ; một
 `persist()` **resolve muộn** hiện dòng nhắc mà không cần tải lại; khởi động không gọi
 `estimate()`; vượt vế byte hiện hàng 7 đúng câu; phép ghi thành công lúc lần kiểm còn treo không
 tắt hàng 7 (Q3); xóa qua hộp thoại khi dưới ngưỡng tắt nó (Q6); lần kiểm gỡ hàng 7 lúc `✕` đang
