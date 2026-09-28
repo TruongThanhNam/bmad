@@ -172,7 +172,7 @@ Mục không đánh số để khỏi xê dịch số các mục đã được t
   phép — nếu không, hộp này sẽ hỏi lại mỗi lần mở."
 - **Không có dải băng nào** vì lần xin này, ở cả hai kết quả.
 
-Từ Story 8.3, phần lõi của mục này (cờ, ngưỡng 3/7 ngày, `persist()` resolve muộn) đã chạy bằng
+Từ Story 8.3, phần lõi của mục này (cờ, dòng nhắc ở mốc 4 ngày — hiện khi cờ bật, ẩn khi cờ gỡ; không ca nào đo sát biên 3 hay 7 — và `persist()` resolve muộn) đã chạy bằng
 máy trong khối "Story 8.1/8.2" của `npm run thu-bo-cuc`; các bước tay trên giữ nguyên, nhất là
 nửa Firefox mà bộ đo không với tới.
 
