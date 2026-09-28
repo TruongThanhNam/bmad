@@ -127,8 +127,7 @@ trước đó thì gọi qua `import('./app/main.js')` trong Console.
    ghi chú. DevTools → Application → IndexedDB: phải thấy kho `ghichu` ở **version 1**, có
    object store `notes` (keyPath `id`) mang index `localDate`, **và** object store `drafts`
    (keyPath `tabId`) — `drafts` rỗng ở story này, nhưng nó phải có mặt.
-2. **Bản ghi đúng năm trường.** Mở một bản ghi trong `notes`: đúng `id · createdAt · localDate
-   · text · textFolded`, không hơn. `localDate` bằng 10 ký tự đầu của `createdAt`, và
+2. **Bản ghi đúng năm trường.** Mở một bản ghi trong `notes`: đúng `id · createdAt · localDate · text · textFolded`, không hơn. `localDate` bằng 10 ký tự đầu của `createdAt`, và
    `createdAt` mang offset tại chỗ (`+07:00`), **không** phải `Z`.
 3. **Ghi chú sống qua lần tải lại.** Thêm hai ghi chú, tải lại trang: cả hai còn đó, mẩu mới
    nhất ở trên. Đóng hẳn tab rồi mở lại: vẫn còn.
@@ -176,24 +175,35 @@ Mục không đánh số để khỏi xê dịch số các mục đã được t
 ### `app/adapters/quota.js` — cảnh báo trước ngưỡng dung lượng (Story 8.2)
 
 Mục không đánh số, cùng lý do mục trên. Mở trang qua HTTP localhost trên Chrome/Edge, DevTools
-mở; tab Network phải không có request mới nào ở mọi bước dưới đây. Trên Chromium quota bám theo
-đĩa trống, nên giả lập quota nhỏ cũng chỉ thử **vế byte trống** (còn dưới 50 MB), không thử vế
-tỉ lệ 80% — vế tỉ lệ chỉ ghim bằng test đơn vị.
+mở; tab Network phải không có request mới nào ở mọi bước dưới đây. Đóng mọi tab khác của app
+trước (tab chỉ đọc không kiểm dung lượng).
 
-- **(a) Vế byte — bật và không bật.** DevTools → Application → Storage → tích "Simulate custom
-  storage quota", đặt **40 MB**, rồi chốt một ghi chú: ô soạn **trống ngay**, và dải băng hiện
-  đúng `Dung lượng sắp hết. Xuất sao lưu trước khi nó hết.` có nút `✕`, Console sạch. Đổi giả
-  lập sang **100 MB** với kho gần rỗng (chưa tới 10 MB dữ liệu), tải lại, chốt: **không** cảnh báo
-  (còn trống ~90 MB, cách xa ngưỡng 50 MB dù DevTools tính MB theo hệ nào).
-- **(b) Con số khớp quyết định.** Ở mỗi bước trên, chạy `await navigator.storage.estimate()`
-  trong Console: `quota − usage` dưới 50 MB (hoặc `usage/quota` ≥ 0.8) đúng khi và chỉ khi dải
-  băng hiện sau lần chốt kế.
-- **(c) Đĩa thật.** Bỏ tích giả lập, tải lại, chốt: không cảnh báo (trừ khi đĩa thật sự gần đầy).
-- **(d) `✕` im tới hết phiên.** Với giả lập 40 MB và dải băng đang hiện: bấm `✕` — tiêu điểm
+**Giả lập quota bằng stub Console, không bằng DevTools.** Ô "Simulate custom storage quota"
+(Application → Storage) **không** tác động lên `navigator.storage.estimate()`: đã thử trên
+Chrome/Edge có giao diện lẫn headless, `quota` vẫn luôn bằng `usage` + đúng 10 GiB. Thay vào đó,
+dán vào Console:
+
+```js
+navigator.storage.estimate = async () => ({ usage: 0, quota: 40e6 });  // vượt vế byte
+navigator.storage.estimate = async () => ({ usage: 0, quota: 100e6 }); // dưới ngưỡng
+```
+
+`adapters/quota.js` đọc lại `navigator.storage.estimate` ở mỗi lần gọi, nên stub có hiệu lực ngay
+mà vẫn chạy thật adapter → store → dải băng. Stub **mất khi tải lại** — dán lại sau mỗi lần tải.
+Stub cũng thử được vế tỉ lệ 80% (vd `{ usage: 90e9, quota: 100e9 }`), dù test đơn vị đã ghim nó.
+
+- **(a) Vế byte — bật và không bật.** Stub **40 MB**, rồi chốt một ghi chú: ô soạn **trống
+  ngay**, và dải băng hiện đúng `Dung lượng sắp hết. Xuất sao lưu trước khi nó hết.` có nút `✕`,
+  Console sạch. Stub **100 MB**, chốt tiếp: cảnh báo **tắt** (còn trống 100 MB, trên ngưỡng 50 MiB).
+- **(b) Con số thật.** Tải lại (bỏ stub), chạy `await navigator.storage.estimate()` trong
+  Console: phải trả hai con số (`quota`, `usage`); `quota − usage` dưới 50 MiB (hoặc
+  `usage/quota` ≥ 0.8) đúng khi và chỉ khi dải băng hiện sau lần chốt kế.
+- **(c) Đĩa thật.** Không stub, chốt: không cảnh báo (trừ khi đĩa thật sự gần đầy).
+- **(d) `✕` im tới hết phiên.** Với stub 40 MB và dải băng đang hiện: bấm `✕` — tiêu điểm
   về ô soạn, không rơi về đầu trang. Chốt thêm, sửa một mẩu, xóa một mẩu: cảnh báo **không**
-  hiện lại. Tải lại rồi chốt: cảnh báo **hiện lại**.
-- **Ba đường kích còn lại.** Với giả lập 40 MB, chưa bấm `✕` trong phiên (tải lại trước mỗi
-  bước): sửa một mẩu rồi đợi tự lưu → cảnh báo hiện; xóa một mẩu qua hộp thoại → cảnh báo hiện;
+  hiện lại. Tải lại, dán lại stub 40 MB rồi chốt: cảnh báo **hiện lại**.
+- **Ba đường kích còn lại.** Với stub 40 MB, chưa bấm `✕` trong phiên (tải lại và dán lại stub
+  trước mỗi bước): sửa một mẩu rồi đợi tự lưu → cảnh báo hiện; xóa một mẩu qua hộp thoại → cảnh báo hiện;
   nạp một file sao lưu → dải băng kết quả nạp (hàng 6) thắng và hàng 7 **không** hiện — đúng như
   dự kiến (Q2). Trình duyệt trả `{used: null, limit: null}` (không có `estimate`) thì không bao
   giờ cảnh báo.
@@ -239,7 +249,7 @@ gọi nó. Đợi hơn `AUTOSAVE_MS` (400 ms) sau phím cuối thì bản nháp 
     `DRAFT_BEAT_MS` (10 giây), `heartbeat` của bản ghi đó phải nhích lên (làm mới bảng
     `drafts` trong DevTools để thấy). Đặt tay một bản ghi có `text` rỗng vào `drafts`, tải lại
     trang: bản rỗng đó biến mất.
-22. **Chốt bản nháp: hai kho đổi trong MỘT giao dịch, và bản nháp không hồi sinh.** Gõ vài
+14. **Chốt bản nháp: hai kho đổi trong MỘT giao dịch, và bản nháp không hồi sinh.** Gõ vài
     chữ rồi bấm `Ctrl+Enter` **ngay** (trong vòng `AUTOSAVE_MS`, tức trước khi hẹn tự lưu của
     phím cuối nổ), rồi đợi vài giây và tải lại trang. DevTools → Application → IndexedDB →
     `ghichu`: `notes` có đúng **một** bản ghi mang chữ đó (đúng năm trường của AD-13), và
@@ -464,7 +474,6 @@ cả hai bảng màu, và "đẩy xuống chứ không phủ lên".
     rồi tải lại (mục 4 và 6 làm đúng việc đó): dải băng `DB` hiện ra **không có** nút `✕`. Đây
     cũng là mục kiểm ưu tiên: với `DB` (hàng 3) đang hiện, gõ quá trần như trên — `TOO_LONG`
     (hàng 5) **không** được thay chỗ nó.
-
 25. **Hai theme đều đọc được.** Với dải băng đang hiện, đổi `ghichu.theme` giữa `light` và
     `dark` (mục 14) rồi tải lại: chữ trên `--chip-bg` đọc được ở **cả hai** bảng màu, và dấu
     `✕` (màu `--ink-2`) vẫn thấy rõ. Tab vào nút `✕`: **focus ring còn nguyên** ở cả hai theme.
@@ -533,7 +542,6 @@ Còn lại là thứ không con số nào nói: lần tải lại có **nháy m�
 
     Cuối cùng, `Tab` tới nút rồi bấm `Enter`: lật đúng như bấm chuột, và vòng sáng nhìn rõ ở cả
     hai bảng màu. Bấm bằng **chuột** thì không có vòng nào.
-
 28. **Hai nhịp click, và con trỏ rơi đúng chỗ bấm.** Mở trang qua HTTP localhost (mục 1). Chốt
     một ghi chú **NGẮN** (một dòng) và một ghi chú **DÀI** (bảy, tám dòng có xuống dòng thật).
 
@@ -559,7 +567,6 @@ Còn lại là thứ không con số nào nói: lần tải lại có **nháy m�
     ô phải **cao thêm ngay**, không được cắt mất dòng cuối. Kéo rộng lại: ô **co lại** khít chữ.
     Ô sửa là `overflow: hidden` cộng một chiều cao do JS ghim — nó **không bao giờ** được mọc ra
     một thanh cuộn của riêng nó (trang chỉ có hai vùng cuộn: tầng lưới và ô soạn thảo).
-
 29. **Sửa tại chỗ: chữ xuống kho, giờ không đổi, và mẩu thu lại khi rời.** Tiếp mục 28. Trong ô
     sửa của một mẩu, gõ thêm vài chữ rồi **ngồi yên hơn một giây**. Không có một chỉ báo nào hiện
     ra (không "đang lưu", không "đã lưu", không đếm ký tự) — đó là thiết kế. Nhìn lưới: chữ mới
@@ -591,7 +598,6 @@ Còn lại là thứ không con số nào nói: lần tải lại có **nháy m�
     màu `--focus` — nhìn rõ trên nền tối. Lật lại `light` và soi đúng ba thứ đó. Bóng lõm đổi
     theo theme (`--shadow-inset`), nên ở bản dark nó phải là một vệt **tối**, không phải một
     vệt xám nổi lên trên nền sẫm.
-
 30. **Xóa sạch chữ rồi rời mẩu — mẩu biến mất, không hỏi gì.** Mở một mẩu ở chế độ sửa, chọn hết
     chữ trong ô (`Ctrl+A`) và xóa sạch (ô sửa rỗng hoàn toàn). Bấm ra chỗ trống ngoài mẩu (hoặc
     `Tab` ra khỏi ô): mẩu **biến khỏi lưới ngay**, không nhấp nháy, không hộp thoại xác nhận,
@@ -748,7 +754,6 @@ Còn lại là thứ không con số nào nói: lần tải lại có **nháy m�
 
     *Cả hai theme.* Lặp phần hàng chip và phần `0 ghi chú` ở bản dark (mục 14): chữ chip, số kết
     quả và `về hôm nay` đều đọc rõ.
-
 35. **Trần 50 kết quả: thấy đủ để biết phải thu hẹp.** Mở trang qua HTTP localhost (mục 1), nạp
     một file sao lưu có ít nhất 63 ghi chú chứa `Phân` (rải nhiều ngày). Gõ `phan` ở ô tìm.
 
@@ -765,7 +770,6 @@ Còn lại là thứ không con số nào nói: lần tải lại có **nháy m�
     *Tốc độ.* Mỗi phím gõ lọc lại không thấy trễ (2.000 ghi chú ≤ 200 ms, `npm test` ghim).
 
     *Cả hai theme.* Lặp ở bản dark (mục 14): dòng "còn nhiều hơn" đọc rõ.
-
 
 ### Tiêu điểm sau mỗi lượt vẽ lại — một mục phải làm bằng mắt (Story 7.0)
 
@@ -787,8 +791,7 @@ Còn lại là thứ không con số nào nói: lần tải lại có **nháy m�
 
     *Sửa một kết quả tìm tới hết khớp.* Gõ một chữ ở ô tìm sao cho còn đúng một mẩu khớp. Vào chế
     độ sửa mẩu đó, thay hết chữ bằng một câu không còn chứa từ khóa, đợi một giây: mẩu **vẫn đứng
-    yên** trong lúc đang gõ. `Shift+Tab`: mẩu biến khỏi lưới, lưới đọc `Không có ghi chú nào
-    khớp.`, và con trỏ ở **ô soạn thảo**. Xóa ô tìm: mẩu đã sửa hiện lại ở khung nhìn hôm nay với
+    yên** trong lúc đang gõ. `Shift+Tab`: mẩu biến khỏi lưới, lưới đọc `Không có ghi chú nào khớp.`, và con trỏ ở **ô soạn thảo**. Xóa ô tìm: mẩu đã sửa hiện lại ở khung nhìn hôm nay với
     chữ mới.
 
     *Cả hai theme.* Lặp ở bản dark (mục 14): vòng sáng trên nút `xóa` nhìn rõ.
@@ -814,10 +817,8 @@ Còn lại là thứ không con số nào nói: lần tải lại có **nháy m�
     chốt một ghi chú ở A: vòng sáng ở B vẫn nằm trên đúng nút đó, không rơi về đầu trang.
 
     *Mẩu đang sửa bị xóa ở tab khác.* Ở A vào chế độ sửa một mẩu và gõ thêm vài chữ. Ở B xóa đúng
-    mẩu đó. A hiện dải băng `Ghi chú này vừa bị xóa ở tab khác. Chép chữ ra trước khi rời ô sửa
-    nếu còn cần.`, ô sửa còn nguyên chữ. Rời ô sửa (`Tab`): mẩu biến mất, con trỏ ở ô soạn thảo,
+    mẩu đó. A hiện dải băng `Ghi chú này vừa bị xóa ở tab khác. Chép chữ ra trước khi rời ô sửa nếu còn cần.`, ô sửa còn nguyên chữ. Rời ô sửa (`Tab`): mẩu biến mất, con trỏ ở ô soạn thảo,
     và tải lại B thì mẩu **không** sống lại. Nút `✕` đóng được dải băng.
-
 38. **Tab mã cũ vào chế độ chỉ đọc, ồn ào.** `npm run thu-bo-cuc` đã lái phần lõi (khối
     "Story 7.2"): gửi một tin giả `appVersion: '0.0.0'` vào kênh `ghichu`, kiểm dải băng và việc
     chốt không xuống kho. Làm tay trên bản deploy thật: mở một tab (A) trước lần deploy, deploy
