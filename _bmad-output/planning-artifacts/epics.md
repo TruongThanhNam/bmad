@@ -1697,3 +1697,66 @@ So that tôi kịp xuất sao lưu thay vì phát hiện ra lúc chữ đã khô
 - **Q6** — lần kiểm chạy sau cả **xóa** qua hộp thoại, không chỉ chốt/sửa/nạp: xóa là phép ghi giải phóng chỗ, nên nó là đường tắt hàng 7 khi dung lượng về dưới ngưỡng.
 - **Q3** — hàng 7 **được miễn** khỏi luật "phép ghi thành công tắt dải băng" (AD-8): nó chỉ tắt khi lần kiểm đo dưới ngưỡng, khi Nam bấm `✕`, hoặc khi một hàng cao hơn thay nó (`tatSauKhiGhi` trong `core/state.js`).
 - **Q1** — đã bấm `✕` trên hàng 7 thì cảnh báo **im tới hết phiên** (tải lại mới hiện lại); `QUOTA` thật vẫn luôn hiện.
+
+### Story 8.3: Khối kiểm dung lượng chạy thật trong thu-bo-cuc
+
+As a Nam,
+I want các chỗ nối 8.1/8.2 trong `main.js` được lái bằng trình duyệt thật mỗi lần chạy `thu-bo-cuc`,
+So that một `.then` treo nhầm lời hứa làm đỏ một ca, không chỉ lọt qua một regex.
+
+*Nguồn: `sprint-change-proposal-2026-09-28.md`; retro Epic 8 F2 (#2). Không đổi mã app. namtt duyệt stub trong trang là ngoại lệ có tên (Q1).*
+
+**Acceptance Criteria:**
+
+**Given** `tools/thu-bo-cuc.mjs`
+**When** chạy `npm run thu-bo-cuc`
+**Then** có một khối "Story 8.1/8.2" chạy trong một **tab riêng** (đóng khi xong, không để stub rò sang khối khác), cài stub `navigator.storage.estimate` bằng `Page.addScriptToEvaluateOnNewDocument`
+**And** stub chỉ thay `estimate` (và `persist` khi cần ép `false` hoặc resolve muộn); không dựng IndexedDB giả, không chạm `app/adapters/` hay hai file test adapter *(AGENTS.md, luật adapter)*
+
+**Given** khối đó
+**Then** nó lái thật qua `main.js` ít nhất các ca của script retro `kiem-e8.mjs`:
+- 8.1: `persist()` trả `false` → `ghichu.persistDenied = '1'`, `localStorage` chỉ có khóa trong bộ ba, mốc sao lưu 4 ngày → dòng nhắc hiện (ngưỡng 3); `persist()` resolve **muộn** vẫn làm dòng nhắc hiện mà không cần tải lại *(`deferred-work.md:216`)*
+- 8.2: khởi động không gọi `estimate`; chốt khi vượt vế byte → hàng 7 đúng microcopy, có `✕`, không con số; chốt tiếp vẫn giữ hàng 7 (Q3); xóa qua hộp thoại khi dưới ngưỡng → hàng 7 tắt (Q6); `Enter` trên `✕` → đóng, tiêu điểm về `#o-soan`, chốt tiếp không gọi `estimate` (Q1); tải lại → hiện lại
+- Q5: lần kiểm gỡ hàng 7 **trong lúc `✕` đang giữ tiêu điểm** → tiêu điểm về `#o-soan`, không phải `<body>` *(`deferred-work.md:230`)*
+- không lỗi console, không request ra ngoài origin
+
+**Given** khối chạy xong
+**Then** kho `notes`, bản nháp và `localStorage` được dọn về như trước khối (`DON_SACH`); các khối sau không đổi kết quả
+**And** chỉ ca đỏ đã biết trong AGENTS.md được phép đỏ
+
+**Given** story xong
+**Then** `deferred-work.md:216` và `:230` được gạch kèm `resolved:` trỏ về ca `thu-bo-cuc`
+**And** AGENTS.md (qua `bmad-project-context`) ghi stub `estimate`/`persist` trong `thu-bo-cuc` là ngoại lệ có tên, cùng luật "mỗi chỗ nối mới trong `main.js` phải có một ca `thu-bo-cuc`, không chỉ regex"
+**And** không bump `APP_VERSION`; một commit `test:`
+
+### Story 8.4: Lượt vẽ bất đồng bộ không thả tiêu điểm, không vẽ trước kho
+
+As a Nam,
+I want tiêu điểm không bao giờ rơi về `<body>` khi dải băng đổi dưới tay tôi, và khung hình đầu không nháy một lưới rỗng,
+So that bàn phím, đường duy nhất của app, không bị đứt ở những lượt vẽ tôi không gây ra.
+
+*Nguồn: `sprint-change-proposal-2026-09-28.md`; retro Epic 8 F3 (#5), F4 (#6). Làm sau 8.3. namtt duyệt đổi hành vi chung của neo `undefined` trong `veGiuTieuDiem` (Q2).*
+
+**Acceptance Criteria:**
+
+**Given** tiêu điểm đang ở nút `✕` của dải băng
+**When** một lượt vẽ neo `undefined` chạy (`nhanBanTin`, `mocSua.go`, `xinLuuTruBen`, lần kiểm dung lượng) và lượt đó **gỡ** dải băng hoặc thay nó bằng một loại khác
+**Then** tiêu điểm về `#o-soan`, không phải `<body>` *(F3)*
+**And** khi lượt vẽ **không** gỡ `✕` (dải băng không đổi, `banner.js` bỏ qua lượt vẽ) thì tiêu điểm ở yên trên `✕`
+
+**Given** `veGiuTieuDiem` / `neoTuTieuDiem` trong `app/main.js`
+**Then** phép thử "tiêu điểm trong dải băng" nằm **trong** nhánh neo `undefined`, dùng chung cho mọi chỗ gọi; `kiemRoiVe` gọi neo `undefined` trần, không còn nhánh riêng
+**And** `CHON_DAI_BANG` vẫn một lần khai, một lần dùng qua `.closest(...)` (`test/banner.test.js` xanh không cần nới)
+**And** regex `test/core-state-dung-luong.test.js:701` được thay bằng ca **chạy thật** `veGiuTieuDiem` trên gốc giả (`test/giu-tieu-diem.test.js`), phủ cả hai ca `✕` bị gỡ / còn sống
+
+**Given** Chromium resolve `persist()` trước khi `readAll` xong
+**When** trang tải với ít nhất một ghi chú hôm nay trong kho
+**Then** trước khi sửa, khối `thu-bo-cuc` của 8.3 **ghi lại** chuỗi giá trị `document.title` (theo dõi từ lúc tài liệu mới được tạo) để xác định F4 thật hay giả, và kết quả được ghi vào spec *(F4 — kiểm)*
+**And** dù kết quả ra sao, lượt vẽ của `xinLuuTruBen` chỉ chạy **sau** `khoiDong` (ví dụ `Promise.all([khoiDong, xinLuuTruBen])`); không lượt vẽ nào trước lượt đầu của kho dựng lưới từ `notes = []` *(bất biến `main.js:490-493`)*
+**And** regex `test/core-state-luu-tru-ben.test.js:306` được thay cho khớp đường mới, vẫn ghim "đúng một lời gọi, sau `khoiDong`, giữ tiêu điểm"
+**And** `thu-bo-cuc` có ca: kho có N ghi chú hôm nay, `persist` stub resolve ngay → `document.title` không bao giờ mang số khác N sau lượt vẽ đầu
+
+**Given** story xong
+**Then** AGENTS.md (qua `bmad-project-context`) sửa bẫy `veGiuTieuDiem`: neo `undefined` + tiêu điểm trong dải băng → về `#o-soan` khi `✕` bị gỡ
+**And** `npm test` xanh, `thu-bo-cuc` chỉ đỏ ở ca chập chờn đã biết
+**And** `APP_VERSION` được bump; một commit `fix:` cho cả story
