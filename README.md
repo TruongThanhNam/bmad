@@ -183,7 +183,8 @@ tỉ lệ 80% — vế tỉ lệ chỉ ghim bằng test đơn vị.
 - **(a) Vế byte — bật và không bật.** DevTools → Application → Storage → tích "Simulate custom
   storage quota", đặt **40 MB**, rồi chốt một ghi chú: ô soạn **trống ngay**, và dải băng hiện
   đúng `Dung lượng sắp hết. Xuất sao lưu trước khi nó hết.` có nút `✕`, Console sạch. Đổi giả
-  lập sang **60 MB** với kho gần rỗng (chưa tới 10 MB dữ liệu), tải lại, chốt: **không** cảnh báo.
+  lập sang **100 MB** với kho gần rỗng (chưa tới 10 MB dữ liệu), tải lại, chốt: **không** cảnh báo
+  (còn trống ~90 MB, cách xa ngưỡng 50 MB dù DevTools tính MB theo hệ nào).
 - **(b) Con số khớp quyết định.** Ở mỗi bước trên, chạy `await navigator.storage.estimate()`
   trong Console: `quota − usage` dưới 50 MB (hoặc `usage/quota` ≥ 0.8) đúng khi và chỉ khi dải
   băng hiện sau lần chốt kế.

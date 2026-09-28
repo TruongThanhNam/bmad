@@ -241,7 +241,7 @@ adapter không bao giờ gọi thẳng vào giao diện, kể cả để báo l�
 - **Binds:** FR-19, FR-17, NFR-3
 - **Prevents:** trình duyệt lặng lẽ dọn dữ liệu best-effort khi máy hết đĩa; và một ngưỡng cảnh báo
   không bao giờ nổ (PRD Open Question 3)
-- **Rule:** gọi `navigator.storage.persist()` ở mỗi lần khởi động cho tới khi nó trả `true` —
+- **Rule:** gọi `navigator.storage.persist()` ở mỗi lần khởi động —
   Chromium tự quyết theo mức tương tác nên lần mở đầu tiên chính là lúc dễ bị từ chối nhất, thử một
   lần rồi bỏ là sai. Bị từ chối thì ghi `ghichu.persistDenied` và ngưỡng dòng nhắc sao lưu FR-17 hạ
   từ 7 ngày xuống **3 ngày**. Sau mỗi lần chốt, sửa hoặc nạp lại, đọc `navigator.storage.estimate()`
@@ -252,6 +252,16 @@ adapter không bao giờ gọi thẳng vào giao diện, kể cả để báo l�
   `usage/quota` vẫn rất thấp. `estimate()` là **ước lượng có đệm chống fingerprinting**, không phải
   số đo chính xác — nó dùng để cảnh báo sớm, không bao giờ dùng để quyết định có ghi hay không.
   Đường phát hiện thật vẫn là bắt `QuotaExceededError` theo AD-8.
+- **Chốt khi làm (Story 8.1):**
+  - `persist()` được gọi ở **mọi** lần khởi động, kể cả khi đã từng được cấp. Không nhớ "đã thử",
+    không gọi `persisted()` để bỏ qua lần xin.
+  - Cờ `ghichu.persistDenied` chỉ mang giá trị `'1'`; mọi giá trị khác (kể cả rác) đọc là tắt.
+    Được cấp sau khi từng bị từ chối thì **xóa** cờ, và dòng nhắc về lại ngưỡng 7 ngày.
+  - Lời xin **không bao giờ** đặt dải băng và không bao giờ reject. Cổng ném hoặc reject là no-op.
+    Bị từ chối chỉ lộ ra qua ngưỡng 3 ngày của dòng nhắc sao lưu.
+  - **Q3A:** state `persistDenied` đi theo kết quả `persist()`, không theo kho. Ghi/xóa cờ hỏng
+    thì nuốt lỗi, state vẫn đổi, nhưng không phát `session-changed`. Đây là ngoại lệ có chủ ý so
+    với khuôn "ghi trước, đổi state sau" của AD-8.
 
 ### AD-11 — File sao lưu là hợp đồng có phiên bản; nạp là gộp, và gộp là nguyên tử
 

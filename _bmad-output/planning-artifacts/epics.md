@@ -1692,3 +1692,8 @@ So that tôi kịp xuất sao lưu thay vì phát hiện ra lúc chữ đã khô
 **Given** một phép ghi thất bại trong luồng tự lưu
 **When** dải băng hiện
 **Then** chữ đã gõ **không bị hoàn tác** — nó vẫn nằm trên màn hình, và dải băng là thứ nói rằng nó chưa an toàn *(AD-8)*
+
+**Diễn giải đã chốt khi làm** *(spec 8.2, retro Epic 8 F7)*:
+- **Q6** — lần kiểm chạy sau cả **xóa** qua hộp thoại, không chỉ chốt/sửa/nạp: xóa là phép ghi giải phóng chỗ, nên nó là đường tắt hàng 7 khi dung lượng về dưới ngưỡng.
+- **Q3** — hàng 7 **được miễn** khỏi luật "phép ghi thành công tắt dải băng" (AD-8): nó chỉ tắt khi lần kiểm đo dưới ngưỡng, khi Nam bấm `✕`, hoặc khi một hàng cao hơn thay nó (`tatSauKhiGhi` trong `core/state.js`).
+- **Q1** — đã bấm `✕` trên hàng 7 thì cảnh báo **im tới hết phiên** (tải lại mới hiện lại); `QUOTA` thật vẫn luôn hiện.

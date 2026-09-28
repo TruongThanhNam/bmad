@@ -57,6 +57,10 @@ gốc: `README.md` (vận hành + checklist thủ công) và
   từ `main.js`; `adapters` không bao giờ gọi vào view, kể cả để báo lỗi. Ngoại lệ có tên
   DUY NHẤT: `view/luoi.js → view/mau-giay.js` (cha–con: `mau-giay` là hình dạng một ô, không
   nối vào `main.js`); `test/luoi.test.js` ghim rằng không cặp nào khác tồn tại.
+- Chỉ `view/banner.js` chạm DOM dải băng (`.dai-bang`). Ngoại lệ có tên DUY NHẤT:
+  `CHON_DAI_BANG` trong `main.js`, chỉ để hỏi tiêu điểm có nằm trong dải băng không qua
+  `.closest(...)` — không đọc/ghi gì khác của dải băng. `test/banner.test.js` ghim đúng một
+  lần khai, một lần dùng, và giá trị phải bằng `CHON_BANNER` của view.
 - Import tương đối phải ghi đuôi `.js`/`.css`; không bare specifier trong `app/`.
 - Tập trung hóa bắt buộc, có test quét mã nguồn chặn: số (`limits.js`), `Date` (`time.js`),
   bỏ dấu (`fold.js`), đổi state (`core/state.js`), màu và token (`app/style.css` theo DESIGN.md).
@@ -92,6 +96,9 @@ gốc: `README.md` (vận hành + checklist thủ công) và
   trùng nội dung với `id` khác — gộp theo id không sửa được.
 - Cặp `--danger` trên `--chip-bg` bản dark đúng 4.55:1; đổi một trong hai màu đó thì tính
   lại tương phản trước khi commit.
+- Phép ghi thành công tắt dải băng bằng `tatSauKhiGhi()` trong `core/state.js`, đừng viết
+  `banner: null` trần: hàng 7 (`DUNG_LUONG_SAP_HET`) được miễn, chỉ `✕` hoặc lần kiểm dung
+  lượng dưới ngưỡng mới tắt nó (Story 8.2 Q3).
 - Trong `main.js`, adapter thật phải đứng sau `...congTam()` khi spread, nếu không stub âm
   thầm đè lên.
 - Đừng export `store` ra `window` để debug.
