@@ -534,7 +534,7 @@ export function taoStore(ports) {
    * - 14 chỗ đặt `banner` trong tệp này không phải đọc lại một dòng nào, nên không chỗ nào
    *   có thể quên phép gác — kể cả chỗ được viết ở Epic 7 hay Epic 8.
    * - `banner` thường đi CÙNG một nhánh khác trong một `datLai` duy nhất (`{ draft, banner }`,
-   *   `{ ...dungNhanh(), banner: null }`). Gác ở đây thì nhánh kia vẫn vào state nguyên vẹn
+   *   `{ ...dungNhanh(), ...tatSauKhiGhi() }`). Gác ở đây thì nhánh kia vẫn vào state nguyên vẹn
    *   khi thông báo bị từ chối — bỏ cả lời gọi là mất luôn phần dữ liệu không liên quan.
    *
    * Loại bỏ ĐÚNG khóa `banner` chứ không bỏ cả phép đổi, và chỉ khi khóa đó CÓ MẶT: một
@@ -1342,8 +1342,8 @@ export function taoStore(ports) {
    *   vẫn rỗng sau khi nạp và Nam tự gõ lại ngày — đó là hành vi đã chốt, không phải sơ suất.
    *
    * Dải băng thành công đặt ở một `datLai` THỨ HAI, sau `ghiTruocDatSau` chứ không lồng vào
-   * nó: helper chung trộn `banner: null` vào nhánh thành công (AD-8 — một phép ghi thành công
-   * tắt dải băng), và đó là luật đúng, kể cả ở đây. Một `QUOTA` đang hiện phải tắt TRƯỚC, rồi
+   * nó: helper chung trộn `tatSauKhiGhi()` vào nhánh thành công (AD-8 — một phép ghi thành công
+   * tắt dải băng, trừ hàng 7 theo Story 8.2 Q3), và đó là luật đúng, kể cả ở đây. Một `QUOTA` đang hiện phải tắt TRƯỚC, rồi
    * hàng 6 mới lên; nhét hàng 6 vào thẳng `ghiTruocDatSau` thì phép gác ưu tiên từ chối nó và
    * `QUOTA` ở lại vĩnh viễn sau một phép ghi vừa thành công.
    *
@@ -1448,7 +1448,7 @@ export function taoStore(ports) {
           daChot = false;
           throw loi;
         }),
-      // Một `datLai` cho CẢ HAI nhánh: `ghiTruocDatSau` trộn `banner: null` vào đúng một lần,
+      // Một `datLai` cho CẢ HAI nhánh: `ghiTruocDatSau` trộn `tatSauKhiGhi()` vào đúng một lần,
       // nên tách làm hai là hai lần dựng lại ảnh và một khoảnh khắc state nửa vời ở giữa.
       //
       // Sắp lại chứ không chỉ chèn lên đầu: mẩu mới thường là mẩu mới nhất, nhưng "thường"

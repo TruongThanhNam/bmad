@@ -30,8 +30,8 @@ const MB = 1024 * 1024;
 const GB = 1024 * MB;
 const HANG_7 = LOAI_BANG.DUNG_LUONG_SAP_HET;
 
-/** Ba ước lượng mẫu. */
-const VUOT = Object.freeze({ used: 80, limit: 100 });
+/** Ba ước lượng mẫu. `VUOT` chỉ vượt vế tỉ lệ (còn 20 GB trống) để ca "Vế tỉ lệ" cô lập đúng vế đó. */
+const VUOT = Object.freeze({ used: 80 * GB, limit: 100 * GB });
 const DUOI = Object.freeze({ used: 51 * MB, limit: 102 * MB });
 const VUOT_BYTE = Object.freeze({ used: 10 * GB - 49 * MB, limit: 10 * GB });
 
@@ -183,7 +183,7 @@ describe('Story 8.2 — kiemDungLuong theo I/O Matrix', () => {
     expect(ACTION_GHI).not.toContain('kiemDungLuong');
   });
 
-  it('Vế tỉ lệ: chốt OK, used 80 / limit 100 → hàng 7', async () => {
+  it('Vế tỉ lệ: chốt OK, used 80 GB / limit 100 GB → hàng 7', async () => {
     const t = dungTab();
     await khoiDong(t);
     await chot(t);
