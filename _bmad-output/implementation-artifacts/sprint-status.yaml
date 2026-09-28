@@ -1,0 +1,372 @@
+# STATUS DEFINITIONS:
+# ==================
+# Epic Status:
+#   - backlog: Epic not yet started
+#   - in-progress: Epic actively being worked on
+#   - done: All stories in epic completed
+
+# Story Status:
+#   - backlog: Story only exists in epic file
+#   - ready-for-dev: Story file created, ready for development
+#   - in-progress: Developer actively working on implementation
+#   - review: Implementation complete, ready for review
+#   - done: Story completed
+
+# Retrospective Status:
+#   - optional: Can be completed but not required
+#   - done: Retrospective has been completed
+
+# Action Item Status:
+#   - open: Committed during a retrospective, not yet addressed
+#   - in-progress: Actively being worked on
+#   - done: Completed
+
+# WORKFLOW NOTES:
+# ===============
+# - Epic transitions to 'in-progress' automatically when its first story starts (via build's sprint sync)
+# - Stories can be worked in parallel if team capacity allows
+# - Developer typically creates the next story after the previous one is 'done' to incorporate learnings
+# - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
+# - Retrospective appends its action items to action_items; the status view surfaces open ones
+generated: 09-10-2026 00:00
+last_updated: '2026-09-28'
+project: Sticky Notes
+project_key: NOKEY
+tracking_system: file-system
+story_location: _bmad-output/implementation-artifacts
+development_status:
+  epic-1: done
+  1-1-khung-dự-án-chạy-được-trên-https: done
+  1-2-hằng-số-ngưỡng-và-tập-mã-lỗi-đóng: done
+  1-3-khóa-thời-gian-sắp-xếp-và-lọc-ngày: done
+  1-4-bỏ-dấu-tiếng-việt-giữ-nguyên-vị-trí-ký-tự: done
+  1-5-khối-state-duy-nhất-và-bộ-khung-action: done
+  1-6-kho-ghi-chú-bền-và-luồng-ghi-chuẩn: done
+  1-7-bản-nháp-riêng-từng-tab-nhận-lại-được-bản-bỏ-rơi: done
+  1-8-hai-bảng-màu-và-theme-không-nháy-lúc-tải: done
+  epic-1-retrospective: optional
+
+  epic-2: done
+  2-1-bốn-tầng-cố-định-trên-nền-bàn: done
+  2-2-ô-soạn-thảo-sẵn-con-trỏ-chữ-tự-lưu: done
+  2-3-chốt-bản-nháp-thành-ghi-chú: done
+  2-4-lưới-ghi-chú-của-hôm-nay: done
+  2-5-mẩu-giấy-hình-dạng-giờ-tạo-cắt-và-mở-rộng: done
+  2-6-trạng-thái-rỗng-và-tab-title: done
+  epic-2-retrospective: optional
+
+  epic-3: done
+  3-1-dải-băng-một-chủ-bảy-nguồn-một-thứ-tự-ưu-tiên: done
+  3-2-focus-ring-và-thứ-tự-tab: done
+  3-3-nút-theme-và-tương-phản-ở-cả-hai-bảng-màu: done
+  3-4-phóng-to-chuyển-động-và-màu-không-phải-tín-hiệu-duy-nhất: done
+  epic-3-retrospective: optional
+
+  epic-4: done
+  4-1-chân-trang-với-hai-link-thường-trực: done
+  4-2-xuất-toàn-bộ-ra-một-file-sao-lưu: done
+  4-3-nạp-lại-hai-pha-gộp-theo-định-danh-nguyên-tử: done
+  4-4-dòng-nhắc-thụ-động-về-lần-sao-lưu-gần-nhất: done
+  epic-4-retrospective: done
+
+  epic-5: done
+  5-1-sửa-nội-dung-tại-chỗ: done
+  5-2-ghi-chú-rỗng-tự-biến-mất: done
+  5-3-xóa-qua-hộp-thoại-xác-nhận: done
+  epic-5-retrospective: done
+
+  epic-6: done
+  6-1-tìm-bằng-chữ-trên-toàn-bộ-dữ-liệu: done
+  6-2-lọc-theo-một-ngày-cụ-thể: done
+  6-3-khối-điều-kiện-hàng-chip-và-đường-về: done
+  6-4-trần-kết-quả-và-hiệu-năng-tra-cứu: done
+  epic-6-retrospective: done
+
+  epic-7: done
+  7-0-dọn-action-item-retro-epic-4-6: done
+  7-1-đồng-bộ-ghi-chú-giữa-các-tab: done
+  7-2-phát-hiện-lệch-phiên-bản-và-chế-độ-chỉ-đọc: done
+  epic-7-retrospective: done
+
+  epic-8: in-progress
+  8-0-dọn-action-item-retro-epic-7: done
+  8-1-xin-lưu-trữ-bền-và-nói-to-hơn-khi-bị-từ-chối: done
+  8-2-cảnh-báo-trước-ngưỡng-dung-lượng: done
+  8-3-khối-kiểm-dung-lượng-chạy-thật-trong-thu-bo-cuc: review
+  8-4-lượt-vẽ-bất-đồng-bộ-không-thả-tiêu-điểm-không-vẽ-trước-kho: backlog
+  epic-8-retrospective: done
+action_items:
+  - id: "epic-4-retro-item-1-commit-5-file-ban-va-cua-luot-review-epi"
+    epic: 4
+    action: "Commit 5 file ban va cua luot review Epic 4, hoac hoan nguyen chung"
+    owner: "namtt"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-09-17.md"
+  - id: "epic-4-retro-item-2-quyet-microcopy-dong-nhac-tam-ngay-hay-8"
+    epic: 4
+    action: "Quyet microcopy dong nhac: `tam ngay` hay `8 ngay`, roi sua nguon thua
+      cuoc"
+    owner: "namtt"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-09-17.md"
+  - id: "epic-4-retro-item-3-them-ca-dung-mot-nguoi-phat-cho-too_long"
+    epic: 4
+    action: "Them ca `dung mot nguoi phat` cho TOO_LONG_TU_FILE trong test/banner.test.js"
+    owner: "de xuat"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-09-17.md"
+  - id: "epic-4-retro-item-4-them-ca-quet-khong-import-adapters-cho-a"
+    epic: 4
+    action: "Them ca quet `khong import adapters/` cho app/view/chan-trang.js"
+    owner: "de xuat"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-09-17.md"
+  - id: "epic-4-retro-item-5-doi-ten-laobjectthuan-o-app-core-backup"
+    epic: 4
+    action: "Doi ten laObjectThuan o app/core/backup.js cho khop ngu nghia that"
+    owner: "de xuat"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-09-17.md"
+  - id: "epic-4-retro-item-6-them-ca-test-dat-dung-ten-ghi-chu-da-xoa"
+    epic: 4
+    action: "Them ca test dat dung ten `ghi chu da xoa song lai khi nap`"
+    owner: "de xuat"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-09-17.md"
+  - id: "epic-4-retro-item-7-sua-hai-chu-thich-lac-hau-ve-adapter-kho"
+    epic: 4
+    action: "Sua hai chu thich lac hau ve `adapter khong co test tu dong`"
+    owner: "de xuat"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-09-17.md"
+  - id: "epic-4-retro-item-8-chay-buoc-kiem-thu-cong-cua-spec-4-2-va"
+    epic: 4
+    action: "Chay buoc kiem thu cong cua spec 4.2 va 4.3 tren trinh duyet that"
+    owner: "namtt"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-09-17.md"
+  - id: "epic-4-retro-item-9-chay-retrospective-cho-epic-1-3-hoac-don"
+    epic: 4
+    action: "Chay retrospective cho Epic 1-3, hoac dong chung lai mot cach co chu
+      dich"
+    owner: "namtt"
+    status: done
+    note: "Dong co chu dich o Story 7.0 (quyet dinh Q4, mac dinh theo khuyen nghi),
+      khong chay bu: Epic 1-3 da xong va da bi Epic 4-6 phu len; retro 4, 5, 6 da
+      mang cac bai hoc con song. Ba khoa epic-1/2/3-retrospective de nguyen 'optional'."
+    ref: "_bmad-output/implementation-artifacts/epic-4-retro-2026-09-17.md"
+  - id: "epic-5-retro-item-10-sua-b1-chi-don-chudangcho-khi-chu-vua-gh"
+    epic: 5
+    action: "Sua B1: chi don chuDangCho khi chu vua ghi van la chu moi nhat, them
+      test"
+    owner: "namtt"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-24.md"
+  - id: "epic-5-retro-item-11-sua-b2-a2-hop-nhat-ba-ham-tra-tieu-diem"
+    epic: 5
+    action: "Sua B2+A2: hop nhat ba ham tra tieu diem, giu theo id va vai tro phan
+      tu, test chay that"
+    owner: "namtt"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-24.md"
+  - id: "epic-5-retro-item-12-keo-luong-5-2-5-3-vao-tools-thu-bo-cuc-m"
+    epic: 5
+    action: "Keo luong 5.2/5.3 vao tools/thu-bo-cuc.mjs"
+    owner: "namtt"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-24.md"
+  - id: "epic-5-retro-item-13-cap-nhat-agents-md-checklist-1-31-va-bo"
+    epic: 5
+    action: "Cap nhat AGENTS.md checklist 1-31 va bo sung README muc 31"
+    owner: "namtt"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-24.md"
+  - id: "epic-5-retro-item-14-quyet-b3-chan-luu-chu-rong-hay-don-ghi-c"
+    epic: 5
+    action: "Quyet B3: chan luu chu rong hay don ghi chu rong luc tai"
+    owner: "namtt"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-24.md"
+  - id: "epic-5-retro-item-15-quyet-a3-hop-thuc-hoa-luoi-mau-giay-tron"
+    epic: 5
+    action: "Quyet A3: hop thuc hoa luoi->mau-giay trong spine hay tach"
+    owner: "namtt"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-24.md"
+  - id: "epic-5-retro-item-16-ghi-a6-vao-spec-5-3-nut-xoa-cho-luot-roi"
+    epic: 5
+    action: "Ghi A6 vao spec 5.3: nut xoa cho luot roi che do sua"
+    owner: "namtt"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-24.md"
+  - id: "epic-5-retro-item-17-mang-b4-vao-pham-vi-epic-7"
+    epic: 5
+    action: "Mang B4 vao pham vi Epic 7"
+    owner: "namtt"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-24.md"
+  - id: "epic-5-retro-item-18-moi-epic-mo-dau-bang-story-don-action-it"
+    epic: 5
+    action: "Moi epic mo dau bang story don action item retro con open"
+    owner: "namtt"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-5-retro-2026-09-24.md"
+  - id: "epic-6-retro-item-19-cap-nhat-agents-md-checklist-1-35-bay-xo"
+    epic: 6
+    action: "Cap nhat AGENTS.md: checklist 1-35, bay xoaNhap khi xoa dieu kien, hai
+      ca thu-bo-cuc do biet truoc"
+    owner: "namtt"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-6-retro-2026-09-24.md"
+  - id: "epic-6-retro-item-20-sua-phep-do-nfr-1-trong-tools-thu-bo-cuc"
+    epic: 6
+    action: "Sua phep do NFR-1 trong tools/thu-bo-cuc.mjs: cho notes nap du truoc
+      khi doc"
+    owner: "namtt"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-6-retro-2026-09-24.md"
+  - id: "epic-6-retro-item-21-gom-hai-duong-xoa-dieu-kien-trong-main-j"
+    epic: 6
+    action: "Gom hai duong xoa dieu kien trong main.js (veHomNay, veSauChot) ve mot
+      ham"
+    owner: "namtt"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-6-retro-2026-09-24.md"
+  - id: "epic-6-retro-item-22-kiem-b3-sua-mau-trong-ket-qua-tim-toi-kh"
+    epic: 6
+    action: "Kiem B3: sua mau trong ket qua tim toi khi het khop, xem mau bien mat
+      va tieu diem"
+    owner: "namtt"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-6-retro-2026-09-24.md"
+  - id: "epic-6-retro-item-23-mo-epic-7-bang-story-don-action-item-ret"
+    epic: 6
+    action: "Mo Epic 7 bang story don action item retro Epic 4-6 con open"
+    owner: "namtt"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-6-retro-2026-09-24.md"
+  - id: "epic-7-retro-item-24-sua-ac-7-2-trong-epics-md-action-ghi-la"
+    epic: 7
+    action: "Sua AC 7.2 trong epics.md: action ghi la no-op, dai bang VERSION_SKEW
+      noi thay (F2)"
+    owner: "namtt"
+    status: done
+    note: "Sua ca epics.md (AC 7.2 + AD-21), ARCHITECTURE-SPINE, solution-design,
+      phan-chia-cong-viec (sprint-change-proposal-2026-09-25)."
+    ref: "_bmad-output/implementation-artifacts/epic-7-retro-2026-09-25.md"
+  - id: "epic-7-retro-item-25-gach-muc-hang-chip-o-deferred-work-md-da"
+    epic: 7
+    action: "Gach muc hang chip o deferred-work.md, da giai o Story 7.1 (F3)"
+    owner: "namtt"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-7-retro-2026-09-25.md"
+  - id: "epic-7-retro-item-26-agents-md-qua-bmad-project-context-ngoai"
+    epic: 7
+    action: "AGENTS.md qua bmad-project-context: ngoai le vaoSuaRoiVe va luat action
+      ghi moi phai gac chiDoc"
+    owner: "namtt"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-7-retro-2026-09-25.md"
+  - id: "epic-7-retro-item-27-them-test-liet-ke-moi-action-ghi-va-khan"
+    epic: 7
+    action: "Them test liet ke moi action ghi va khang dinh no-op khi chi doc"
+    owner: "de xuat"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-7-retro-2026-09-25.md"
+  - id: "epic-7-retro-item-28-kiem-luoi-js-khiclick-tren-trinh-duyet-t"
+    epic: 7
+    action: "Kiem luoi.js khiClick tren trinh duyet that, dung loi thi qua veGiuTieuDiem
+      (F4)"
+    owner: "namtt"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-7-retro-2026-09-25.md"
+  - id: "epic-7-retro-item-29-quyet-ngoai-le-test-cho-cho-noi-kenh-sub"
+    epic: 7
+    action: "Quyet ngoai le test cho cho noi kenh.subscribe o main.js (F5)"
+    owner: "namtt"
+    status: done
+    ref: "_bmad-output/implementation-artifacts/epic-7-retro-2026-09-25.md"
+  - id: "epic-7-retro-item-30-can-nhac-tach-state-js-truoc-epic-8-f1"
+    epic: 7
+    action: "Can nhac tach state.js truoc Epic 8 (F1)"
+    owner: "namtt"
+    status: done
+    note: "Dong co chu dich: khong tach state.js truoc Epic 8; test ACTION_GHI cua
+      Story 8.0 (#27) thay the. Mo lai neu >1900 dong hoac retro E8 thay gac sot."
+    ref: "_bmad-output/implementation-artifacts/epic-7-retro-2026-09-25.md"
+  - id: "epic-8-retro-item-31-agents-md-qua-bmad-project-context-ghi-n"
+    epic: 8
+    action: "AGENTS.md qua bmad-project-context: ghi ngoai le CHON_DAI_BANG va ngoai
+      le hang 7 cua tatSauKhiGhi (F6)"
+    owner: "namtt"
+    status: done
+    note: "Da ghi 2 ngoai le (CHON_DAI_BANG, hang 7 tatSauKhiGhi) vao AGENTS.md qua
+      bmad-project-context record, 09-28-2026."
+    ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-09-28.md"
+  - id: "epic-8-retro-item-32-dua-khoi-kiem-8-1-8-2-stub-estimate-vao"
+    epic: 8
+    action: "Dua khoi kiem 8.1/8.2 (stub estimate) vao tools/thu-bo-cuc.mjs, gach
+      deferred-work 216 va 230 (F2)"
+    owner: "namtt"
+    status: in-progress
+    note: "Gop vao Story 8.3 (sprint-change-proposal-2026-09-28)."
+    ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-09-28.md"
+  - id: "epic-8-retro-item-33-readme-8-2-buoc-a-doi-quota-khong-canh-b"
+    epic: 8
+    action: "README 8.2 buoc (a): doi quota khong canh bao 60 MB len 100 MB (F9)"
+    owner: "namtt"
+    status: done
+    note: "README 8.2 (a): 60 MB -> 100 MB, 09-28-2026."
+    ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-09-28.md"
+  - id: "epic-8-retro-item-34-lam-tay-readme-muc-8-2-a-tren-chrome-edg"
+    epic: 8
+    action: "Lam tay README muc 8.2 (a) tren Chrome/Edge co giao dien de kiem quota
+      that (F10)"
+    owner: "namtt"
+    status: done
+    note: "namtt kiem tay 09-28-2026: DevTools Simulate quota khong tac dong estimate()
+      (quota = usage + 10 GiB); estimate that doc dung, khong canh bao. Stub Console
+      40 MB/100 MB chay dung mong doi. README 8.2 doi sang stub Console."
+    ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-09-28.md"
+  - id: "epic-8-retro-item-35-chuyen-phep-thu-tieu-diem-trong-dai-bang"
+    epic: 8
+    action: "Chuyen phep thu tieu diem trong dai bang vao neoTuTieuDiem de ve neo
+      undefined ve o-soan (F3)"
+    owner: "namtt"
+    status: in-progress
+    note: "Gop vao Story 8.4 (sprint-change-proposal-2026-09-28)."
+    ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-09-28.md"
+  - id: "epic-8-retro-item-36-kiem-roi-sua-luot-ve-khoi-dong-cua-xinlu"
+    epic: 8
+    action: "Kiem roi sua luot ve khoi dong cua xinLuuTruBen chay truoc khi notes
+      nap xong (F4)"
+    owner: "namtt"
+    status: in-progress
+    note: "Gop vao Story 8.4 (sprint-change-proposal-2026-09-28)."
+    ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-09-28.md"
+  - id: "epic-8-retro-item-37-them-vao-epics-md-8-2-kiem-sau-xoa-q6-ha"
+    epic: 8
+    action: "Them vao epics.md 8.2: kiem sau xoa (Q6), hang 7 mien luat tat khi ghi
+      (Q3), im sau dong (Q1) (F7)"
+    owner: "namtt"
+    status: done
+    note: "Them khoi Dien giai da chot (Q6, Q3, Q1) duoi Story 8.2 trong epics.md,
+      09-28-2026."
+    ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-09-28.md"
+  - id: "epic-8-retro-item-38-ghi-cac-chot-8-1-vao-than-ad-10-cua-spin"
+    epic: 8
+    action: "Ghi cac chot 8.1 vao than AD-10 cua spine: gia tri 1, khong dai bang,
+      Q3A (F8)"
+    owner: "namtt"
+    status: done
+    note: "Them khoi Chot khi lam (Story 8.1) vao AD-10 spine; bo cum cho toi khi
+      no tra true, 09-28-2026."
+    ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-09-28.md"
+  - id: "epic-8-retro-item-39-dat-khoa-epic-8-trong-sprint-status-sang"
+    epic: 8
+    action: "Dat khoa epic-8 trong sprint-status sang done qua bmad-sprint-planning"
+    owner: "namtt"
+    status: done
+    note: "Da dat 09-28-2026 15:00 qua sprint_plan.py generate --set epic-8=done (8.0,
+      8.1, 8.2 deu done; retro verdict accepted-with-open-items)."
+    ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-09-28.md"

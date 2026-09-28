@@ -2,7 +2,7 @@
 _bmad/config.user.toml
 
 # BMAD — implementation artifacts (sprint status, build logs: trạng thái tạm, đổi liên tục)
-_bmad-output/implementation-artifacts/
+# _bmad-output/implementation-artifacts/
 
 # Planning artifacts (brief, PRD, UX, architecture, epics/stories) ĐƯỢC track —
 # đó là documentation của dự án, không phải file sinh ra tự động.
