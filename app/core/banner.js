@@ -84,6 +84,10 @@ export const LOAI_BANG = Object.freeze({
  * Ba hàng đầu KHÔNG đóng được, và đó không phải thẩm mỹ: cả ba nói rằng dữ liệu đang không an
  * toàn, nên chúng chỉ được tắt bởi một phép ghi sau đó THÀNH CÔNG (AD-8) hay một lần tải lại
  * trang — không bởi một cú bấm cho đỡ khó chịu.
+ *
+ * Hàng 7 thì ngược lại (Story 8.2 Q3): một phép ghi thành công KHÔNG tắt nó — nó không nói về
+ * phép ghi nào. Nó tắt khi lần kiểm dung lượng đo dưới ngưỡng, khi Nam bấm `✕` (im tới hết
+ * phiên), hoặc khi một hàng cao hơn thay nó.
  */
 export const BANG_UU_TIEN = Object.freeze([
   Object.freeze({ loai: Object.freeze([LOAI_BANG.VERSION_SKEW]), dongDuoc: false }),

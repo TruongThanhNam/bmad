@@ -705,8 +705,9 @@ describe('app/view/hop-thoai.js — luật của tầng view, cưỡng chế đ�
     expect(moc[1].trim()).toMatch(/^luongXoa\s*\.\s*moHoi\s*\(\s*id\s*\)\s*;?$/);
     // Lượt rời đi vào qua một HÀM đọc lại biến mỗi lần — một giá trị chụp lúc nối là lời hứa đã
     // chốt mãi mãi, và móc không bao giờ đợi gì cả.
+    // Story 8.2 (Q6): tham số thứ năm treo lần kiểm dung lượng sau khi xóa.
     expect(main).toMatch(
-      /noiLuongXoa\s*\(\s*store\s*,\s*document\s*,\s*\(\s*\)\s*=>\s*veTatCa\s*\(\s*\)\s*,\s*\(\s*\)\s*=>\s*luotRoiSua\s*\)/,
+      /noiLuongXoa\s*\(\s*store\s*,\s*document\s*,\s*\(\s*\)\s*=>\s*veTatCa\s*\(\s*\)\s*,\s*\(\s*\)\s*=>\s*luotRoiSua\s*,\s*\(\s*\)\s*=>\s*kiemRoiVe\s*\(\s*\)\s*,?\s*\)/,
     );
     expect(main).toMatch(/luotRoiSua\s*=\s*store\s*\.\s*roiCheDoSua\s*\(\s*\)\s*\.\s*then\s*\(/);
   });

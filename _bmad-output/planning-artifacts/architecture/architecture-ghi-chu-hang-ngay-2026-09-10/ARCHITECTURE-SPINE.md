@@ -206,6 +206,9 @@ adapter không bao giờ gọi thẳng vào giao diện, kể cả để báo l�
     — nằm trong trần ≤ 1 giây của FR-3. Ghi thất bại thì **không hoàn tác chữ đã gõ**; dải băng
     hiện và **ở lại cho tới khi một phép ghi sau đó thành công**. Chữ vẫn nằm trên màn hình, và
     dải băng là thứ nói rằng nó chưa an toàn.
+  - **Ngoại lệ hàng 7** (Story 8.2): phép ghi thành công **không** tắt cảnh báo trước ngưỡng
+    `DUNG_LUONG_SAP_HET` — nó chỉ tắt khi lần kiểm dung lượng đo dưới ngưỡng, khi Nam bấm `✕`, hoặc
+    khi một hàng cao hơn thay nó.
 
   **Hẹn debounce không bao giờ được sống lâu hơn thứ nó định ghi.** Mỗi mục tiêu tự lưu (bản nháp,
   và mỗi ghi chú đang sửa) mang một số đếm `seq` tăng dần trong state; hẹn nào nổ ra mà `seq` của

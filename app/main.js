@@ -93,6 +93,10 @@ function congThat() {
  *  chuỗi này; bản thứ hai ở đây là khuôn trùng lặp có ý thức mà AD-19 cho phép. */
 const ID_O_SOAN = 'o-soan';
 
+/** Mệnh đề chọn phần tử chủ của dải băng — bản đầu ở `index.html` và `view/banner.js`
+ *  (`CHON_BANNER`); bản ở đây là khuôn trùng lặp có ý thức, cùng loại `ID_O_SOAN` (Story 8.2 Q5). */
+const CHON_DAI_BANG = '.dai-bang';
+
 /** Mệnh đề chọn "bất cứ mẩu nào" — dựng từ tên thuộc tính của `view/mau-giay.js`, không chép. */
 const CHON_MAU = `[${THUOC_TINH_MAU}]`;
 
@@ -222,10 +226,18 @@ function phanTuTheoVai(mau, vaiTro) {
  * @param {() => void} veTatCa Lượt vẽ chung của cả sáu view.
  * @param {() => Promise<void>} [choRoiSua] Lời hứa của lượt rời chế độ sửa đang treo, hỏi lại
  *   ở MỖI lần bấm. Mặc định là một lời hứa đã chốt.
+ * @param {() => unknown} [sauKhiXoa] Chạy SAU lượt vẽ thứ hai của `xoa` — `main.js` treo lần kiểm
+ *   dung lượng vào đây (Story 8.2 Q6). Mặc định không làm gì.
  * @returns {{ moHoi: (id: string) => Promise<void>, huy: (id: string) => void,
  *   xoa: (id: string) => Promise<void> }}
  */
-export function noiLuongXoa(store, goc, veTatCa, choRoiSua = () => Promise.resolve()) {
+export function noiLuongXoa(
+  store,
+  goc,
+  veTatCa,
+  choRoiSua = () => Promise.resolve(),
+  sauKhiXoa = () => {},
+) {
   return {
     /**
      * Nút `xóa` của một mẩu: nó KHÔNG xóa, nó mở một câu hỏi. Và nó ĐỢI lượt rời chế độ sửa
@@ -259,7 +271,10 @@ export function noiLuongXoa(store, goc, veTatCa, choRoiSua = () => Promise.resol
       const neo = { id, vaiTro: VAI_XOA };
       store.dongXacNhanXoa();
       veGiuTieuDiem(goc, veTatCa, neo);
-      return store.xoaGhiChu(id).then(() => veGiuTieuDiem(goc, veTatCa, neo));
+      return store
+        .xoaGhiChu(id)
+        .then(() => veGiuTieuDiem(goc, veTatCa, neo))
+        .then(() => sauKhiXoa());
     },
   };
 }
@@ -337,7 +352,10 @@ if (typeof document !== 'undefined') {
     // TRƯỚC khi hẹn `AUTOSAVE_MS` nổ thì lượt vẽ hoãn của `roi` còn thấy chữ cũ, và chính lượt vẽ
     // của `put` này mới gỡ mẩu hết khớp — cùng lúc gỡ nút `xóa` mà `Shift+Tab` vừa đặt tiêu điểm.
     go: (id, text) => {
-      store.tuLuuNoiDung(id, text).then(() => veGiuTieuDiem(document, veTatCa));
+      store
+        .tuLuuNoiDung(id, text)
+        .then(() => veGiuTieuDiem(document, veTatCa))
+        .then(() => kiemRoiVe());
     },
     // Nút `xóa` của mỗi mẩu (Story 5.3) — nó mở một câu hỏi, không xóa. Hành vi sống ở
     // `noiLuongXoa` phía trên khối này, nơi test chạy được nó; đây chỉ là chỗ cắm.
@@ -357,7 +375,15 @@ if (typeof document !== 'undefined') {
   // `luotRoiSua` đi vào qua một HÀM chứ không qua giá trị: nó bị gán lại ở mỗi lần rời chế độ
   // sửa, và móc phải đợi lượt rời MỚI NHẤT, không phải lượt có lúc nối. `veTatCa` bọc lười vì
   // nó khai ở bên dưới, cùng khuôn `latRoiVe`.
-  const luongXoa = noiLuongXoa(store, document, () => veTatCa(), () => luotRoiSua);
+  // Tham số thứ năm (Story 8.2 Q6): xóa qua hộp thoại thành công thì kiểm dung lượng — bọc lười
+  // vì `kiemRoiVe` khai bên dưới, cùng khuôn `veTatCa`.
+  const luongXoa = noiLuongXoa(
+    store,
+    document,
+    () => veTatCa(),
+    () => luotRoiSua,
+    () => kiemRoiVe(),
+  );
   // `undefined` cho tham số thứ ba: nguồn mốc hiện tại giữ mặc định `nowIso` của
   // `core/time.js` — chỉ test bố cục mới truyền một mốc cố định vào đó.
   const luoi = noiLuoi(store, document, undefined, mocSua);
@@ -380,6 +406,17 @@ if (typeof document !== 'undefined') {
   // đầu), đúng khuôn trùng lặp có ý thức mà AD-19 cho phép.
   const dongRoiVe = () => veGiuTieuDiem(document, veTatCa, null);
   const banner = noiBanner(store, document, dongRoiVe);
+  // Kiểm dung lượng rồi vẽ lại (Story 8.2) — helper DUY NHẤT, gọi SAU lượt vẽ sẵn có của bốn
+  // đường ghi: chốt, tự lưu sửa, nạp file, xóa qua hộp thoại. Lõi tự no-op khi không có phép ghi
+  // thành công nào, nên chỗ gọi không cần biết phép ghi ra sao. Lượt vẽ có thể gỡ nút `✕` của
+  // hàng 7 đang giữ tiêu điểm: tiêu điểm trong dải băng thì về `#o-soan` (neo `null`), ngược lại
+  // giữ chỗ đang đứng (neo `undefined`) — qua `veGiuTieuDiem`, không tự `focus()` (Q5).
+  const tieuDiemTrongDaiBang = () =>
+    (document.activeElement?.closest(CHON_DAI_BANG) ?? null) !== null;
+  const kiemRoiVe = () =>
+    store
+      .kiemDungLuong()
+      .then(() => veGiuTieuDiem(document, veTatCa, tieuDiemTrongDaiBang() ? null : undefined));
   // Nút theme là view THỨ TƯ, và nó nối SAU ba view trên: thứ tự nối của chúng không đổi một
   // dòng. Nó vẽ từ đúng MỘT giá trị state (`theme`) và đặt `data-theme` trên `<html>` — nên nó
   // không biết gì về lưới, tiêu đề lẫn dải băng, đúng như chúng không biết gì về nó.
@@ -395,7 +432,10 @@ if (typeof document !== 'undefined') {
   // Nhưng nó NHẬN lượt vẽ chung qua tham số, và chỉ chiều NẠP dùng tới: nạp đổi `notes` và đổi
   // dải băng, nên lưới, tiêu đề tab và dải băng đều phải vẽ lại — trong khi xuất không đổi một
   // trường state nào. Một lớp bọc lười vì `veTatCa` khai ngay bên dưới, cùng khuôn `latRoiVe`.
-  const napRoiVe = () => veTatCa();
+  const napRoiVe = () => {
+    veTatCa();
+    kiemRoiVe();
+  };
   const chanTrang = noiChanTrang(store, document, napRoiVe);
   // Hộp thoại xác nhận xóa là view THỨ SÁU (Story 5.3), và nó nối SAU năm view trên: thứ tự
   // nối của chúng không đổi một dòng. Nó vẽ từ `xacNhanXoa` cộng một phép đọc `notes` (mẩu được
@@ -484,6 +524,7 @@ if (typeof document !== 'undefined') {
   const veSauChot = (daXoaDieuKien) => {
     if (daXoaDieuKien) xoaHetDieuKienVaNhap();
     veTatCa();
+    kiemRoiVe();
   };
   const oSoan = noiOSoan(store, document, veSauChot);
   // Bốn bước khởi động bản nháp của AD-3, cùng một cửa và cùng một lý do.

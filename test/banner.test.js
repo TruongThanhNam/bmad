@@ -583,10 +583,30 @@ describe('app/view/banner.js — luật của tầng view, cưỡng chế đư�
     const viPham = [];
     for (const ten of ['core/banner.js', 'core/state.js', 'main.js', 'view/luoi.js',
       'view/mau-giay.js', 'view/o-soan.js', 'view/tieu-de.js']) {
-      const ma = readFileSync(join(repoRoot, 'app', ...ten.split('/')), 'utf8');
-      if (/dai-bang/.test(boChuThichJs(ma))) viPham.push(ten);
+      let ma = boChuThichJs(readFileSync(join(repoRoot, 'app', ...ten.split('/')), 'utf8'));
+      // Ngoại lệ hẹp DUY NHẤT (Story 8.2 Q5): `main.js` khai lại selector để HỎI xem tiêu điểm có
+      // nằm trong dải băng không — một phép đọc `closest`, không chạm DOM của dải băng. Ca dưới
+      // ghim hình dạng đó; ở đây gỡ đúng dòng khai trước khi quét.
+      if (ten === 'main.js') ma = ma.replace(/const CHON_DAI_BANG = '\.dai-bang';/, '');
+      if (/dai-bang/.test(ma)) viPham.push(ten);
     }
     expect(viPham).toEqual([]);
+  });
+
+  it('main.js chỉ ĐỌC selector dải băng, đúng một lần, qua `closest` (Story 8.2 Q5)', () => {
+    const ma = boChuThichJs(readFileSync(join(repoRoot, 'app', 'main.js'), 'utf8'));
+    expect([...ma.matchAll(/dai-bang/g)]).toHaveLength(1);
+    const dung = [...ma.matchAll(/\bCHON_DAI_BANG\b/g)];
+    // Một lần khai, một lần dùng — và lần dùng là `.closest(CHON_DAI_BANG)`.
+    expect(dung).toHaveLength(2);
+    expect(ma).toMatch(/\.closest\(CHON_DAI_BANG\)/);
+    // Bản chép phải BẰNG `CHON_BANNER` của view: đổi tên class ở đó mà quên ở đây là Q5 gãy im lặng.
+    const view = boChuThichJs(readFileSync(join(repoRoot, 'app', 'view', 'banner.js'), 'utf8'));
+    const goc = /const CHON_BANNER = '([^']+)';/.exec(view);
+    const chep = /const CHON_DAI_BANG = '([^']+)';/.exec(ma);
+    expect(goc).not.toBeNull();
+    expect(chep).not.toBeNull();
+    expect(chep[1]).toBe(goc[1]);
   });
 
   it('app/main.js nối dải băng vào CÙNG lượt vẽ chung, và ✕ gọi lại lượt vẽ đó', () => {
@@ -697,7 +717,11 @@ describe('app/view/banner.js — luật của tầng view, cưỡng chế đư�
       for (const loai of ['BAD_FILE', 'BAD_VERSION', 'VERSION_SKEW', 'DUNG_LUONG_SAP_HET',
         'NAP_FILE_XONG']) {
         // Story 7.2 gỡ `VERSION_SKEW` theo đúng khuôn đó: hàng 1 nay có người phát (`vaoChiDoc`).
-        if ((loai === 'NAP_FILE_XONG' || loai === 'VERSION_SKEW') && ten === 'core/state.js') {
+        // Story 8.2 gỡ `DUNG_LUONG_SAP_HET` cùng khuôn: hàng 7 nay có người phát (`kiemDungLuong`).
+        if (
+          (loai === 'NAP_FILE_XONG' || loai === 'VERSION_SKEW' || loai === 'DUNG_LUONG_SAP_HET') &&
+          ten === 'core/state.js'
+        ) {
           continue;
         }
         if (ma.includes(loai)) viPham.push(`${ten} — ${loai}`);
@@ -709,6 +733,19 @@ describe('app/view/banner.js — luật của tầng view, cưỡng chế đư�
   it('hàng 1 có ĐÚNG MỘT người phát dưới app/, và đó là `vaoChiDoc` của `core/state.js`', () => {
     const ma = boChuThichJs(readFileSync(join(repoRoot, 'app', 'core', 'state.js'), 'utf8'));
     expect([...ma.matchAll(/VERSION_SKEW/g)]).toHaveLength(1);
+  });
+
+  it('hàng 7 có ĐÚNG MỘT chỗ đặt dưới app/, và đó là `kiemDungLuong` của `core/state.js`', () => {
+    // Story 8.2 — cùng khuôn hàng 1/hàng 6: nới ngoại lệ ở ca trên thì đóng lại bằng cam kết hẹp.
+    // Các lần NHẮC tên (so `noiBo.banner`, cờ đóng) không phải chỗ đặt, nên chỉ đếm `banner: …`.
+    const ma = boChuThichJs(readFileSync(join(repoRoot, 'app', 'core', 'state.js'), 'utf8'));
+    const cho = [...ma.matchAll(/banner\s*:\s*LOAI_BANG\s*\.\s*DUNG_LUONG_SAP_HET/g)];
+    expect(cho).toHaveLength(1);
+    const dau = ma.indexOf('function kiemDungLuong(');
+    expect(dau).toBeGreaterThan(-1);
+    const cuoi = ma.indexOf('\n  function ', dau + 1);
+    expect(cho[0].index).toBeGreaterThan(dau);
+    expect(cuoi < 0 || cho[0].index < cuoi).toBe(true);
   });
 
   it('hàng 6 có ĐÚNG MỘT người phát dưới app/, và đó là `core/state.js`', () => {

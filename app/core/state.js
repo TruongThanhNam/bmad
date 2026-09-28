@@ -67,7 +67,14 @@ import {
 import { LOAI_BANG, dongDuoc, thayDuoc } from './banner.js';
 import { MA_LOI } from './errors.js';
 import { fold } from './fold.js';
-import { APP_VERSION, AUTOSAVE_MS, DRAFT_STALE_MS, MAX_NOTE_CHARS } from './limits.js';
+import {
+  APP_VERSION,
+  AUTOSAVE_MS,
+  DRAFT_STALE_MS,
+  MAX_NOTE_CHARS,
+  QUOTA_WARN_FREE_BYTES,
+  QUOTA_WARN_RATIO,
+} from './limits.js';
 import { localDate, localStamp, msBetweenIso, nowIso } from './time.js';
 import { kiemTraPorts } from '../ports/index.js';
 
@@ -134,6 +141,29 @@ export const ACTION_GHI = Object.freeze([
   'nhipTimBanNhap',
   'xinLuuTruBen',
 ]);
+
+/**
+ * Phép so ngưỡng dung lượng (Story 8.2, AD-10) — hàm THUẦN, cấp module, không phải action.
+ *
+ * Ba câu trả lời chứ không hai, vì "không biết" khác "dưới ngưỡng": `true` vượt, `false` dưới,
+ * `null` khi số liệu không dùng được (không phải object, không phải số hữu hạn, `used` âm, `limit`
+ * không dương). `estimate()` là ước lượng có đệm — nó chỉ để CẢNH BÁO, không bao giờ để quyết
+ * định có ghi hay không; đường phát hiện thật vẫn là `QUOTA` từ một phép ghi hỏng.
+ *
+ * Hai vế, và cả hai bắt buộc: tỉ lệ `used/limit ≥ QUOTA_WARN_RATIO`, HOẶC còn dưới
+ * `QUOTA_WARN_FREE_BYTES` byte trống. Trên Chromium quota bám theo đĩa trống, nên riêng vế tỉ lệ
+ * gần như không bao giờ nổ.
+ *
+ * @param {{ used: number | null, limit: number | null }} uoc Kết quả của `quota.estimate()`.
+ * @returns {boolean | null}
+ */
+export function vuotNguongDungLuong(uoc) {
+  if (!laObjectThuong(uoc)) return null;
+  const { used, limit } = uoc;
+  if (!Number.isFinite(used) || !Number.isFinite(limit)) return null;
+  if (used < 0 || limit <= 0) return null;
+  return used / limit >= QUOTA_WARN_RATIO || limit - used < QUOTA_WARN_FREE_BYTES;
+}
 
 // Chép tại chỗ từ `core/time.js` có chủ ý: gom thành helper dùng chung là thêm một phụ thuộc
 // giữa hai module lõi chỉ để tiết kiệm hai dòng.
@@ -415,6 +445,20 @@ export function taoStore(ports) {
   let dangNap = false;
 
   /**
+   * Ba ô nhớ của cảnh báo trước ngưỡng dung lượng (Story 8.2) — CLOSURE, cùng khuôn `dangNap`,
+   * không phải trường state: view không vẽ gì từ chúng.
+   *
+   * - `canKiem`: một phép ghi THÀNH CÔNG (chốt, tự lưu sửa, nạp file, xóa) vừa xảy ra, nên lần
+   *   `kiemDungLuong()` kế có việc để làm. Nhiều lần ghi dồn thành MỘT lần kiểm; ghi hỏng thì
+   *   không bật. Lần kiểm tách khỏi lời hứa của action ghi (Q4): action không chờ `estimate`.
+   * - `daDongCanhBao`: Nam đã bấm `✕` trên hàng 7 — im tới hết phiên (Q1). Tải lại là quên.
+   * - `soLanKiem`: số đếm chặn kết quả `estimate` CŨ về sau kết quả mới.
+   */
+  let canKiem = false;
+  let daDongCanhBao = false;
+  let soLanKiem = 0;
+
+  /**
    * Tab này đã vào chế độ chỉ đọc hay chưa (Story 7.2) — sống trong CLOSURE, cùng khuôn `dangNap`.
    *
    * Không phải một trường state: view không vẽ gì từ nó — lời nói với Nam là dải băng
@@ -587,7 +631,12 @@ export function taoStore(ports) {
    *
    * Đây là đường KHÁC với "tắt sau khi ghi thành công" (`ghiTruocDatSau`, `ghiBanNhap`): đường
    * đó đặt `banner: null` qua `datLai` và KHÔNG xét cờ đóng-được, vì nó không phải một cú bấm
-   * mà là bằng chứng rằng chuyện xấu đã qua.
+   * mà là bằng chứng rằng chuyện xấu đã qua. Ngoại lệ DUY NHẤT của đường đó là hàng 7
+   * (`DUNG_LUONG_SAP_HET`, Story 8.2 Q3): ghi thành công không nói gì về dung lượng, nên hàng 7
+   * chỉ tắt ở đây, khi lần kiểm đo dưới ngưỡng, hoặc khi một hàng cao hơn thay nó.
+   *
+   * Đóng đúng hàng 7 thì bật `daDongCanhBao`: cảnh báo im tới hết phiên (Q1). Đóng một hàng khác
+   * (kể cả hàng đang đè lên hàng 7) thì không.
    *
    * @returns {void}
    */
@@ -595,7 +644,54 @@ export function taoStore(ports) {
     const dangHien = noiBo.banner;
     if (dangHien === null) return;
     if (!dongDuoc(dangHien)) return;
+    if (dangHien === LOAI_BANG.DUNG_LUONG_SAP_HET) daDongCanhBao = true;
     datLai({ banner: null });
+  }
+
+  /**
+   * Phần dải băng của một phép ghi THÀNH CÔNG: `{ banner: null }` (AD-8), trừ khi hàng 7 đang
+   * hiện — khi đó `{}`, không chạm dải băng (Story 8.2 Q3). Tính LÚC ghi xong, không lúc hẹn.
+   */
+  function tatSauKhiGhi() {
+    return noiBo.banner === LOAI_BANG.DUNG_LUONG_SAP_HET ? {} : { banner: null };
+  }
+
+  /**
+   * Kiểm dung lượng SAU một phép ghi thành công (Story 8.2, AD-10) — `main.js` gọi nó sau lượt vẽ
+   * của chốt, tự lưu sửa, nạp file và xóa qua hộp thoại. Không có phép ghi thành công nào kể từ
+   * lần kiểm trước (`canKiem` tắt) thì no-op, nên chỗ gọi không cần biết phép ghi ra sao.
+   *
+   * Không vào `ACTION_GHI`: nó chỉ ĐỌC `quota.estimate` và đặt dải băng — nhưng vẫn gác `chiDoc`.
+   * Vượt ngưỡng → hàng 7 (phép gác ưu tiên của `datLai` lo phần "không đè hàng cao hơn"). Dưới
+   * ngưỡng với số liệu hợp lệ → tắt hàng 7 nếu đang hiện. Không biết (`null`, cổng ném) → giữ
+   * nguyên: không biết không phải dưới ngưỡng.
+   *
+   * @returns {Promise<void>} Không bao giờ bị từ chối. Cổng treo thì lời hứa treo — vô hại, không
+   *   gì chờ nó ngoài một lượt vẽ.
+   */
+  function kiemDungLuong() {
+    if (chiDoc || !canKiem || daDongCanhBao) return Promise.resolve();
+    canKiem = false;
+    const so = ++soLanKiem;
+    let dangDo;
+    try {
+      dangDo = ports.quota.estimate();
+    } catch {
+      return Promise.resolve();
+    }
+    // `.catch` đứng SAU `.then`: nó nuốt cả lỗi ném bên trong nhánh xử lý (getter ném, `datLai`).
+    return Promise.resolve(dangDo)
+      .then((kq) => {
+        // Chỉ đọc, đã đóng, hay đã có lần kiểm mới hơn trong lúc chờ: bỏ kết quả này.
+        if (chiDoc || daDongCanhBao || so !== soLanKiem) return;
+        const vuot = vuotNguongDungLuong(kq);
+        if (vuot === true) {
+          datLai({ banner: LOAI_BANG.DUNG_LUONG_SAP_HET });
+        } else if (vuot === false && noiBo.banner === LOAI_BANG.DUNG_LUONG_SAP_HET) {
+          datLai({ banner: null });
+        }
+      })
+      .catch(() => {});
   }
 
   /** Đưa khối điều kiện về `{ keyword: null, date: null }` — khung nhìn mặc định (AD-15). */
@@ -677,12 +773,13 @@ export function taoStore(ports) {
    * dải băng (AD-17). Ném thêm ra ngoài là bắt mọi chỗ gọi tự xử lý một lần nữa.
    *
    * Ghi thành công thì TẮT dải băng: AD-8 nói dải băng ở lại "cho tới khi một phép ghi sau đó
-   * thành công", nên một lần hết dung lượng không được đeo bám mọi thao tác về sau.
+   * thành công", nên một lần hết dung lượng không được đeo bám mọi thao tác về sau. Trừ hàng 7
+   * (`tatSauKhiGhi`, Story 8.2 Q3): cảnh báo dung lượng không phải lỗi của phép ghi nào.
    */
   function ghiTruocDatSau(phepGhi, dungNhanh) {
     return phepGhi().then(
       () => {
-        datLai({ ...dungNhanh(), banner: null });
+        datLai({ ...dungNhanh(), ...tatSauKhiGhi() });
       },
       (loi) => {
         datLai({ banner: maBanner(loi) });
@@ -731,11 +828,13 @@ export function taoStore(ports) {
             // hẹn của chữ hợp lệ liền trước vẫn nổ tới đây trong khi `chuDangCho` đã mang chữ vượt
             // trần mới hơn — dọn nó là nuốt chữ vừa dán trong im lặng (retro Epic 5, B1).
             if (chuDangCho.get(id) === banGhi.text) chuDangCho.delete(id);
-            // Cùng quy tắc với `ghiTruocDatSau`: một phép ghi thành công tắt dải băng (AD-8).
+            // Cùng quy tắc với `ghiTruocDatSau`: một phép ghi thành công tắt dải băng (AD-8),
+            // trừ hàng 7 (`tatSauKhiGhi`, Story 8.2 Q3).
             datLai({
               notes: noiBo.notes.map((mau) => (mau.id === banGhi.id ? banGhi : mau)),
-              banner: null,
+              ...tatSauKhiGhi(),
             });
+            canKiem = true;
             baoGhiChuDoi();
             xong();
           },
@@ -1296,6 +1395,7 @@ export function taoStore(ports) {
               () => ({ notes: sapGiamDan(gop.ketQua) }),
             ).then(() => {
               if (!daGop) return;
+              canKiem = true;
               datLai({
                 banner: LOAI_BANG.NAP_FILE_XONG,
                 bannerSo: { added: gop.added, skipped: gop.skipped },
@@ -1362,7 +1462,10 @@ export function taoStore(ports) {
           noiBo.draft.seq === seqLucChot ? { text: '', seq: noiBo.draft.seq } : noiBo.draft,
       }),
     ).then(() => {
-      if (daChot) baoGhiChuDoi();
+      if (daChot) {
+        canKiem = true;
+        baoGhiChuDoi();
+      }
       return daChot;
     });
   }
@@ -1466,7 +1569,11 @@ export function taoStore(ports) {
         };
       },
     ).then(() => {
-      if (daXoa) baoGhiChuDoi();
+      // Xóa giải phóng chỗ, nên nó cũng kích một lần kiểm (Story 8.2 Q6).
+      if (daXoa) {
+        canKiem = true;
+        baoGhiChuDoi();
+      }
     });
   }
 
@@ -1626,7 +1733,7 @@ export function taoStore(ports) {
       .putDraft({ tabId: tabCuaMinh, text: noiBo.draft.text, heartbeat: nowIso() })
       .then(
         () => {
-          if (tatDaiBang) datLai({ banner: null });
+          if (tatDaiBang) datLai(tatSauKhiGhi());
         },
         (loi) => {
           datLai({ banner: maBanner(loi) });
@@ -1773,5 +1880,6 @@ export function taoStore(ports) {
     datBanNhap,
     nhipTimBanNhap,
     xinLuuTruBen,
+    kiemDungLuong,
   });
 }

@@ -173,6 +173,33 @@ Mục không đánh số để khỏi xê dịch số các mục đã được t
   phép — nếu không, hộp này sẽ hỏi lại mỗi lần mở."
 - **Không có dải băng nào** vì lần xin này, ở cả hai kết quả.
 
+### `app/adapters/quota.js` — cảnh báo trước ngưỡng dung lượng (Story 8.2)
+
+Mục không đánh số, cùng lý do mục trên. Mở trang qua HTTP localhost trên Chrome/Edge, DevTools
+mở; tab Network phải không có request mới nào ở mọi bước dưới đây. Trên Chromium quota bám theo
+đĩa trống, nên giả lập quota nhỏ cũng chỉ thử **vế byte trống** (còn dưới 50 MB), không thử vế
+tỉ lệ 80% — vế tỉ lệ chỉ ghim bằng test đơn vị.
+
+- **(a) Vế byte — bật và không bật.** DevTools → Application → Storage → tích "Simulate custom
+  storage quota", đặt **40 MB**, rồi chốt một ghi chú: ô soạn **trống ngay**, và dải băng hiện
+  đúng `Dung lượng sắp hết. Xuất sao lưu trước khi nó hết.` có nút `✕`, Console sạch. Đổi giả
+  lập sang **60 MB** với kho gần rỗng (chưa tới 10 MB dữ liệu), tải lại, chốt: **không** cảnh báo.
+- **(b) Con số khớp quyết định.** Ở mỗi bước trên, chạy `await navigator.storage.estimate()`
+  trong Console: `quota − usage` dưới 50 MB (hoặc `usage/quota` ≥ 0.8) đúng khi và chỉ khi dải
+  băng hiện sau lần chốt kế.
+- **(c) Đĩa thật.** Bỏ tích giả lập, tải lại, chốt: không cảnh báo (trừ khi đĩa thật sự gần đầy).
+- **(d) `✕` im tới hết phiên.** Với giả lập 40 MB và dải băng đang hiện: bấm `✕` — tiêu điểm
+  về ô soạn, không rơi về đầu trang. Chốt thêm, sửa một mẩu, xóa một mẩu: cảnh báo **không**
+  hiện lại. Tải lại rồi chốt: cảnh báo **hiện lại**.
+- **Ba đường kích còn lại.** Với giả lập 40 MB, chưa bấm `✕` trong phiên (tải lại trước mỗi
+  bước): sửa một mẩu rồi đợi tự lưu → cảnh báo hiện; xóa một mẩu qua hộp thoại → cảnh báo hiện;
+  nạp một file sao lưu → dải băng kết quả nạp (hàng 6) thắng và hàng 7 **không** hiện — đúng như
+  dự kiến (Q2). Trình duyệt trả `{used: null, limit: null}` (không có `estimate`) thì không bao
+  giờ cảnh báo.
+- **Ghi thành công không tắt nó.** Với cảnh báo đang hiện (chưa bấm `✕`): gõ bản nháp, đổi
+  theme, xuất sao lưu — cảnh báo vẫn đứng đó. Chỉ lần kiểm sau chốt/sửa/nạp/xóa đo dưới ngưỡng
+  mới tắt nó.
+
 ### `app/adapters/indexeddb.js` — bản nháp riêng từng tab
 
 Bốn bước khởi động bản nháp (AD-3) chạy trong **một** giao dịch, và tính nguyên tử đó chỉ
