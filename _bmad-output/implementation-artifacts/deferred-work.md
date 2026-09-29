@@ -238,7 +238,8 @@
   summary: Hai chỗ nối `kiemRoiVe` còn lại của 8.2 — `napRoiVe` (nạp sao lưu, `app/main.js:435-439`) và chuỗi tự lưu `mocSua.go` (`:356-358`) — chưa có ca chạy thật trong khối "Story 8.1/8.2" của `tools/thu-bo-cuc.mjs`, trái luật AGENTS.md mới thêm.
   evidence: Chỉ regex ghim (`test/core-state-dung-luong.test.js:705-720`, `test/chan-trang-hai-link.test.js:282-291`); đổi `noiChanTrang(store, document, napRoiVe)` thành `latRoiVe` vẫn xanh toàn bộ. Cần ca nạp file (qua `DOM.setFileInputFiles`) và ca sửa tại chỗ với stub `VUOT`/`DUOI`.
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-3-khoi-kiem-dung-luong-chay-that-trong-thu-bo-cuc.md`
-  summary: Nhánh `undefined` của neo `kiemRoiVe` (`app/main.js:419`: tiêu điểm ngoài dải băng thì giữ chỗ đang đứng) không có ca chạy thật; đổi neo thành luôn `null` (giật tiêu điểm về `#o-soan`) vẫn xanh.
+  summary: ~~Nhánh `undefined` của neo `kiemRoiVe` (`app/main.js:419`: tiêu điểm ngoài dải băng thì giữ chỗ đang đứng) không có ca chạy thật; đổi neo thành luôn `null` (giật tiêu điểm về `#o-soan`) vẫn xanh.~~
+  resolved: 2026-09-29 — ca "Deferred 8.3 — kiemRoiVe (neo undefined)" trong khối 8.1/8.2 của tools/thu-bo-cuc.mjs (tiêu điểm ở `xóa` của mẩu, nhả vượt → hàng 7 hiện, tiêu điểm còn đúng mẩu + vai trò; đột biến neo `null` làm ca đỏ).
   evidence: Khối 8.3 chỉ đo nhánh `null` (Q5, tiêu điểm trên `✕`). Cần một ca: tiêu điểm trên thân/`xóa` của một mẩu, lần kiểm treo rồi nhả đổi dải băng, khẳng định tiêu điểm còn đúng mẩu + vai trò.
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-3-khoi-kiem-dung-luong-chay-that-trong-thu-bo-cuc.md`
   summary: AGENTS.md ghi ngoại lệ stub `estimate`/`persist` ở mục "Chạy và kiểm chứng", không cạnh hai ngoại lệ adapter ở "Nơi để tìm", và không trỏ nơi lưu lần duyệt (Q1 proposal 2026-09-28).
@@ -250,7 +251,8 @@
 ## Deferred from: code review of spec-8-3-khoi-kiem-dung-luong-chay-that-trong-thu-bo-cuc.md — lượt 2 (2026-09-28)
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-3-khoi-kiem-dung-luong-chay-that-trong-thu-bo-cuc.md`
-  summary: Ca "Story 8.1 — persist() resolve muộn" không đặt tiêu điểm/chữ vào `#o-soan` trước khi nhả, nên đổi `xinLuuTruBen().then(() => veGiuTieuDiem(...))` thành `.then(veTatCa)` trần vẫn xanh — đúng lý do chỗ nối dùng `veGiuTieuDiem` (Firefox resolve lúc Nam đang gõ) không được đo.
+  summary: ~~Ca "Story 8.1 — persist() resolve muộn" không đặt tiêu điểm/chữ vào `#o-soan` trước khi nhả, nên đổi `xinLuuTruBen().then(() => veGiuTieuDiem(...))` thành `.then(veTatCa)` trần vẫn xanh — đúng lý do chỗ nối dùng `veGiuTieuDiem` (Firefox resolve lúc Nam đang gõ) không được đo.~~
+  resolved: 2026-09-29 — ca "Deferred 8.3 — persist() resolve muộn" (tiêu điểm ở `xóa` của mẩu trước khi nhả; đột biến `.then(veTatCa)` làm ca đỏ). Đề xuất gốc là focus `#o-soan` không bắt được đột biến đó (`veGiuTieuDiem` trả sớm khi tiêu điểm ngoài mọi mẩu), nên chỉ giữ làm ca phụ "chữ gõ dở còn nguyên".
   evidence: `tools/thu-bo-cuc.mjs:3180-3192` chỉ khẳng định chân trang + cờ. Cùng họ với mục nhánh `undefined` của `kiemRoiVe` ở trên. Cần: focus `#o-soan`, gõ chữ, rồi nhả `false`; khẳng định `activeElement` vẫn là `#o-soan` và giá trị còn nguyên.
 
 ## Deferred from: code review of spec-8-4-luot-ve-bat-dong-bo-khong-tha-tieu-diem-khong-ve-truoc-kho.md (2026-09-29)

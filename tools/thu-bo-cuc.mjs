@@ -3229,14 +3229,51 @@ try {
       await cdp.taiLai(s);
       const veDau4 = await doiVeDau();
       const truocNha = await chay(`window.__moc83 = 1; return { chan: document.querySelector('.chan-nhac').textContent, co: localStorage.getItem('ghichu.persistDenied'), treo: window.__soPersistTreo() };`);
+      // Tiêu điểm lên nút `xóa` của mẩu mồi TRƯỚC khi nhả (Deferred 8.3): lượt vẽ chung gỡ nó, nên chỉ
+      // `veGiuTieuDiem` mới trả nó về — `.then(veTatCa)` trần để tiêu điểm rơi về `<body>`.
+      const idMoi = await idCua('thu-8-3 mẩu mồi');
+      const CHON_XOA_MOI = `.luoi > [data-mau="${idMoi}"] .mau-xoa`;
+      const dungTaiXoa = () => chay(`return document.activeElement?.matches(${JSON.stringify(CHON_XOA_MOI)}) ?? false;`);
+      const nutXoaTruoc = await chay(`const n = document.querySelector(${JSON.stringify(CHON_XOA_MOI)}); n?.focus(); window.__nutXoaTruoc = n; return document.activeElement === n && n !== null;`);
       await chay(`return window.__nhaPersist(false);`);
       const hienMuon = await doi(`(document.querySelector('.chan-nhac')?.textContent ?? '').includes('cách đây 4 ngày') && localStorage.getItem('ghichu.persistDenied') === '1'`, 30);
       const cungTaiLieu = await chay(`return window.__moc83 === 1;`);
+      const nutXoaMoi = await chay(`return document.querySelector(${JSON.stringify(CHON_XOA_MOI)}) !== window.__nutXoaTruoc;`);
+      const giuXoa = await dungTaiXoa();
       ghi(
         'Story 8.1 — persist() resolve muộn (false): dòng nhắc hiện và cờ = "1" mà không tải lại',
         coVang4 && veDau4 && truocNha.chan === '' && truocNha.co === null && truocNha.treo === 1 && hienMuon && cungTaiLieu,
         `cờ vắng=${coVang4} · vẽ đầu=${veDau4} · trước nhả ${JSON.stringify(truocNha)} · sau nhả=${hienMuon} ${JSON.stringify(await chan())} · cùng tài liệu=${cungTaiLieu}`,
       );
+      ghi(
+        'Deferred 8.3 — persist() resolve muộn: tiêu điểm ở nút xóa của mẩu vẫn ở đúng mẩu + vai trò sau lượt vẽ, không <body>',
+        idMoi !== null && nutXoaTruoc && hienMuon && nutXoaMoi && giuXoa,
+        `id=${idMoi} · focus trước=${nutXoaTruoc} · nút bị dựng lại=${nutXoaMoi} · tiêu điểm còn ở xóa=${giuXoa} · ${JSON.stringify(await doc())}`,
+      );
+
+      // Deferred 8.3: chữ gõ dở: `persist` muộn resolve lúc Nam đang gõ vào `#o-soan` — chữ và tiêu điểm nguyên.
+      // (Ca này không bắt được `.then(veTatCa)` trần — `#o-soan` không bị lượt vẽ gỡ — mà giữ hành vi.)
+      await chay(`localStorage.removeItem('ghichu.persistDenied'); return true;`);
+      await datCauHinh({ persist: 'treo', uoc: DUOI });
+      await cdp.taiLai(s);
+      const veDau4b = await doiVeDau();
+      const CHU_DO = 'thu-8-5 chữ gõ dở';
+      await chay(`document.querySelector('#o-soan').focus(); return true;`);
+      await cdp.goi('Input.insertText', { text: CHU_DO }, s);
+      const treoDo = await chay(`return window.__soPersistTreo() === 1;`);
+      await chay(`return window.__nhaPersist(false);`);
+      const hienDo = await doi(`(document.querySelector('.chan-nhac')?.textContent ?? '').includes('cách đây 4 ngày')`, 30);
+      const conChu = await chay(`return { giaTri: document.querySelector('#o-soan').value, tieuDiem: document.activeElement?.id ?? null };`);
+      ghi(
+        'Deferred 8.3 — persist() resolve muộn lúc đang gõ: chữ ở #o-soan còn nguyên và tiêu điểm vẫn ở đó',
+        veDau4b && treoDo && hienDo && conChu.giaTri === CHU_DO && conChu.tieuDiem === 'o-soan',
+        `vẽ đầu=${veDau4b} · treo=${treoDo} · hiện=${hienDo} · ${JSON.stringify(conChu)}`,
+      );
+      // Dọn bằng phím thật (chọn hết + Backspace) để state `text` và bản nháp cũng về rỗng.
+      await chay(`const o = document.querySelector('#o-soan'); o.focus(); o.select(); return true;`);
+      await cdp.goi('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8 }, s);
+      await cdp.goi('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Backspace', code: 'Backspace', windowsVirtualKeyCode: 8 }, s);
+      await doi(`document.querySelector('#o-soan').value === ''`, 20);
 
       // 8.2 khởi động: tài liệu này chưa chốt gì, và nó đã chạy qua lượt vẽ đầu của kho.
       const uocKhoiDong = await soUoc();
@@ -3303,6 +3340,26 @@ try {
         'Story 8.2 — Q5: lần kiểm gỡ hàng 7 lúc ✕ giữ tiêu điểm → tiêu điểm về #o-soan, không <body>',
         dung9 && chot9 && treo9 && trenDong && tat9 && d9.tieuDiem === 'o-soan',
         `dựng=${dung9} · chốt=${chot9} · treo=${treo9} · trên ✕=${trenDong} · tắt=${tat9} · ${JSON.stringify(d9)}`,
+      );
+
+      // Deferred 8.3: nhánh `undefined` của neo `kiemRoiVe`: lần kiểm TREO qua lượt chốt; tiêu điểm lên nút
+      // `xóa` của mẩu vừa chốt; nhả vượt → hàng 7 hiện, lưới bị dựng lại → tiêu điểm còn đúng mẩu +
+      // vai trò `xóa`. Neo luôn `null` sẽ giật nó về `#o-soan`.
+      await datCauHinh({ persist: 'treo', uoc: 'treo' });
+      const u13 = await soUoc();
+      const CHU_13 = 'thu-8-5 neo undefined của kiemRoiVe';
+      const chot13 = await chot(CHU_13);
+      const treo13 = await doi(`window.__soLanUoc === ${u13 + 1} && window.__soUocTreo() === 1`, 20);
+      const id13 = await idCua(CHU_13);
+      const CHON_XOA_13 = `.luoi > [data-mau="${id13}"] .mau-xoa`;
+      const focus13 = await chay(`const n = document.querySelector(${JSON.stringify(CHON_XOA_13)}); n?.focus(); window.__nutXoa13 = n; return n !== null && document.activeElement === n;`);
+      await chay(`return window.__nhaUoc(${JSON.stringify(VUOT)});`);
+      const hien13 = await doi(`window.__soUocTreo() === 0 && ${HANG7_HIEN}`, 30);
+      const dung13 = await chay(`const n = document.querySelector(${JSON.stringify(CHON_XOA_13)}); return { dungLai: n !== null && n !== window.__nutXoa13, giu: n !== null && document.activeElement === n };`);
+      ghi(
+        'Deferred 8.3 — kiemRoiVe (neo undefined): tiêu điểm ở nút xóa của mẩu còn đúng mẩu + vai trò sau khi hàng 7 hiện',
+        chot13 && treo13 && id13 !== null && focus13 && hien13 && dung13.dungLai && dung13.giu,
+        `chốt=${chot13} · treo=${treo13} · id=${id13} · focus trước=${focus13} · hàng 7=${hien13} · ${JSON.stringify(dung13)} · ${JSON.stringify(await doc())}`,
       );
 
       // Q1: dựng lại hàng 7, `Enter` trên `✕` → đóng, tiêu điểm `#o-soan`; chốt tiếp khi vẫn vượt
