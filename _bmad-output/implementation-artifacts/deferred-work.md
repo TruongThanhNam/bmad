@@ -27,7 +27,8 @@
   evidence: Chữ ký cổng đòi `value: string` nhưng adapter không kiểm. Chưa ai gọi `write` (Story 1.8 là người tiêu thụ đầu tiên), nên đây là một cái bẫy đặt sẵn cho Story 1.8 và Epic 8 chứ chưa phải một lỗi tới được.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-1-bon-tang-co-dinh-tren-nen-ban.md`
-  summary: Mọi bất biến layout tính toán (số cột, ranh giới 828px, trần 1040px, một vùng cuộn, chân trang chạm đáy) chỉ được bảo vệ khi có người nhớ chạy `npm run thu-bo-cuc` bằng tay.
+  summary: ~~Mọi bất biến layout tính toán (số cột, ranh giới 828px, trần 1040px, một vùng cuộn, chân trang chạm đáy) chỉ được bảo vệ khi có người nhớ chạy `npm run thu-bo-cuc` bằng tay.~~
+  resolved: 2026-09-29 — AGENTS.md ghi luật chạy `npm run thu-bo-cuc` trước mỗi lần push chạm `app/style.css`/`app/view/`/`app/main.js`. Vẫn không nối vào runner (không CI); đây là luật quy ước.
   evidence: `npm test` chỉ gom `test/**/*.test.js`, và phần trong suite chỉ quét văn bản nguồn — đổi `--note-min-col` hay bỏ `min-block-size: 0` vẫn xanh. Đây là cùng quy ước đã chốt cho `npm run thu-tay` (cần trình duyệt thật trên máy, không thêm dependency), nên nối nó vào một runner là quyết định cấp dự án chứ không phải của Story 2.1.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-2-o-soan-thao-san-con-tro-chu-tu-luu.md`
@@ -59,7 +60,8 @@
   evidence: Thật, và nặng hơn bình thường vì sản phẩm cố ý IM LẶNG khi thành công — mẩu giấy là phản hồi duy nhất, nên không có gì khác để nghe. Hoãn vì ý định của epic đặt accessibility ở Epic 3 (`3-2-focus-ring-và-thứ-tự-tab`, `3-4-màu-không-phải-tín-hiệu-duy-nhất`); story nào trong epic đó nhận việc này phải nhận cả vùng thông báo.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-4-luoi-ghi-chu-cua-hom-nay.md`
-  summary: Khối bootstrap của `app/main.js` không một ca test nào CHẠY — nó chỉ được ghim bằng regex trên chính văn bản của mình.
+  summary: ~~Khối bootstrap của `app/main.js` không một ca test nào CHẠY — nó chỉ được ghim bằng regex trên chính văn bản của mình.~~
+  resolved: 2026-09-29 — luật AGENTS.md "mỗi chỗ nối mới trong `main.js` phải có một ca `thu-bo-cuc` chạy thật" đã bao; lưới chạy thật ở khối Story 2.4 của tools/thu-bo-cuc.mjs (chốt qua Ctrl+Enter, đợi đủ ô, đo hình học).
   evidence: `test/luoi.test.js` và `test/o-soan.test.js` đều đọc `main.js` bằng `readFileSync` rồi khớp mẫu; `core-state.test.js` import `main.js` dưới Node, nơi `typeof document === 'undefined'`, nên khối trong cửa `document` không bao giờ chạy. Một bootstrap để lưới trống sau mỗi lần tải trang vẫn ship với `npm test` xanh. Đóng đúng lỗ này cần một harness DOM cho bootstrap — lớn hơn một story, và là khuôn sẵn có từ `o-soan.test.js:617` chứ không do 2.4 dựng ra.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-5-mau-giay-hinh-dang-gio-tao-cat-va-mo-rong.md`
@@ -72,7 +74,8 @@
   evidence: Thật — `app/style.css` không có luật nào cho hai thứ đó, và `test/bo-cuc-bon-tang.test.js` ghim ring focus ở đúng `.o-soan`. Ranh giới accessibility là của Epic 3 (`3-2-focus-ring-và-thứ-tự-tab`), không do spec 2.5 vẽ ra.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-6-trang-thai-rong-va-tab-title.md`
-  summary: Khối bootstrap của `app/main.js` chỉ được ghim bằng regex trên văn bản nguồn, nên việc nối view vào store có thể chết mà `npm test` vẫn xanh.
+  summary: ~~Khối bootstrap của `app/main.js` chỉ được ghim bằng regex trên văn bản nguồn, nên việc nối view vào store có thể chết mà `npm test` vẫn xanh.~~
+  resolved: 2026-09-29 — luật AGENTS.md "mỗi chỗ nối mới trong `main.js` phải có một ca `thu-bo-cuc` chạy thật" đã bao; `document.title` thật sau nạp và sau một lần chốt được đo ở khối Story 2.6 của tools/thu-bo-cuc.mjs, thêm ca Story 8.4.
   evidence: Lớp verification-gap đã chứng minh: đổi `noiTieuDe(store, document)` thành `noiTieuDe(store, null)` giữ nguyên mọi thứ mà `test/luoi.test.js` khớp (cùng một callback ở hai điểm nối, thân callback vẫn gọi `luoi.ve()` và `tieuDe.ve()`), nhưng `noiTieuDe` trả `{ ve(){} }` và tiêu đề tab không bao giờ đổi. `test/trang-tinh.test.js` nạp `main.js` ở Node, nơi cả khối `typeof document !== 'undefined'` không chạy. Phép đo thật chỉ có ở `npm run thu-bo-cuc` (cần Chrome, ngoài `npm test`). Đóng khe này đòi một harness DOM hoặc tách một `noiTatCa(store, doc)` kiểm được ra khỏi `main.js` — một quyết định kiến trúc lớn hơn một story.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-1-dai-bang-mot-chu-bay-nguon-mot-thu-tu-uu-tien.md`
@@ -84,7 +87,8 @@
   evidence: Đo trực tiếp: baseline `1d86a4f` đỏ 4/5 lần chạy; bản có Story 3.1 đỏ 2/4 lần. Triệu chứng luôn giống nhau (`cao [128,128,128,128]→[128,128,128,106]`), gợi ý phép đo chiều cao chạy trước khi bố cục ổn định sau khi tải lại.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-2-focus-ring-va-thu-tu-tab.md`
-  summary: Không có CI — nửa nghiệm thu chạy bằng trình duyệt thật (`npm run thu-bo-cuc`) chỉ chạy khi ai đó nhớ gọi, trong khi thứ tự Tab, vòng sáng và "click chuột không ring" chỉ sống ở đó.
+  summary: ~~Không có CI — nửa nghiệm thu chạy bằng trình duyệt thật (`npm run thu-bo-cuc`) chỉ chạy khi ai đó nhớ gọi, trong khi thứ tự Tab, vòng sáng và "click chuột không ring" chỉ sống ở đó.~~
+  resolved: 2026-09-29 — AGENTS.md mục "Chạy và kiểm chứng" ghi luật chạy `npm run thu-bo-cuc` trước mỗi lần push chạm `app/main.js`, `app/view/` hoặc `app/style.css`, ca đỏ ngoài ca chập chờn là hồi quy chặn push. Vẫn không có CI; đây là luật quy ước, không phải cổng máy.
   evidence: `.github/` không tồn tại; `npm test` và `npm run thu-bo-cuc` là hai script rời. Đây là quy ước có sẵn từ các story trước chứ không do Story 3.2 gây ra, nên lớp verification-gap cố ý không đệ trình nó như một gap. Sẽ cắn đúng vào lúc bốn epic sau đổ thêm điều khiển vào trang.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-3-nut-theme-va-tuong-phan-o-ca-hai-bang-mau.md`
@@ -92,7 +96,8 @@
   evidence: `cacKhoi`/`cacLuatCoMauChu` dùng regex một tầng (`/([^{}]*)\{([^{}]*)\}/g`), không khớp được khối lồng. Hôm nay vô hại vì `style.css` chưa có at-rule nào và `token-style.test.js` đỏ nếu ai thêm; nhưng Story 3.4 CHÍNH LÀ story thêm một `@media`, và lúc đó một luật `color: var(--…)` đặt trong đó vừa không được đo vừa không bị cửa "mọi luật có color đều khai chỗ đứng" bắt.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-3-nut-theme-va-tuong-phan-o-ca-hai-bang-mau.md`
-  summary: `subscribe` của `app/adapters/broadcast.js` không có đường gỡ bộ nghe và không có cách đóng kênh.
+  summary: ~~`subscribe` của `app/adapters/broadcast.js` không có đường gỡ bộ nghe và không có cách đóng kênh.~~
+  resolved: 2026-09-29 — `subscribe` trả hàm gỡ bộ nghe (`app/adapters/broadcast.js:72-81`, cả nhánh không có kênh cũng trả `() => {}`); `app/main.js:520` là người nghe duy nhất (Story 7.1). Không có phương thức đóng kênh — chưa ai cần.
   evidence: Mỗi lời gọi bọc listener trong một arrow mới rồi `addEventListener`, không trả về gì. Chưa ai đăng ký nghe nên hôm nay vô hại, nhưng Epic 7 (nạp lại theo tin, phát hiện lệch phiên bản) sẽ cần cả hai — và một test đăng ký nhiều lần sẽ tích listener trên cùng một kênh.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-3-nut-theme-va-tuong-phan-o-ca-hai-bang-mau.md`
@@ -116,11 +121,13 @@
   evidence: Trùng thật (`chan-trang-hai-link.test.js` ~dòng 70/113 so với `bo-cuc-bon-tang.test.js` dòng 164/168). Nó không sai hôm nay, nhưng lần RENEGOTIATE ở Story 4.2/4.3 sẽ phải tìm ra cả hai chỗ. Cách vá gọn: đưa regex nhãn chung vào `test/helpers/`.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-2-xuat-toan-bo-ra-mot-file-sao-luu.md`
-  summary: `phatPhienDoi()` không bọc `ports.channel.publish`, nên một cổng kênh ném sẽ từ chối lời hứa của action gọi nó — trái lời hứa "không bao giờ bị từ chối" của cả `datTheme` lẫn `xuatSaoLuu`.
+  summary: ~~`phatPhienDoi()` không bọc `ports.channel.publish`, nên một cổng kênh ném sẽ từ chối lời hứa của action gọi nó — trái lời hứa "không bao giờ bị từ chối" của cả `datTheme` lẫn `xuatSaoLuu`.~~
+  resolved: 2026-09-29 — `phatTin` (`app/core/state.js:1092-1111`, kế thừa `phatPhienDoi`) bọc cả `tabIdentity()` lẫn `ports.channel.publish` trong `try`, và adapter `broadcast.js` cũng bọc `postMessage`; `test/core-state-nap.test.js` có ca `publish` ném.
   evidence: Thật, nhưng có từ Story 3.3 chứ không phải story này gây ra: `phatPhienDoi` (`app/core/state.js` ~dòng 556) chỉ bọc `tabIdentity()` trong `try`, còn `publish(...)` để trần; `datTheme` phơi y hệt. Vá đúng cách là bọc một lần ở `phatPhienDoi` cho mọi chỗ gọi, kèm một ca test cho cổng kênh ném.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-2-xuat-toan-bo-ra-mot-file-sao-luu.md`
-  summary: `#chan-nap` là một nút focus được, không `disabled`, và không làm gì cho tới khi Story 4.3 xong — người dùng bàn phím hoặc trình đọc màn hình bấm vào không nhận được phản hồi nào.
+  summary: ~~`#chan-nap` là một nút focus được, không `disabled`, và không làm gì cho tới khi Story 4.3 xong — người dùng bàn phím hoặc trình đọc màn hình bấm vào không nhận được phản hồi nào.~~
+  resolved: 2026-09-29 — Story 4.3 nối hành vi: `app/view/chan-trang.js:112` gọi `store.napSaoLuu().then(sauKhiNap)` trên `#chan-nap`.
   evidence: Nút đã đứng đó từ Story 2.1 và được 4.1 khóa bằng test "hai link không bao giờ ẩn"; Story 4.2 chỉ thêm `id`. Ràng buộc sẽ tự biến mất khi 4.3 nối hành vi — chỉ cần xử lý riêng nếu 4.3 bị hoãn.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-3-nap-lai-hai-pha-gop-theo-dinh-danh-nguyen-tu.md`
@@ -128,7 +135,8 @@
   evidence: Thật, và làm JSDoc "nguồn để gộp là KHO nên không bao giờ mất" đúng hẹp hơn nó nghe. Cửa sổ chỉ là khoảng cách giữa hai thao tác IndexedDB kề nhau và hộp chọn file là modal nên chính Nam không chen vào được — chỉ một tab khác mới lọt. Đóng hẳn đòi một phương thức cổng đọc-và-ghi trong CÙNG một giao dịch, tức một mặt công khai mới; Epic 7 mới là chỗ đồng bộ liên tab.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-4-dong-nhac-thu-dong-ve-lan-sao-luu-gan-nhat.md`
-  summary: Mốc `lastBackupAt` trong state lệch khỏi kho khi một tab KHÁC vừa sao lưu — dòng nhắc của tab này vẫn đếm từ mốc cũ cho tới lần tải trang sau.
+  summary: ~~Mốc `lastBackupAt` trong state lệch khỏi kho khi một tab KHÁC vừa sao lưu — dòng nhắc của tab này vẫn đếm từ mốc cũ cho tới lần tải trang sau.~~
+  resolved: 2026-09-29 — chiều nhận đã dựng ở Epic 7: `kenh.subscribe` (`app/main.js:520`) → `nhanBanTin` → `napLaiPhien` (`app/core/state.js:997`) đọc lại `KHOA_LAST_BACKUP` khi nhận `session-changed`; `test/core-state-dong-bo.test.js:410-421` ghim. Đề xuất "nhánh trả sớm của `ghiMocSaoLuuMoiHon` đặt luôn `dangCo` vào state" không làm — tab nhận tự đọc lại nên không cần.
   evidence: Xác minh thật, và gốc chung của ba phát hiện riêng (chú thích "dùng chung cho mọi tab" mạnh hơn hiện thực; không có chiều NHẬN `session-changed`; nhánh trả sớm của `ghiMocSaoLuuMoiHon` để state giữ mốc cũ trong khi kho đã mới hơn). `app/core/state.js` phát `session-changed` ở cả hai đường ghi nhưng `app/` chưa có một bộ nghe nào — `app/main.js` tự ghi "Không có cơ chế subscribe trong dự án này (và không được dựng một cái)". Không do Story 4.4 sinh ra: khoảng trống có từ 4.2, story này chỉ thêm một người đọc cho cái mốc đó. Mở lại ở Epic 7 (đồng bộ ghi chú giữa các tab), nơi chiều nhận được dựng một lần cho mọi khóa cấu hình: bộ nghe đọc lại `KHOA_LAST_BACKUP` rồi `datLai`, và nhánh trả sớm của `ghiMocSaoLuuMoiHon` đặt luôn `dangCo` vào state.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-4-dong-nhac-thu-dong-ve-lan-sao-luu-gan-nhat.md`
@@ -140,7 +148,8 @@
   evidence: "`grep 'aria-\|role='` trong `app/view/mau-giay.js` không có một kết quả nào, trong khi `index.html:91` cho ô soạn thảo một `aria-label`. Lỗ này có TRƯỚC Story 5.1 (mẩu bị cắt đã mang `tabindex=\"0\"` từ Story 2.5 mà cũng không có nhãn); 5.1 chỉ nới nó ra mọi mẩu. Câu chữ của nhãn là microcopy tiếng Việt nên phải do người chốt — thuộc về một story a11y, không phải 5.1."
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-5-1-sua-noi-dung-tai-cho.md`
-  summary: Chỗ nối chế độ sửa trong `app/main.js` chỉ được ghim bằng quét chuỗi mã nguồn — không lệnh nào chạy nó, nên bốn lỗi của vòng review 1 có thể quay lại mà `npm test` vẫn xanh.
+  summary: ~~Chỗ nối chế độ sửa trong `app/main.js` chỉ được ghim bằng quét chuỗi mã nguồn — không lệnh nào chạy nó, nên bốn lỗi của vòng review 1 có thể quay lại mà `npm test` vẫn xanh.~~
+  resolved: 2026-09-29 — luật AGENTS.md "mỗi chỗ nối mới trong `main.js` phải có một ca `thu-bo-cuc` chạy thật" đã bao; khối Story 5.1 của tools/thu-bo-cuc.mjs (chế độ sửa tại chỗ, bốn phép đo) chạy trên Chrome thật.
   evidence: Khối nối nằm sau `if (typeof document !== 'undefined')` ở `app/main.js:84`, luôn sai dưới Vitest, và dự án cố ý không có jsdom. Hành vi thật được `tools/thu-bo-cuc.mjs` đo (bốn phép đo mới của Story 5.1 đều xanh trên Chrome thật), nhưng nó KHÔNG nằm trong `npm test` và phải chạy tay. Đây là lựa chọn có ý thức của dự án về dụng cụ kiểm, không phải một lỗ hổng của story — mở lại nếu có lúc dựng một bộ khung DOM cho `npm test`.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-5-1-sua-noi-dung-tai-cho.md`
@@ -165,11 +174,13 @@
 
 - Nối `veHomNay`/`veTatCa`/placeholder trong `app/main.js` chỉ được ghim bằng regex mã nguồn; hành vi thật (xóa ô ngày gõ dở, trả focus về `#o-soan`, gỡ placeholder sau chốt) chỉ kiểm ở `tools/thu-bo-cuc.mjs` ngoài `npm test`. Chạy `npm run thu-bo-cuc` trước khi deploy 0.7.0.
 
-- AGENTS.md còn ghi checklist thủ công "1–32"; README đã có mục 33 (Story 6.2) và 34 (Story 6.3).
+- ~~AGENTS.md còn ghi checklist thủ công "1–32"; README đã có mục 33 (Story 6.2) và 34 (Story 6.3).~~
+  resolved: 2026-09-29 — AGENTS.md hiện không còn ghi dải số checklist (chỉ "checklist thủ công" trong `README.md`); refresh bmad-project-context.
 
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-6-4-tran-ket-qua-va-hieu-nang-tra-cuu.md`
-  summary: AGENTS.md vẫn ghi checklist thủ công "1–32" trong khi README đã tới mục 35.
+  summary: ~~AGENTS.md vẫn ghi checklist thủ công "1–32" trong khi README đã tới mục 35.~~
+  resolved: 2026-09-29 — AGENTS.md hiện không còn ghi dải số checklist; refresh bmad-project-context.
   evidence: README thêm mục 33–35 qua Story 6.2–6.4; sửa file agent-context nên làm qua `bmad-project-context`.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-7-0-don-action-item-retro-epic-4-6.md`
@@ -195,7 +206,8 @@
   evidence: low. Sửa file agent-context nên làm qua `bmad-project-context`: ghi `vaoSuaRoiVe` là ngoại lệ có tên (đặt tiêu điểm vào phần tử MỚI, không trả về chỗ cũ).
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-7-0-don-action-item-retro-epic-4-6.md`
-  summary: Retro Epic 4 F1 (phép ghi chen giữa `readAll`/`replaceAll` khi nạp) chỉ nằm ở §4.4 bản đề xuất Story 7.0, chưa vào Story 7.1 của `epics.md`.
+  summary: ~~Retro Epic 4 F1 (phép ghi chen giữa `readAll`/`replaceAll` khi nạp) chỉ nằm ở §4.4 bản đề xuất Story 7.0, chưa vào Story 7.1 của `epics.md`.~~
+  resolved: 2026-09-29 — trùng mục "Hoãn F1" của spec-7-1 ngay bên dưới (cùng phép ghi chen giữa `readAll`/`replaceAll` khi nạp), vốn đã ghi đủ ở deferred-work.md.
   evidence: low. Phép ghi từ tab khác làm cửa sổ này rộng ra; người viết spec 7.1 phải đọc §4.4 hoặc chép nó vào AC/ghi chú của 7.1.
 
 ## Deferred from: spec-7-1-dong-bo-ghi-chu-giua-cac-tab.md (2026-09-25)
