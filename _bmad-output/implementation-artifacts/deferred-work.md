@@ -100,8 +100,9 @@
   evidence: `.github/` không tồn tại; `npm test` và `npm run thu-bo-cuc` là hai script rời. Đây là quy ước có sẵn từ các story trước chứ không do Story 3.2 gây ra, nên lớp verification-gap cố ý không đệ trình nó như một gap. Sẽ cắn đúng vào lúc bốn epic sau đổ thêm điều khiển vào trang.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-3-nut-theme-va-tuong-phan-o-ca-hai-bang-mau.md`
-  summary: Bộ phân tích CSS của `test/theme.test.js` không nhìn được vào `@media`/`@supports`, nên Story 3.4 sẽ mở ra một lỗ ngay khi nó thêm khối `prefers-reduced-motion`.
-  evidence: `cacKhoi`/`cacLuatCoMauChu` dùng regex một tầng (`/([^{}]*)\{([^{}]*)\}/g`), không khớp được khối lồng. Hôm nay vô hại vì `style.css` chưa có at-rule nào và `token-style.test.js` đỏ nếu ai thêm; nhưng Story 3.4 CHÍNH LÀ story thêm một `@media`, và lúc đó một luật `color: var(--…)` đặt trong đó vừa không được đo vừa không bị cửa "mọi luật có color đều khai chỗ đứng" bắt.
+  summary: CHỜ ĐIỀU KIỆN — bộ phân tích CSS của `test/theme.test.js` không nhìn được vào `@media`/`@supports`; chỉ có ý nghĩa khi có story nâng bộ quét `test/token-style.test.js` để cho phép at-rule (ví dụ `prefers-reduced-motion`).
+  evidence: `cacKhoi`/`cacLuatCoMauChu` dùng regex một tầng (`/([^{}]*)\{([^{}]*)\}/g`), không khớp được khối lồng. Xác nhận lại 2026-09-29: `app/style.css` vẫn chưa có `@media`/`@supports` thật (chỉ một chú thích nhắc `@import`), và `token-style.test.js` đỏ nếu ai thêm at-rule — nên hôm nay vô hại và không sửa bộ phân tích.
+  điều kiện: khi có story nâng bộ quét của `token-style.test.js` để cho phép at-rule, story đó phải nâng `cacKhoi`/`cacLuatCoMauChu` (hỗ trợ khối lồng) trong CÙNG thay đổi, kèm một test chứng minh luật `color` đặt trong `@media` vẫn bị đo (và bị cửa "mọi luật có color đều khai chỗ đứng" bắt). Không nâng một bên mà bỏ bên kia: nếu không, luật `color: var(--…)` trong `@media` vừa không được đo tương phản vừa lọt cửa khai chỗ đứng.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-3-nut-theme-va-tuong-phan-o-ca-hai-bang-mau.md`
   summary: ~~`subscribe` của `app/adapters/broadcast.js` không có đường gỡ bộ nghe và không có cách đóng kênh.~~
