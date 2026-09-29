@@ -221,7 +221,7 @@ describe('tương phản — đo từ chính hai khối token, không từ một
     const nguon = readFileSync(join(repoRoot, 'tools', 'thu-bo-cuc.mjs'), 'utf8');
     const khop = /const HAM_TEN = `([\s\S]*?)\n`;/.exec(nguon);
     expect(khop).not.toBeNull();
-    // `ten`/`vong`/`nenThat` trong đoạn đó chạm `document`, nhưng chúng là các hàm mũi tên gán
+    // `ten`/`vong`/`nenSau` trong đoạn đó chạm `document`, nhưng chúng là các hàm mũi tên gán
     // vào `const` — chúng chỉ nổ khi BỊ GỌI, và ca này chỉ gọi `tuongPhan`. `document` vẫn phải
     // tồn tại cho phép gán ở thân đoạn, nên dựng một chỗ giữ chỗ tối giản.
     // Gỡ một lớp `\` — trong `.mjs` đoạn đó là thân một template literal, nên `\\d` ở nguồn là
