@@ -70,6 +70,14 @@
     có vùng sống thì trình đọc màn hình không bao giờ đọc nó lên. `polite` chứ không
     `assertive` — nó không cắt lời người đang gõ.
   -->
+  <!--
+    Khi JavaScript tắt, không module nào chạy và trang chỉ còn cái vỏ tĩnh: ô soạn thảo gõ được
+    nhưng không chốt được gì. Đây là câu DUY NHẤT nói lý do (microcopy do chủ repo duyệt).
+    Chủ đích KHÔNG xử lý lỗi nạp module hay mở bằng `file://` — README đã dặn đừng mở bằng
+    `file://`, và `<noscript>` không bắt được hai trường hợp đó. Không script, không request.
+  -->
+  <noscript><p class="noscript">Ghi chú hàng ngày cần JavaScript để chạy. Hãy bật JavaScript cho trang này rồi tải lại.</p></noscript>
+
   <div class="dai-bang" role="status" aria-live="polite"></div>
 
   <main class="khung">

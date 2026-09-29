@@ -263,6 +263,19 @@ body {
   overflow: hidden;
 }
 
+/* Câu của `<noscript>` (JavaScript tắt): cùng bộ token với dải băng — nền `--chip-bg`, chữ `--ink`
+ * (cặp đã đo đạt ở cả light lẫn dark). Khi JS tắt `data-theme` vắng và `:root` ra bản light. */
+
+.noscript {
+  flex: none;
+  margin: 0;
+  padding: var(--space-2) var(--page-gutter);
+  border-block-end: 1px solid var(--rule);
+  background: var(--chip-bg);
+  color: var(--ink);
+  font: var(--font-ui);
+}
+
 /* Chữ lấy vai `ui`, không vai `note`: nó là câu của sản phẩm, không phải chữ của Nam. Nó cũng
  * dùng `--ink` chứ không `--ink-2` — một thông báo không phải chú thích mờ. */
 

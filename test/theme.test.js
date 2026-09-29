@@ -117,6 +117,7 @@ const NEN_CUA = Object.freeze({
   body: '--bg',
   '.dai-bang-chu': '--chip-bg',
   '.dai-bang-dong': '--chip-bg',
+  '.noscript': '--chip-bg',
   '.o-soan': '--surface',
   '.o-soan-nhac': '--bg',
   '.khay-nhan': '--chip-bg',
