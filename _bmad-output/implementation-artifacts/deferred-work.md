@@ -246,7 +246,8 @@
 
 ## Deferred from: code review of spec-8-1-xin-luu-tru-ben-va-noi-to-hon-khi-bi-tu-choi.md (2026-09-25)
 
-- Thân AD-10 trong `ARCHITECTURE-SPINE.md` chưa ghi các chốt của Story 8.1: giá trị cờ `'1'` (khác là tắt), ngưỡng 3 ngày, không bao giờ dải băng, Q3A (state theo `persist()` dù ghi kho hỏng), xin lại mỗi lần khởi động. Spine là nguồn thắng nên các chốt này nên nằm ở AD-10, không chỉ trong comment mã.
+- ~~Thân AD-10 trong `ARCHITECTURE-SPINE.md` chưa ghi các chốt của Story 8.1: giá trị cờ `'1'` (khác là tắt), ngưỡng 3 ngày, không bao giờ dải băng, Q3A (state theo `persist()` dù ghi kho hỏng), xin lại mỗi lần khởi động. Spine là nguồn thắng nên các chốt này nên nằm ở AD-10, không chỉ trong comment mã.~~
+  resolved: 2026-09-29 — đã có từ f348b99 (mục "Chốt khi làm (Story 8.1)" của AD-10, dòng 255–264); đối chiếu lại với `xinLuuTruBen`/`KHOA_PERSIST_DENIED` trong `core/state.js` và `BACKUP_NUDGE_DAYS_PERSIST_DENIED = 3` trong `core/limits.js`, khớp cả năm chốt, không cần sửa spine.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-2-canh-bao-truoc-nguong-dung-luong.md`
   summary: ~~AGENTS.md chưa ghi ngoại lệ hẹp mới `CHON_DAI_BANG` (`main.js` khai lại `'.dai-bang'` để hỏi tiêu điểm có nằm trong dải băng không), trong khi nó là ngoại lệ thứ hai của một luật có test quét chặn.~~
