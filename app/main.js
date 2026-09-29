@@ -167,7 +167,8 @@ function neoTuTieuDiem(goc) {
  * @param {{ activeElement?: Element|null, querySelector: Function, getElementById: Function }}
  *   goc Gốc DOM — `document` ở trình duyệt, một gốc giả ở test.
  * @param {() => void} veTatCa Lượt vẽ chung.
- * @param {{ id: string, vaiTro: 'than'|'xoa'|'sua' } | null} [neo] Chỗ trả tiêu điểm về.
+ * @param {{ id: string, vaiTro: 'than'|'xoa'|'sua' }
+ *   | { id: null, vaiTro: 've-hom-nay' } | null} [neo] Chỗ trả tiêu điểm về.
  * @returns {void}
  */
 export function veGiuTieuDiem(goc, veTatCa, neo) {

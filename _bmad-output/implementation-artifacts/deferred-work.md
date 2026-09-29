@@ -260,5 +260,6 @@
   resolved: 2026-09-29 — bmad-project-context viết lại dòng AGENTS.md thành ba thứ đã duyệt (stub storage, `MutationObserver` tiêu đề, đè setter `title`), vẫn cấm mọi stub/đè khác.
   evidence: `tools/thu-bo-cuc.mjs:2983-3001`; README mục 8.3/8.4 có nhắc, AGENTS.md:50 thì không. Agent sau đọc AGENTS.md sẽ coi đó là vi phạm. Hoãn vì sửa tệp ngữ cảnh agent.
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-4-luot-ve-bat-dong-bo-khong-tha-tieu-diem-khong-ve-truoc-kho.md`
-  summary: JSDoc `@param neo` của `veGiuTieuDiem` (`app/main.js:170`) chỉ liệt `{ id, vaiTro: 'than'|'xoa'|'sua' } | null`, thiếu dạng `{ id: null, vaiTro: 've-hom-nay' }` mà thân chú thích đã mô tả.
+  summary: ~~JSDoc `@param neo` của `veGiuTieuDiem` (`app/main.js:170`) chỉ liệt `{ id, vaiTro: 'than'|'xoa'|'sua' } | null`, thiếu dạng `{ id: null, vaiTro: 've-hom-nay' }` mà thân chú thích đã mô tả.~~
+  resolved: 2026-09-29 — JSDoc `@param neo` thành union hai nhánh, thêm `{ id: null, vaiTro: 've-hom-nay' }`.
   evidence: Có từ Story 7.1; 8.4 không chạm dòng đó.
