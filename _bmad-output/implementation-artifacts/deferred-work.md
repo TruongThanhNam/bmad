@@ -118,7 +118,8 @@
   evidence: Đo được ở CẢ commit nền `ed71adf` (đỏ 2 trong 7 lần chạy, trên một worktree sạch) lẫn ở HEAD — nên nó có trước Story 3.3, không do story này gây ra. Chỗ cần vá là khuôn đợi kho của harness, không phải mã sản phẩm. (Ca Story 2.5 "tải lại trang: mọi mẩu về thu gọn" cùng dáng nhưng ĐÃ được vá trong chính story này — xem Implementation Notes.)
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-4-phong-to-chuyen-dong-va-mau-khong-phai-tin-hieu-duy-nhat.md`
-  summary: Phép đo "không chữ bị cắt" ở khung nhìn 550×400 có thể bỏ sót chữ bị cắt nằm trong thẻ CON của một wrapper, vì bộ lọc `coChuRieng` chỉ giữ phần tử có text node riêng.
+  summary: ~~Phép đo "không chữ bị cắt" ở khung nhìn 550×400 có thể bỏ sót chữ bị cắt nằm trong thẻ CON của một wrapper, vì bộ lọc `coChuRieng` chỉ giữ phần tử có text node riêng.~~
+  resolved: 2026-09-29 — dựng fixture (wrapper `overflow-x: hidden` rộng 100px bọc `span` nowrap mang chữ dài, chỉ là DOM tiêm vào trang rồi gỡ, không thêm stub) trong khối phóng 200% của `tools/thu-bo-cuc.mjs`: trước khi sửa ca ĐỎ (`catChu` rỗng) → bỏ sót thật. Sửa `DO_PHONG` xét thêm tổ tiên có `overflow-x` hidden/clip (dừng ở `<body>`) mà cạnh phải phần tử vượt vùng cắt; fixture giữ làm ca hồi quy, phép đo trên trang thật vẫn xanh. Không đụng `app/`, không bump `APP_VERSION`.
   evidence: Nếu wrapper cắt ngang mà thẻ con mang chữ không tự tràn (`scrollWidth <= clientWidth + 1`), không phần tử nào bị bắt. Chưa dựng được ca chạm tới: chỗ cắt duy nhất hôm nay — `.o-luoi` của Story 2.5 — cắt theo chiều DỌC, không phải chiều ngang. Thứ chốt được: dựng một wrapper `overflow-x` ẩn bọc một thẻ con mang chữ, xem ca có còn xanh không. Sẽ là medium nếu thật.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-1-chan-trang-voi-hai-link-thuong-truc.md`

@@ -2423,7 +2423,22 @@ try {
           // Ngưỡng là "> clientWidth + 1", không phải "> clientWidth": một điểm ảnh lẻ là phần
           // dư của phép làm tròn bố cục, không phải một chữ bị cắt. Con số +1 này cũng được
           // nói ra trong README, để không ai "sửa" mã cho khớp một câu văn thiếu nó.
-          .filter((e) => e.scrollWidth > e.clientWidth + 1)
+          //
+          // Hai cách bị cắt: tự tràn (scrollWidth), hoặc nằm trong một tổ tiên cắt ngang
+          // (overflow-x hidden/clip) mà cạnh phải của nó vượt cạnh phải vùng cắt — thẻ con của
+          // wrapper không tự tràn nên cách đầu không thấy (deferred spec-3-4). Dừng ở <body>:
+          // body cắt theo khung nhìn, phần đó đã có cuonNgang lo.
+          .filter((e) => {
+            if (e.scrollWidth > e.clientWidth + 1) return true;
+            const phai = e.getBoundingClientRect().right;
+            for (let a = e.parentElement; a !== null && a !== document.body; a = a.parentElement) {
+              const ox = getComputedStyle(a).overflowX;
+              if (ox !== 'hidden' && ox !== 'clip') continue;
+              const r = a.getBoundingClientRect();
+              if (phai > r.left + a.clientLeft + a.clientWidth + 1) return true;
+            }
+            return false;
+          })
           .map((e) => ({
             the: e.tagName + '.' + e.className,
             scroll: e.scrollWidth,
@@ -2475,8 +2490,38 @@ try {
         'phóng 200%: không một phần tử mang chữ nào bị cắt ngang',
         d.catChu.length === 0,
         d.catChu.length === 0
-          ? 'không phần tử nào có scrollWidth > clientWidth + 1'
+          ? 'không phần tử nào tự tràn hay vượt vùng cắt ngang của tổ tiên'
           : JSON.stringify(d.catChu),
+      );
+
+      // Hồi quy deferred spec-3-4: phép đo trên chỉ xét phần tử có text node RIÊNG, nên chữ nằm
+      // trong thẻ CON của một wrapper cắt ngang (thẻ con không tự tràn) lọt lưới. Fixture chỉ là
+      // DOM tiêm vào trang rồi gỡ ngay — không stub nào thêm. `position: fixed` để không đụng
+      // bố cục thật.
+      await cdp.chay(
+        tab.sessionId,
+        `
+        const w = document.createElement('div');
+        w.id = 'thu-fixture-cat';
+        w.style.cssText = 'position:fixed;top:0;left:0;width:100px;overflow-x:hidden;';
+        const con = document.createElement('span');
+        con.textContent = 'chuoi-rat-dai-khong-ngat-dong-de-bi-cat-ngang';
+        con.style.cssText = 'display:inline-block;white-space:nowrap;';
+        w.appendChild(con);
+        document.body.appendChild(w);
+        return true;
+      `,
+      );
+      let catFixture;
+      try {
+        catFixture = await cdp.chay(tab.sessionId, DO_PHONG);
+      } finally {
+        await cdp.chay(tab.sessionId, `document.getElementById('thu-fixture-cat').remove(); return true;`);
+      }
+      ghi(
+        'phóng 200%: phép đo "không chữ bị cắt" BẮT được chữ trong thẻ con của wrapper cắt ngang (fixture)',
+        catFixture.catChu.some((c) => c.the.startsWith('SPAN')),
+        JSON.stringify(catFixture.catChu),
       );
     } finally {
       const conLai = await cdp.chay(
