@@ -13,6 +13,9 @@
 // Cần Edge hoặc Chrome; đặt GHICHU_BROWSER nếu nó nằm chỗ khác.
 
 import { fileURLToPath } from 'node:url';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { phucVuTinh, moTrinhDuyet, nghi, DOC_NOTES, DOC_DRAFTS } from './cdp.mjs';
 
 const ketQua = [];
@@ -3391,6 +3394,94 @@ try {
         veDau11 && uocTai === 0 && chot11 && hien11,
         `vẽ đầu=${veDau11} · estimate lúc tải=${uocTai} · chốt=${chot11} · hiện=${hien11}`,
       );
+
+      // Deferred 8.3 — `napRoiVe` (nạp sao lưu): tiêu điểm ở `xóa` của một mẩu; file sao lưu hợp lệ nạp qua
+      // hộp chọn file THẬT (chặn bằng `Page.setInterceptFileChooserDialog`, đặt file bằng
+      // `DOM.setFileInputFiles` — không stub gì thêm); lần kiểm dung lượng sau nạp TREO rồi nhả.
+      // Không có `kiemRoiVe` trong `napRoiVe` (ví dụ đổi thành `latRoiVe`) thì estimate không được gọi
+      // và tiêu điểm không nằm trong lượt vẽ có neo. Dải băng sau nạp là NAP_FILE_XONG (ưu tiên hơn hàng 7).
+      await datCauHinh({ persist: 'treo', uoc: DUOI });
+      await cdp.taiLai(s);
+      const veDau14 = await doiVeDau();
+      await datCauHinh({ persist: 'treo', uoc: VUOT });
+      const dung14 = (await chot('thu-8-5 nạp: dựng hàng 7')) && (await doi(HANG7_HIEN));
+      const id14 = await idCua('thu-8-5 nạp: dựng hàng 7');
+      const CHON_XOA_14 = `.luoi > [data-mau="${id14}"] .mau-xoa`;
+      const thuMuc14 = mkdtempSync(join(tmpdir(), 'ghichu-thu-'));
+      const duongFile14 = join(thuMuc14, 'sao-luu.json');
+      let ketQuaNap14 = null;
+      try {
+        const mocNow = await chay(`const g = await import('/app/core/time.js'); return g.nowIso();`);
+        const idNap14 = `thu-8-5-nap-${Date.now()}`;
+        writeFileSync(
+          duongFile14,
+          JSON.stringify({ schemaVersion: 1, exportedAt: mocNow, notes: [{ id: idNap14, createdAt: mocNow, text: 'thu-8-5 mẩu từ file sao lưu' }] }),
+        );
+        await datCauHinh({ persist: 'treo', uoc: 'treo' });
+        const u14 = await soUoc();
+        const focus14 = await chay(`const n = document.querySelector(${JSON.stringify(CHON_XOA_14)}); n?.focus(); return n !== null && document.activeElement === n;`);
+        await cdp.goi('Page.setInterceptFileChooserDialog', { enabled: true }, s);
+        const chonFile14 = new Promise((ok) => {
+          const nghe = (ev) => {
+            const m = JSON.parse(ev.data);
+            if (m.sessionId !== s || m.method !== 'Page.fileChooserOpened') return;
+            cdp.ws.removeEventListener('message', nghe);
+            ok(m.params);
+          };
+          cdp.ws.addEventListener('message', nghe);
+        });
+        await chay(`document.querySelector('#chan-nap').click(); return true;`);
+        const hop14 = await Promise.race([chonFile14, nghi(5000).then(() => null)]);
+        if (hop14 !== null && hop14.backendNodeId !== undefined) {
+          await cdp.goi('DOM.setFileInputFiles', { files: [duongFile14], backendNodeId: hop14.backendNodeId }, s);
+        }
+        const daNap14 = await doi(`m.store.state.notes.some((x) => x.id === ${JSON.stringify(idNap14)})`, 50);
+        const treo14 = await doi(`window.__soLanUoc === ${u14 + 1} && window.__soUocTreo() === 1`, 30);
+        await chay(`return window.__nhaUoc(${JSON.stringify(DUOI)});`);
+        const xong14 = await doi(`window.__soUocTreo() === 0 && m.store.state.banner === "NAP_FILE_XONG"`, 30);
+        const giu14 = await chay(`const n = document.querySelector(${JSON.stringify(CHON_XOA_14)}); return n !== null && document.activeElement === n;`);
+        ketQuaNap14 = { focus14, hop14: hop14 !== null, daNap14, treo14, xong14, giu14 };
+      } finally {
+        await cdp.goi('Page.setInterceptFileChooserDialog', { enabled: false }, s).catch(() => {});
+        rmSync(thuMuc14, { recursive: true, force: true });
+      }
+      ghi(
+        'Deferred 8.3 — napRoiVe: tiêu điểm ở nút xóa của mẩu còn đúng mẩu + vai trò sau khi nạp file sao lưu và nhả lần kiểm dung lượng, không <body>',
+        veDau14 && dung14 && id14 !== null && ketQuaNap14 !== null && Object.values(ketQuaNap14).every(Boolean),
+        `vẽ đầu=${veDau14} · dựng=${dung14} · id=${id14} · ${JSON.stringify(ketQuaNap14)} · ${JSON.stringify(await doc())}`,
+      );
+
+      // Deferred 8.3 — chuỗi tự lưu `mocSua.go`: vào sửa một mẩu, gõ chữ, chờ hẹn `AUTOSAVE_MS` nổ (đợi
+      // theo điều kiện: `notes` mang chữ mới), lần kiểm treo; nhả vượt giữa lúc đang sửa → hàng 7 hiện,
+      // tiêu điểm còn ở ô sửa và chữ gõ dở còn nguyên. Thay `kiemRoiVe` trong chuỗi bằng `veTatCa` trần
+      // thì estimate không được gọi và hàng 7 không hiện.
+      await datCauHinh({ persist: 'treo', uoc: DUOI });
+      await cdp.taiLai(s);
+      const veDau15 = await doiVeDau();
+      const id15 = await idCua('thu-8-3 mẩu mồi');
+      const CHU_15 = 'thu-8-5 chữ gõ dở lúc tự lưu';
+      const CHON_SUA_15 = `[data-sua="${id15}"]`;
+      await datCauHinh({ persist: 'treo', uoc: 'treo' });
+      const u15 = await soUoc();
+      await chay(`document.querySelector('.luoi > [data-mau="${id15}"]')?.click(); return true;`);
+      const vaoSua15 = await doi(`document.activeElement?.matches(${JSON.stringify(CHON_SUA_15)})`, 30);
+      await chay(`const o = document.querySelector(${JSON.stringify(CHON_SUA_15)}); o.select(); return true;`);
+      await cdp.goi('Input.insertText', { text: CHU_15 }, s);
+      const daLuu15 = await doi(`m.store.state.notes.find((x) => x.id === ${JSON.stringify(id15)})?.text === ${JSON.stringify(CHU_15)}`, 50);
+      const treo15 = await doi(`window.__soLanUoc === ${u15 + 1} && window.__soUocTreo() === 1`, 30);
+      const truocNha15 = await chay(`return document.activeElement?.matches(${JSON.stringify(CHON_SUA_15)}) ?? false;`);
+      await chay(`return window.__nhaUoc(${JSON.stringify(VUOT)});`);
+      const hien15 = await doi(`window.__soUocTreo() === 0 && ${HANG7_HIEN}`, 30);
+      const sau15 = await chay(`const o = document.querySelector(${JSON.stringify(CHON_SUA_15)}); return { conO: o !== null, giu: o !== null && document.activeElement === o, chu: o?.value ?? null };`);
+      ghi(
+        'Deferred 8.3 — chuỗi tự lưu mocSua.go: nhả vượt giữa lúc đang sửa → hàng 7 hiện, tiêu điểm còn ở ô sửa, chữ gõ dở nguyên',
+        veDau15 && id15 !== null && vaoSua15 && daLuu15 && treo15 && truocNha15 && hien15 && sau15.conO && sau15.giu && sau15.chu === CHU_15,
+        `vẽ đầu=${veDau15} · vào sửa=${vaoSua15} · đã lưu=${daLuu15} · treo=${treo15} · hàng 7=${hien15} · ${JSON.stringify(sau15)}`,
+      );
+      // Dọn: rời ô sửa khi estimate trả ngay dưới ngưỡng, để lượt rời không treo thêm lần kiểm nào.
+      await datCauHinh({ persist: 'treo', uoc: DUOI });
+      await chay(`document.querySelector('#o-soan').focus(); return true;`);
+      await doi(`m.store.state.editing.id === null`, 30);
 
       // Estimate thật: stub nhường hàm thật; so với `vuotNguongDungLuong` của CHÍNH số thật mà
       // app vừa thấy (`__uocThat`) — không phụ thuộc đĩa máy, không gọi estimate lần hai.

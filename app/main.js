@@ -442,7 +442,9 @@ if (typeof document !== 'undefined') {
   // dải băng, nên lưới, tiêu đề tab và dải băng đều phải vẽ lại — trong khi xuất không đổi một
   // trường state nào. Một lớp bọc lười vì `veTatCa` khai ngay bên dưới, cùng khuôn `latRoiVe`.
   const napRoiVe = () => {
-    veTatCa();
+    // Neo `undefined` giữ tiêu điểm: nạp đổi `notes` nên lưới bị dựng lại, và `veTatCa()` trần gỡ nút
+    // `xóa` đang giữ tiêu điểm trước khi `kiemRoiVe` kịp chụp neo.
+    veGiuTieuDiem(document, veTatCa);
     kiemRoiVe();
   };
   const chanTrang = noiChanTrang(store, document, napRoiVe);

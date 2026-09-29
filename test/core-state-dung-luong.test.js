@@ -716,7 +716,7 @@ describe('app/main.js — nối lần kiểm dung lượng (quét mã nguồn)',
     expect(sauChot[1]).toMatch(/veTatCa\s*\(\s*\)\s*;\s*kiemRoiVe\s*\(\s*\)\s*;?\s*$/);
     // Nạp.
     expect(main).toMatch(
-      /\bnapRoiVe\s*=\s*\(\s*\)\s*=>\s*\{\s*veTatCa\s*\(\s*\)\s*;\s*kiemRoiVe\s*\(\s*\)\s*;?\s*\}/,
+      /\bnapRoiVe\s*=\s*\(\s*\)\s*=>\s*\{\s*(?:\/\/[^\n]*\s*)*veGiuTieuDiem\s*\(\s*document\s*,\s*veTatCa\s*\)\s*;\s*kiemRoiVe\s*\(\s*\)\s*;?\s*\}/,
     );
     // Xóa qua hộp thoại: tham số thứ năm của `noiLuongXoa`.
     expect(main).toMatch(/luotRoiSua\s*,\s*\(\s*\)\s*=>\s*kiemRoiVe\s*\(\s*\)\s*,?\s*\)/);

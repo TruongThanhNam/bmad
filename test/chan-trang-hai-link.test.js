@@ -287,7 +287,7 @@ describe('Điểm nối ở `app/main.js` — nửa vỡ trong im lặng của c
     expect(noi).not.toBeNull();
     // Story 8.2: thân móc có thể là một khối `{ veTatCa(); kiemRoiVe(); }` — lượt vẽ vẫn đi ĐẦU.
     expect(main).toMatch(
-      new RegExp(`\\b${noi[1]}\\s*=\\s*\\(\\s*\\)\\s*=>\\s*(?:\\{\\s*)?veTatCa\\s*\\(`),
+      new RegExp(`\\b${noi[1]}\\s*=\\s*\\(\\s*\\)\\s*=>\\s*(?:\\{\\s*)?(?:veTatCa\\s*\\(|veGiuTieuDiem\\s*\\(\\s*document\\s*,\\s*veTatCa\\s*\\))`),
     );
     expect(main).toMatch(/import\s*\{[^}]*\bnoiChanTrang\b[^}]*\}\s*from\s*'\.\/view\/chan-trang\.js'/);
   });

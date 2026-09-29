@@ -235,7 +235,8 @@
 ## Deferred from: code review of spec-8-3-khoi-kiem-dung-luong-chay-that-trong-thu-bo-cuc.md (2026-09-28)
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-3-khoi-kiem-dung-luong-chay-that-trong-thu-bo-cuc.md`
-  summary: Hai chỗ nối `kiemRoiVe` còn lại của 8.2 — `napRoiVe` (nạp sao lưu, `app/main.js:435-439`) và chuỗi tự lưu `mocSua.go` (`:356-358`) — chưa có ca chạy thật trong khối "Story 8.1/8.2" của `tools/thu-bo-cuc.mjs`, trái luật AGENTS.md mới thêm.
+  summary: ~~Hai chỗ nối `kiemRoiVe` còn lại của 8.2 — `napRoiVe` (nạp sao lưu, `app/main.js:435-439`) và chuỗi tự lưu `mocSua.go` (`:356-358`) — chưa có ca chạy thật trong khối "Story 8.1/8.2" của `tools/thu-bo-cuc.mjs`, trái luật AGENTS.md mới thêm.~~
+  resolved: 2026-09-29 — hai ca "Deferred 8.3 — napRoiVe" và "Deferred 8.3 — chuỗi tự lưu mocSua.go" trong khối 8.1/8.2 của tools/thu-bo-cuc.mjs; đột biến latRoiVe / veTatCa trần làm ca đỏ. Ca napRoiVe lộ lỗi thật: `veTatCa()` trần làm tiêu điểm ở `xóa` rơi về <body>, đã sửa thành `veGiuTieuDiem(document, veTatCa)` (APP_VERSION 0.7.10).
   evidence: Chỉ regex ghim (`test/core-state-dung-luong.test.js:705-720`, `test/chan-trang-hai-link.test.js:282-291`); đổi `noiChanTrang(store, document, napRoiVe)` thành `latRoiVe` vẫn xanh toàn bộ. Cần ca nạp file (qua `DOM.setFileInputFiles`) và ca sửa tại chỗ với stub `VUOT`/`DUOI`.
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-3-khoi-kiem-dung-luong-chay-that-trong-thu-bo-cuc.md`
   summary: ~~Nhánh `undefined` của neo `kiemRoiVe` (`app/main.js:419`: tiêu điểm ngoài dải băng thì giữ chỗ đang đứng) không có ca chạy thật; đổi neo thành luôn `null` (giật tiêu điểm về `#o-soan`) vẫn xanh.~~
