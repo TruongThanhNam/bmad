@@ -94,7 +94,8 @@
   evidence: Hành vi này có TRƯỚC Story 3.1 (`app/core/state.js:625`), không do nó gây ra. Chưa xác định được đường tới. Thứ sẽ kết luận: truy hết các nhánh bất đồng bộ của `henGhiDiSau` và `ghiTruocDatSau` xem hai phép ghi có chồng nhau được không khi `dangChot` đang gác, và nếu có thì dựng một ca test ghim thứ tự resolve.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-1-dai-bang-mot-chu-bay-nguon-mot-thu-tu-uu-tien.md`
-  summary: Ca "tải lại trang: MỌI mẩu về thu gọn" của `npm run thu-bo-cuc` đỏ không đều — một phép đo không bền, có trước Story 3.1.
+  summary: ~~Ca "tải lại trang: MỌI mẩu về thu gọn" của `npm run thu-bo-cuc` đỏ không đều — một phép đo không bền, có trước Story 3.1.~~
+  resolved: 2026-09-29 — nguyên nhân KHÔNG phải thời điểm đo. Bốn mẩu chốt cùng giây có `createdAt` trùng nên sau tải lại thứ tự đổi: mẩu một-đoạn-dài từ hàng 1 (lưới kéo giãn lên 128) sang một mình ở hàng 2 (cao tự nhiên 106), đứng yên ở 106 — vòng đợi ổn định không thể bắt. Đo trước: đỏ 2/5, mọi lần đỏ đều dãy [D, một đoạn, B, A]→[.., một đoạn ở cuối]. Sửa trong tools/thu-bo-cuc.mjs: giãn 1,1 giây giữa các lần chốt và thêm vế so thứ tự mẩu (8 ký tự đầu) vào phép so; không nới ngưỡng. Đo sau: ca xanh 12/12 lần chạy (lần đỏ duy nhất là ca Story 7.1, khác). Không đụng `app/`, không bump `APP_VERSION`. Còn để ngỏ: thứ tự mẩu trùng giây không ổn định qua tải lại là hành vi sản phẩm (`sapGiamDan` không có khóa phụ), không sửa ở đây.
   evidence: Đo trực tiếp: baseline `1d86a4f` đỏ 4/5 lần chạy; bản có Story 3.1 đỏ 2/4 lần. Triệu chứng luôn giống nhau (`cao [128,128,128,128]→[128,128,128,106]`), gợi ý phép đo chiều cao chạy trước khi bố cục ổn định sau khi tải lại.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-2-focus-ring-va-thu-tu-tab.md`
@@ -118,7 +119,8 @@
   evidence: Thân hai hàm giống nhau, chỉ khác điểm bắt đầu (`el.parentElement` so với `el`). Gộp thành một hàm nhận cờ là phép sửa đúng, nhưng nó là refactor trên mã harness đang xanh chứ không phải một phép sửa thẳng, nên để riêng.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-3-nut-theme-va-tuong-phan-o-ca-hai-bang-mau.md`
-  summary: Ca harness NFR-1 ("2000 ghi chú trong kho") đỏ-không-đều với `kho 0 bản ghi` — phép bơm dữ liệu báo về 0 rồi lần chạy sau lại đúng.
+  summary: ~~Ca harness NFR-1 ("2000 ghi chú trong kho") đỏ-không-đều với `kho 0 bản ghi` — phép bơm dữ liệu báo về 0 rồi lần chạy sau lại đúng.~~
+  resolved: 2026-09-29 — đã vá từ 798a279 (retro Epic 6): khối NFR-1 của tools/thu-bo-cuc.mjs đợi `store.state.notes.length` đạt đủ 2000 trước khi khẳng định. Đo lại: 17/17 lần xanh (kho 2000 bản ghi, 51–87ms), không tái hiện `kho 0`. Không sửa thêm.
   evidence: Đo được ở CẢ commit nền `ed71adf` (đỏ 2 trong 7 lần chạy, trên một worktree sạch) lẫn ở HEAD — nên nó có trước Story 3.3, không do story này gây ra. Chỗ cần vá là khuôn đợi kho của harness, không phải mã sản phẩm. (Ca Story 2.5 "tải lại trang: mọi mẩu về thu gọn" cùng dáng nhưng ĐÃ được vá trong chính story này — xem Implementation Notes.)
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-4-phong-to-chuyen-dong-va-mau-khong-phai-tin-hieu-duy-nhat.md`

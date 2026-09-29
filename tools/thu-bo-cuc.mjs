@@ -724,6 +724,13 @@ try {
     const idMau = [];
     try {
       for (const chu of CHU_MAU) {
+        // `createdAt` chỉ chính xác tới GIÂY. Bốn mẩu chốt liền nhau trùng giây thì thứ tự giữa
+        // chúng chỉ là thứ tự chèn lúc này, còn sau một lần tải lại là thứ tự khóa trong kho —
+        // hai thứ khác nhau. Đó là nguồn đỏ-không-đều của ca "tải lại trang" ở dưới, và nó KHÔNG
+        // phải chuyện thời điểm đo: mẩu một-đoạn-dài đổi từ hàng 1 (lưới kéo giãn nó lên 128)
+        // sang một mình ở hàng 2 (chiều cao tự nhiên 106), rồi đứng yên ở 106. Giãn các lần chốt
+        // ra một giây để thứ tự trước và sau khi tải lại là MỘT.
+        if (idMau.length > 0) await nghi(1100);
         await cdp.chay(tab.sessionId, CHOT_MAU(chu));
         await doiSoMau(oTruoc + idMau.length + 1);
         const moi = await cdp.chay(
@@ -1058,21 +1065,13 @@ try {
       // là một giá trị còn nằm đâu đó mà lượt vẽ đầu chưa đọc tới.
       await cdp.taiLai(tab.sessionId);
       await doiSoMau(oTruoc + idMau.length);
-      // Đếm đủ mẩu chưa có nghĩa là layout đã ổn định: lượt vẽ đầu sau một lần tải lại có thể
-      // đo trúng khung hình trước khi phông của `--font-note` xong, và chiều cao đo được lệch
-      // một lần rồi tự đúng.
+      // Đếm đủ mẩu chưa có nghĩa là layout đã ổn định: đọc lại cho tới khi hai lần đọc liên
+      // tiếp cho cùng một dãy, rồi mới so từng số với `thuGon` — nó không làm phép so yếu đi.
       //
-      // Một nhịp nghỉ CỐ ĐỊNH không đủ, và đó là một chuyện đo được chứ không phải một phỏng
-      // đoán: ở commit nền ca này xanh 7/7 lần chạy, còn sau Story 3.3 nó đỏ 2/4 — luôn luôn
-      // đỏ ở đúng một vế (chiều cao một mẩu 128 → 106), trong khi ba vế còn lại (mọi mẩu thu
-      // gọn, `expandedIds` rỗng, không khóa nào trong `localStorage`) vẫn đúng. Tức là phép đo
-      // trúng một khung hình chưa xong, không phải sản phẩm lùi. Story 3.3 thêm một view thứ tư
-      // vào lượt vẽ chung và một phép đặt theme đồng bộ lúc khởi động, nên khung hình đầu dịch
-      // đi vài mili giây — vừa đủ để một nhịp 100ms hết ăn chắc.
-      //
-      // Chờ tới khi ỔN ĐỊNH thay vì chờ một con số: đọc lại cho tới khi hai lần đọc liên tiếp
-      // cho cùng một dãy chiều cao. Nó KHÔNG làm phép so yếu đi — dãy vẫn phải khớp từng số với
-      // `thuGon` — nó chỉ bỏ đi cái giả định rằng 100ms luôn đủ.
+      // Vòng này KHÔNG phải thứ từng làm ca đỏ-không-đều (đo 2026-09-29: đỏ 2/5 dù đã có vòng,
+      // dãy 106 đứng yên qua nhiều giây). Nguyên nhân thật là thứ tự mẩu đổi sau tải lại khi
+      // `createdAt` trùng giây — xem chú thích ở vòng chốt phía trên; vế `chu` của phép so bên
+      // dưới (8 ký tự đầu — một mẩu đã được sửa chữ ở khối trên) ghim rằng thứ tự đó không đổi.
       let sauTaiLai = (await cdp.chay(tab.sessionId, DO_MAU)).slice(0, CHU_MAU.length);
       for (let lan = 0; lan < 10; lan += 1) {
         await nghi(100);
@@ -1080,10 +1079,6 @@ try {
         const yenNgua = JSON.stringify(lai) === JSON.stringify(sauTaiLai);
         sauTaiLai = lai;
         if (yenNgua) break;
-      }
-      if (JSON.stringify(sauTaiLai.map((m) => m.cao)) !== JSON.stringify(thuGon.map((m) => m.cao))) {
-        console.log('DEBUG', JSON.stringify(sauTaiLai.map((m) => [m.chu.slice(0, 6), m.cao, m.gap, m.dinh])), JSON.stringify(thuGon.map((m) => [m.chu.slice(0, 6), m.cao, m.gap, m.dinh])));
-        for (let k = 0; k < 5; k += 1) { await nghi(300); console.log('DEBUG+', JSON.stringify((await cdp.chay(tab.sessionId, DO_MAU)).slice(0, 4).map((m) => [m.chu.slice(0, 6), m.cao, m.gap]))); }
       }
       const dauVet = await cdp.chay(
         tab.sessionId,
@@ -1098,6 +1093,7 @@ try {
         sauTaiLai.every((m) => !m.mo) &&
           dauVet.trongState === 0 &&
           dauVet.khoaLocal.length === 0 &&
+          JSON.stringify(sauTaiLai.map((m) => m.chu.slice(0, 8))) === JSON.stringify(thuGon.map((m) => m.chu.slice(0, 8))) &&
           JSON.stringify(sauTaiLai.map((m) => m.cao)) === JSON.stringify(thuGon.map((m) => m.cao)),
         `mở ${JSON.stringify(sauTaiLai.map((m) => m.mo))} · cao ${JSON.stringify(thuGon.map((m) => m.cao))}→${JSON.stringify(sauTaiLai.map((m) => m.cao))} · ${JSON.stringify(dauVet)}`,
       );

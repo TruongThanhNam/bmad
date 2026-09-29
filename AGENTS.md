@@ -43,12 +43,13 @@ gốc: `README.md` (vận hành + checklist thủ công) và
   `tools/cdp.mjs`); không có script `npm start`.
 - `npm run thu-tay` và `npm run thu-bo-cuc` lái Chrome/Edge thật qua CDP: cần trình duyệt
   cài sẵn, đặt `GHICHU_BROWSER` nếu nó dò không ra. `thu-tay` chậm có chủ ý (chờ hết
-  `DRAFT_STALE_MS`). Ca "tải lại: mọi mẩu về thu gọn" của `thu-bo-cuc` chập chờn từ trước
-  Epic 6 (một mẩu đo 128 → 106); ca đỏ nào khác mới là hồi quy.
+  `DRAFT_STALE_MS`). `thu-bo-cuc` không còn ca chập chờn đã biết: ca "tải lại: mọi mẩu về
+  thu gọn" từng đỏ vì bốn mẩu chốt cùng giây đổi thứ tự sau tải lại (nay giãn một giây giữa
+  các lần chốt và ghim thứ tự), nên MỌI ca đỏ đều là hồi quy hoặc cần điều tra.
 - Mỗi chỗ nối mới trong `main.js` phải có một ca `thu-bo-cuc` chạy thật, không chỉ một regex
   quét mã nguồn — `.then` treo nhầm lời hứa vẫn xanh dưới regex. Chạy `npm run thu-bo-cuc`
-  trước mỗi lần push chạm `app/main.js`, `app/view/` hoặc `app/style.css`; ca đỏ ngoài ca
-  chập chờn đã biết ở trên là hồi quy, chặn push.
+  trước mỗi lần push chạm `app/main.js`, `app/view/` hoặc `app/style.css`; ca đỏ nào cũng
+  chặn push cho tới khi điều tra xong.
 - Tab riêng của khối "Story 8.1/8.2" (`tools/thu-bo-cuc.mjs`, script cài bằng
   `Page.addScriptToEvaluateOnNewDocument`) có đúng ba thứ đã duyệt, và là ngoại lệ có tên, không
   phải giấy phép dựng trình duyệt giả: stub `navigator.storage.estimate`/`persist`; một
