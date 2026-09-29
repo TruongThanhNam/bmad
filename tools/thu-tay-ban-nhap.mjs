@@ -350,6 +350,30 @@ try {
       );
     }
 
+    // ── Mục 23c: `put` vào một id đã bị xóa thì KHÔNG dựng lại mẩu (khe hồi sinh, Story 7.1) ──
+    //
+    // Hẹn tự lưu của tab A nổ sau lúc tab B `remove` nhưng trước lúc A nhận tin: một `put` trơn
+    // sẽ dựng lại mẩu. Ở đây `id` vừa bị `remove` ở 23b, rồi một adapter MỚI (một "tab" khác,
+    // không chung RAM) `put` đúng id đó — kho thật phải giữ nguyên trống, và lời hứa vẫn chốt.
+    // Kèm một `put` vào id còn sống để chắc rằng phép kiểm không chặn nhầm phép sửa hợp lệ.
+    {
+      const r = await cdp.chay(
+        tD.sessionId,
+        `const { taoNoteStore } = await import('/app/adapters/indexeddb.js');
+         const kho = taoNoteStore();
+         const ban = (id, text) => ({ id, text, textFolded: text, createdAt: '2026-09-29T09:00:00+07:00', localDate: '2026-09-29' });
+         let chotDuoc = true;
+         try { await kho.put(ban(${JSON.stringify(idChot)}, 'mẩu ma')); } catch { chotDuoc = false; }
+         const sauMa = (await kho.readAll()).some((n) => n.id === ${JSON.stringify(idChot)});
+         return { chotDuoc, sauMa };`,
+      );
+      ghi(
+        '23c: put vào id đã xóa — lời hứa chốt, kho KHÔNG có mẩu dựng lại',
+        r.chotDuoc === true && r.sauMa === false,
+        JSON.stringify(r),
+      );
+    }
+
     await cdp.dongTab(tD.targetId);
   }
 } finally {

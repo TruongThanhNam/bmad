@@ -269,10 +269,27 @@ export function taoNoteStore() {
       ).then((danhSach) => danhSach ?? []);
     },
 
+    /**
+     * Sửa một ghi chú ĐANG CÓ: `getKey` rồi `put` trong CÙNG một giao dịch `readwrite`, và `id`
+     * không còn trong kho thì KHÔNG ghi gì (vẫn chốt thành công).
+     *
+     * Đây là thứ thu hẹp "khe hồi sinh" của Story 7.1: hẹn tự lưu của tab A nổ sau lúc tab B
+     * `remove` nhưng trước lúc A nhận tin, và một `put` trơn sẽ dựng lại mẩu B vừa xóa. Kiểm và
+     * ghi phải chung một giao dịch — tách làm hai thì B chen được vào giữa. Quyết định ĐỒNG BỘ
+     * trong `onsuccess`, cùng lý do với `claimDraft`: một `await` chen vào sẽ giết giao dịch.
+     * Đường tạo mới là `commitDraft`, không phải đây.
+     */
     put(note) {
-      return trongGiaoDich([STORE_NOTES], 'readwrite', (giaoDich) =>
-        giaoDich.objectStore(STORE_NOTES).put(banGhiChuan(note)),
-      ).then(() => undefined);
+      // Dựng bản ghi TRƯỚC khi mở giao dịch: một lỗi dựng ném ra từ đây, không từ giữa handler.
+      const banGhi = banGhiChuan(note);
+      return trongGiaoDich([STORE_NOTES], 'readwrite', (giaoDich) => {
+        const store = giaoDich.objectStore(STORE_NOTES);
+        const yeuCau = store.getKey(banGhi.id);
+        yeuCau.onsuccess = () => {
+          if (yeuCau.result !== undefined) store.put(banGhi);
+        };
+        return null;
+      }).then(() => undefined);
     },
 
     remove(id) {

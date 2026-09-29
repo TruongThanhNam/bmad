@@ -31,11 +31,14 @@
  */
 
 /**
- * Ghi một ghi chú, thêm mới hoặc thay bản ghi cùng định danh.
+ * Sửa một ghi chú ĐANG CÓ: thay bản ghi cùng định danh. Định danh không còn trong kho (tab khác
+ * vừa xóa) thì KHÔNG ghi gì và vẫn hoàn tất — phép sửa không được dựng lại mẩu đã xóa. Tạo mới
+ * đi qua `commitDraft`, không qua đây.
  *
  * @callback NoteStorePut
  * @param {NoteRecord} note Bản ghi cần đưa vào kho.
- * @returns {Promise<void>} Hoàn tất khi chữ đã nằm bền; ném lỗi mang mã của AD-18 nếu không.
+ * @returns {Promise<void>} Hoàn tất khi chữ đã nằm bền (hay khi bản ghi đã không còn); ném lỗi
+ *   mang mã của AD-18 nếu không.
  */
 
 /**

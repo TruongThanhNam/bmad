@@ -300,3 +300,7 @@
   summary: ~~JSDoc `@param neo` của `veGiuTieuDiem` (`app/main.js:170`) chỉ liệt `{ id, vaiTro: 'than'|'xoa'|'sua' } | null`, thiếu dạng `{ id: null, vaiTro: 've-hom-nay' }` mà thân chú thích đã mô tả.~~
   resolved: 2026-09-29 — JSDoc `@param neo` thành union hai nhánh, thêm `{ id: null, vaiTro: 've-hom-nay' }`.
   evidence: Có từ Story 7.1; 8.4 không chạm dòng đó.
+- source_spec: `_bmad-output/implementation-artifacts/spec-7-1-dong-bo-ghi-chu-giua-cac-tab.md`
+  summary: ~~Khe hồi sinh: hẹn tự lưu của tab A nổ sau lúc tab B `remove` nhưng trước lúc A nhận tin, `put` dựng lại mẩu B vừa xóa.~~
+  resolved: 2026-09-29 — `noteStore.put` (`app/adapters/indexeddb.js`) nay `getKey` rồi `put` trong CÙNG một giao dịch `readwrite` và không ghi khi `id` đã mất; hợp đồng cổng ghi ở `app/ports/note-store.js`. Ca `23c` của tools/thu-tay-ban-nhap.mjs chạy kho thật (đỏ khi trả adapter về bản cũ). Mẩu vẫn nằm trong RAM của A tới khi tin của B tới, rồi bị dọn như mọi lần xóa.
+  evidence: Spec 7.1 và retro Epic 7 ghi đây là giới hạn chấp nhận (dòng 153 bị `reject` vì "đổi thiết kế đã duyệt"); chủ repo duyệt mở lại 2026-09-29. Gốc ở phép ghi xuống kho chứ không ở ảnh chụp `readAll`, nên bộ đếm ghi của deferred spec-2-3/2-4 không thu hẹp được nó.
