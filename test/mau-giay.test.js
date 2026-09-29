@@ -645,6 +645,17 @@ describe('COLLAPSED_LINES của JS và token trần chiều cao của CSS', () =
   });
 });
 
+describe('con trỏ của mẩu giấy', () => {
+  it('.o-luoi và nút .mau-xoa mang cursor: pointer — mọi mẩu bấm được, và <button> không thừa hưởng con trỏ', () => {
+    const css = readFileSync(join(repoRoot, 'app', 'style.css'), 'utf8');
+    for (const ten of ['o-luoi', 'mau-xoa']) {
+      const khoi = new RegExp(`\\.${ten}\\s*\\{([^}]*)\\}`).exec(css);
+      expect(khoi, ten).not.toBeNull();
+      expect(khoi[1], ten).toMatch(/cursor\s*:\s*pointer\s*;/);
+    }
+  });
+});
+
 describe('veMau — tô phần khớp và mốc đầy đủ (Story 6.1)', () => {
   const docCoChu = {
     createElement: (the) => Object.assign(phanTuGia(), { the }),

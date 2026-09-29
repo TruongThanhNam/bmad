@@ -648,6 +648,9 @@ body {
   border-radius: var(--radius-paper);
   background: var(--paper);
   box-shadow: inset 0 3px 0 var(--paper-tape), var(--shadow-paper);
+  /* MỌI mẩu bấm được (click để sửa, Story 5.1), nên con trỏ nói điều đó. Nút `xóa` bên trong
+   * tự khai con trỏ riêng vì `<button>` không thừa hưởng nó. */
+  cursor: pointer;
 }
 
 /* Đầu mẩu: giờ tạo bên trái, nút xóa bên phải. `white-space: normal` đặt lại cái `pre-wrap`
@@ -682,6 +685,7 @@ body {
   background: none;
   color: var(--ink-2);
   font: var(--font-foot);
+  cursor: pointer;
 }
 
 /* Thân mẩu — chỗ DUY NHẤT bị kẹp chiều cao. Trần đặt ở đây chứ không ở `.o-luoi` để đầu mẩu và

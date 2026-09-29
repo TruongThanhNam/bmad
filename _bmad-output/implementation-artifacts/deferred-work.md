@@ -70,7 +70,8 @@
   evidence: Thật, quan sát thẳng ở `app/view/luoi.js` — handler gọi `store.batTatMoRong` rồi `ve()`, và `ve()` dựng phần tử mới cho mọi mẩu. Phép sửa đòi nhớ phần tử nào đang focus, tức một ô nhớ ở tầng view (luật cấm) hoặc một trường state mới; hành vi focus thuộc Story 3.2.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-5-mau-giay-hinh-dang-gio-tao-cat-va-mo-rong.md`
-  summary: Mẩu giấy click được nhưng không có `cursor: pointer`, và mẩu bị cắt vào thứ tự Tab được nhưng không có `:focus-visible`.
+  summary: ~~Mẩu giấy click được nhưng không có `cursor: pointer`, và mẩu bị cắt vào thứ tự Tab được nhưng không có `:focus-visible`.~~
+  resolved: 2026-09-29 — `:focus-visible` của `.o-luoi` có từ Story 3.2 (`app/style.css`, khối chung đầu tệp); `cursor: pointer` thêm cho `.o-luoi` và nút `.mau-xoa` (APP_VERSION 0.7.11), `test/mau-giay.test.js` ghim.
   evidence: Thật — `app/style.css` không có luật nào cho hai thứ đó, và `test/bo-cuc-bon-tang.test.js` ghim ring focus ở đúng `.o-soan`. Ranh giới accessibility là của Epic 3 (`3-2-focus-ring-và-thứ-tự-tab`), không do spec 2.5 vẽ ra.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-6-trang-thai-rong-va-tab-title.md`
