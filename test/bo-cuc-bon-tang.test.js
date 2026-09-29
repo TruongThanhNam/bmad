@@ -14,6 +14,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { boChuThichCss, boChuThichHtml } from './helpers/quet-nguon.js';
+import { MAU_LE_NUT_THEME, mauNutChanLink } from './helpers/chan-trang.js';
 
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 const html = boChuThichHtml(readFileSync(join(repoRoot, 'index.html'), 'utf8'));
@@ -178,13 +179,11 @@ describe('Hình dạng tĩnh của tầng 2 và tầng 4', () => {
     // Dáng link nhưng NGỮ NGHĨA NÚT: `<a href="#">` đổi URL và đẩy một mục vào lịch sử ngay
     // khi bấm, trái AC "chúng là hình dạng, chưa có hành vi".
     for (const nhan of ['xuất sao lưu', 'nạp lại']) {
-      expect(html).toMatch(
-        new RegExp(`<button[^>]*class="[^"]*\\bchan-link\\b[^"]*"[^>]*>\\s*${nhan}\\s*</button>`),
-      );
+      expect(html).toMatch(mauNutChanLink(nhan));
     }
     expect(html).not.toMatch(/<a\b/i);
     expect(html).toMatch(/<button[^>]*class="[^"]*\bnut-theme\b[^"]*"[^>]*>\s*nền tối\s*<\/button>/);
-    expect(css).toMatch(/\.nut-theme\s*\{[^}]*margin-inline-start\s*:\s*auto/);
+    expect(css).toMatch(MAU_LE_NUT_THEME);
   });
 
   it('bo góc lấy đúng token của từng cấp vật chứa', () => {

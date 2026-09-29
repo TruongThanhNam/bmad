@@ -128,7 +128,8 @@
   evidence: `tools/thu-bo-cuc.mjs` đã khóa hai `button.chan-link` trong thứ tự tab thật (dòng 1322) và kiểm chúng sống sót ở các bề rộng (dòng 1516), nhưng không đọc `.chan-nhac` hay `columnGap` của `.chan`. Phép đo thật chỉ dựng được khi Story 4.4 có chữ để so hai cảnh: mép trái nút theme không đổi giữa lúc chỗ đứng rỗng và lúc nó có chữ.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-1-chan-trang-voi-hai-link-thuong-truc.md`
-  summary: Hai phép khẳng định trùng byte giữa `test/chan-trang-hai-link.test.js` và `test/bo-cuc-bon-tang.test.js` — regex `<button…chan-link…>` và cửa `margin-inline-start: auto`.
+  summary: ~~Hai phép khẳng định trùng byte giữa `test/chan-trang-hai-link.test.js` và `test/bo-cuc-bon-tang.test.js` — regex `<button…chan-link…>` và cửa `margin-inline-start: auto`.~~
+  resolved: 2026-09-29 — đưa cả hai mẫu vào `test/helpers/chan-trang.js` (`mauNutChanLink(nhan)`, `MAU_LE_NUT_THEME`), hai test import chung; ý nghĩa phép kiểm không đổi. Kiểm đột biến: đổi nhãn `nạp lại` trong `index.html` → cả hai tệp test đỏ (3 ca), đã hoàn nguyên. Chỉ sửa `test/`, không bump `APP_VERSION`.
   evidence: Trùng thật (`chan-trang-hai-link.test.js` ~dòng 70/113 so với `bo-cuc-bon-tang.test.js` dòng 164/168). Nó không sai hôm nay, nhưng lần RENEGOTIATE ở Story 4.2/4.3 sẽ phải tìm ra cả hai chỗ. Cách vá gọn: đưa regex nhãn chung vào `test/helpers/`.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-2-xuat-toan-bo-ra-mot-file-sao-luu.md`

@@ -17,6 +17,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { boChuThichCss, boChuThichHtml, boChuThichJs } from './helpers/quet-nguon.js';
+import { MAU_LE_NUT_THEME, mauNutChanLink } from './helpers/chan-trang.js';
 import { noiChanTrang } from '../app/view/chan-trang.js';
 import { cauNhacSaoLuu } from '../app/core/backup.js';
 
@@ -78,9 +79,7 @@ describe('Hai link không bao giờ ẩn (UX-DR-19)', () => {
   it('cả hai nằm trong DOM TĨNH — không module nào phải chạy thì chúng mới có', () => {
     // Trên máy mới, `app/main.js` có thể chưa kịp chạy, hoặc hỏng. Hai link vẫn phải ở đó.
     for (const nhan of ['xuất sao lưu', 'nạp lại']) {
-      expect(chanTrang).toMatch(
-        new RegExp(`<button[^>]*class="[^"]*\\bchan-link\\b[^"]*"[^>]*>\\s*${nhan}\\s*</button>`),
-      );
+      expect(chanTrang).toMatch(mauNutChanLink(nhan));
     }
   });
 
@@ -363,7 +362,7 @@ describe('Chỗ đứng của dòng nhắc: cùng dòng, và không chiếm ch�
 describe('Hai link đứng độc lập với dòng nhắc, và giữ nguyên thứ tự tab', () => {
   it('nút theme vẫn bị đẩy phải bằng lề, không bằng phần tử đệm', () => {
     // Chỗ đứng mới xen vào giữa `nạp lại` và nút theme, nên cách đẩy phải là thứ dễ vỡ nhất.
-    expect(css).toMatch(/\.nut-theme\s*\{[^}]*margin-inline-start\s*:\s*auto/);
+    expect(css).toMatch(MAU_LE_NUT_THEME);
   });
 
   it('thứ tự tab ở chân trang: xuất sao lưu → nạp lại → nút theme', () => {
