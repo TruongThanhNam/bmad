@@ -47,7 +47,8 @@
  *
  * @callback SessionStoreWrite
  * @param {SessionKey} key Khóa cần ghi.
- * @param {string} value Giá trị mới, đã ở dạng chuỗi.
+ * @param {string} value Giá trị mới, đã ở dạng chuỗi. Giá trị không phải chuỗi ném `TypeError`
+ *   (không ép kiểu), cùng khuôn với khóa lạ.
  * @returns {void} Ném lỗi mang mã của AD-18 khi kho từ chối.
  */
 

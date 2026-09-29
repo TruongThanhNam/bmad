@@ -68,6 +68,13 @@ export function taoSessionStore() {
 
     write(key, value) {
       const ten = tenThat(key);
+      // Cùng khuôn với khóa lạ: lỗi lập trình thì `TypeError`, ném TRƯỚC khi chạm kho. Không ép
+      // kiểu — `write('persistDenied', false)` sẽ lưu chuỗi `'false'` và đọc lại thành truthy.
+      if (typeof value !== 'string') {
+        throw new TypeError(
+          `kho cấu hình chỉ ghi chuỗi — khóa ${String(key)} nhận được ${value === null ? 'null' : typeof value}`,
+        );
+      }
       try {
         localStorage.setItem(ten, value);
       } catch (loi) {

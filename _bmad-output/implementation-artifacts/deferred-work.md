@@ -28,7 +28,8 @@
   evidence: `test/adapter-session-store.test.js` phủ đúng ánh xạ này cho `localstorage.js` như một ngoại lệ hẹp đã duyệt. Làm tương tự cho `indexeddb.js` cần export `maCuaLoi` (thêm bề mặt công khai) hoặc dựng một IndexedDB giả — đúng thứ luật "adapters không có test tự động" sinh ra để tránh. Mở rộng ngoại lệ là quyết định của người dùng.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-6-kho-ghi-chu-ben-va-luong-ghi-chuan.md`
-  summary: `sessionStore.write` ép kiểu giá trị không phải chuỗi, nên `write('persistDenied', false)` lưu chuỗi `"false"` và đọc lại thành truthy.
+  summary: ~~`sessionStore.write` ép kiểu giá trị không phải chuỗi, nên `write('persistDenied', false)` lưu chuỗi `"false"` và đọc lại thành truthy.~~
+  resolved: 2026-09-29 — `write` ném `TypeError` khi `typeof value !== 'string'` (sau phép kiểm khóa, trước khi chạm kho), cùng khuôn với khóa lạ; JSDoc `app/ports/session-store.js` cập nhật; thêm ca kiểu giá trị vào `test/adapter-session-store.test.js`; bump `APP_VERSION` 0.7.13. Đã xác nhận mọi chỗ gọi truyền chuỗi: `state.js` 1148 (`giaTri` đã qua `THEME_HOP_LE`), 1214 (`nowIso()`), 1263 (`'1'`), 1313 (`exportedAt` đã gác `typeof === 'string'`).
   evidence: Chữ ký cổng đòi `value: string` nhưng adapter không kiểm. Chưa ai gọi `write` (Story 1.8 là người tiêu thụ đầu tiên), nên đây là một cái bẫy đặt sẵn cho Story 1.8 và Epic 8 chứ chưa phải một lỗi tới được.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-1-bon-tang-co-dinh-tren-nen-ban.md`

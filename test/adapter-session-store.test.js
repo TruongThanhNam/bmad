@@ -108,6 +108,38 @@ describe('localstorage.js — khóa lạ là lỗi lập trình, không phải m
   });
 });
 
+describe('localstorage.js — write chỉ nhận chuỗi, không ép kiểu', () => {
+  it('giá trị không phải chuỗi thì ném TypeError và không chạm kho', () => {
+    // Kho giả ném lỗi DB nếu bị chạm: `TypeError` mà không phải mã DB chứng tỏ kiểm kiểu chạy trước.
+    goKhoGia = camKhoGia(() => new Error('kho bi chan'));
+    const cong = taoSessionStore();
+    for (const giaTri of [false, true, 0, 1, null, undefined, {}, ['dark']]) {
+      expect(() => cong.write('persistDenied', giaTri)).toThrow(TypeError);
+    }
+  });
+
+  it('chuỗi (kể cả rỗng) vẫn được ghi nguyên vẹn', () => {
+    const daGhi = new Map();
+    const truoc = Object.prototype.hasOwnProperty.call(globalThis, 'localStorage')
+      ? globalThis.localStorage
+      : undefined;
+    globalThis.localStorage = {
+      setItem: (khoa, giaTri) => daGhi.set(khoa, giaTri),
+    };
+    goKhoGia = () => {
+      if (truoc === undefined) delete globalThis.localStorage;
+      else globalThis.localStorage = truoc;
+    };
+    const cong = taoSessionStore();
+    cong.write('persistDenied', '1');
+    cong.write('theme', '');
+    expect([...daGhi]).toEqual([
+      ['ghichu.persistDenied', '1'],
+      ['ghichu.theme', ''],
+    ]);
+  });
+});
+
 describe('localstorage.js — writeTabIdentity ghi danh tính mới vào kho phạm vi phiên', () => {
   // Cùng lớp "không cần kho thật" với hai hành vi đã duyệt ở trên: một `Map` vài dòng là đủ,
   // không phải một giả lập kho nào. Phần bền qua lần tải lại vẫn thuộc danh sách thử tay.
