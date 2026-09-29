@@ -31,7 +31,9 @@ gốc: `README.md` (vận hành + checklist thủ công) và
   `test/adapter-session-store.test.js` (khóa lạ, `QuotaExceededError` → `QUOTA`) và
   `test/adapter-file-io.test.js` (`readChosenFile`). Đừng nới hai file đó hay dựng
   IndexedDB/trình duyệt giả; ngoại lệ mới phải được chủ repo duyệt trước. Phần còn lại kiểm
-  bằng checklist thủ công trong `README.md`.
+  bằng checklist thủ công trong `README.md`. Ngoại lệ "trình duyệt giả" của
+  `tools/thu-bo-cuc.mjs` (stub storage, quan sát tiêu đề, đè setter `title`) ghi ở mục
+  "Chạy và kiểm chứng".
 
 ## Chạy và kiểm chứng
 
@@ -44,7 +46,9 @@ gốc: `README.md` (vận hành + checklist thủ công) và
   `DRAFT_STALE_MS`). Ca "tải lại: mọi mẩu về thu gọn" của `thu-bo-cuc` chập chờn từ trước
   Epic 6 (một mẩu đo 128 → 106); ca đỏ nào khác mới là hồi quy.
 - Mỗi chỗ nối mới trong `main.js` phải có một ca `thu-bo-cuc` chạy thật, không chỉ một regex
-  quét mã nguồn — `.then` treo nhầm lời hứa vẫn xanh dưới regex.
+  quét mã nguồn — `.then` treo nhầm lời hứa vẫn xanh dưới regex. Chạy `npm run thu-bo-cuc`
+  trước mỗi lần push chạm `app/main.js`, `app/view/` hoặc `app/style.css`; ca đỏ ngoài ca
+  chập chờn đã biết ở trên là hồi quy, chặn push.
 - Tab riêng của khối "Story 8.1/8.2" (`tools/thu-bo-cuc.mjs`, script cài bằng
   `Page.addScriptToEvaluateOnNewDocument`) có đúng ba thứ đã duyệt, và là ngoại lệ có tên, không
   phải giấy phép dựng trình duyệt giả: stub `navigator.storage.estimate`/`persist`; một

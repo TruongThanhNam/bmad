@@ -242,10 +242,12 @@
   resolved: 2026-09-29 — ca "Deferred 8.3 — kiemRoiVe (neo undefined)" trong khối 8.1/8.2 của tools/thu-bo-cuc.mjs (tiêu điểm ở `xóa` của mẩu, nhả vượt → hàng 7 hiện, tiêu điểm còn đúng mẩu + vai trò; đột biến neo `null` làm ca đỏ).
   evidence: Khối 8.3 chỉ đo nhánh `null` (Q5, tiêu điểm trên `✕`). Cần một ca: tiêu điểm trên thân/`xóa` của một mẩu, lần kiểm treo rồi nhả đổi dải băng, khẳng định tiêu điểm còn đúng mẩu + vai trò.
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-3-khoi-kiem-dung-luong-chay-that-trong-thu-bo-cuc.md`
-  summary: AGENTS.md ghi ngoại lệ stub `estimate`/`persist` ở mục "Chạy và kiểm chứng", không cạnh hai ngoại lệ adapter ở "Nơi để tìm", và không trỏ nơi lưu lần duyệt (Q1 proposal 2026-09-28).
+  summary: ~~AGENTS.md ghi ngoại lệ stub `estimate`/`persist` ở mục "Chạy và kiểm chứng", không cạnh hai ngoại lệ adapter ở "Nơi để tìm", và không trỏ nơi lưu lần duyệt (Q1 proposal 2026-09-28).~~
+  resolved: 2026-09-29 — bmad-project-context thêm một câu ở dòng `app/adapters/` trỏ sang mục "Chạy và kiểm chứng"; không chép lịch sử duyệt.
   evidence: Người đọc tìm danh sách ngoại lệ "trình duyệt giả" ở "Nơi để tìm" sẽ không thấy ngoại lệ thứ ba. Hoãn vì sửa tệp ngữ cảnh agent.
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-3-khoi-kiem-dung-luong-chay-that-trong-thu-bo-cuc.md`
-  summary: Luật AGENTS.md "mỗi chỗ nối mới trong main.js phải có một ca thu-bo-cuc" không nói ai chạy `npm run thu-bo-cuc` và lúc nào, trong khi nó nằm ngoài `npm test` — cổng duy nhất.
+  summary: ~~Luật AGENTS.md "mỗi chỗ nối mới trong main.js phải có một ca thu-bo-cuc" không nói ai chạy `npm run thu-bo-cuc` và lúc nào, trong khi nó nằm ngoài `npm test` — cổng duy nhất.~~
+  resolved: 2026-09-29 — bmad-project-context thêm câu: chạy `npm run thu-bo-cuc` trước mỗi lần push chạm `app/main.js`, `app/view/` hoặc `app/style.css`; ca đỏ ngoài ca chập chờn đã biết là hồi quy, chặn push.
   evidence: Không có CI; không nói rõ thì luật không kiểm được. Gợi ý: chạy trước mỗi lần push chạm `app/main.js`. Hoãn vì sửa tệp ngữ cảnh agent.
 
 ## Deferred from: code review of spec-8-3-khoi-kiem-dung-luong-chay-that-trong-thu-bo-cuc.md — lượt 2 (2026-09-28)
