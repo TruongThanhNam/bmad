@@ -45,10 +45,13 @@ gốc: `README.md` (vận hành + checklist thủ công) và
   Epic 6 (một mẩu đo 128 → 106); ca đỏ nào khác mới là hồi quy.
 - Mỗi chỗ nối mới trong `main.js` phải có một ca `thu-bo-cuc` chạy thật, không chỉ một regex
   quét mã nguồn — `.then` treo nhầm lời hứa vẫn xanh dưới regex.
-- Stub `navigator.storage.estimate`/`persist` trong tab riêng của khối "Story 8.1/8.2"
-  (`tools/thu-bo-cuc.mjs`, cài bằng `Page.addScriptToEvaluateOnNewDocument`) là ngoại lệ có tên
-  đã duyệt, không phải giấy phép dựng trình duyệt giả: không IndexedDB giả, không stub gì khác.
-  Ca mới cần dung lượng thì dùng lại stub đó; ngoại lệ mới phải được chủ repo duyệt trước.
+- Tab riêng của khối "Story 8.1/8.2" (`tools/thu-bo-cuc.mjs`, script cài bằng
+  `Page.addScriptToEvaluateOnNewDocument`) có đúng ba thứ đã duyệt, và là ngoại lệ có tên, không
+  phải giấy phép dựng trình duyệt giả: stub `navigator.storage.estimate`/`persist`; một
+  `MutationObserver` chỉ quan sát `document.title`; đè setter `Document.prototype.title` chỉ để
+  ghi lại rồi chuyển tiếp cho setter gốc (Story 8.4). Không IndexedDB giả, không stub hay đè gì
+  khác, và hai thứ quan sát không được đổi hành vi trang. Ca mới cần dung lượng hay dấu vết tiêu
+  đề thì dùng lại chúng; ngoại lệ mới phải được chủ repo duyệt trước.
 - Suite ghim `TZ=Asia/Kolkata`; đừng gỡ — múi lệch nửa giờ là thứ duy nhất bắt được lỗi
   dựng hậu tố offset.
 - Không có lint/formatter/CI. Test là cổng duy nhất.

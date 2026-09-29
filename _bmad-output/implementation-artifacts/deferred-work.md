@@ -256,7 +256,8 @@
 ## Deferred from: code review of spec-8-4-luot-ve-bat-dong-bo-khong-tha-tieu-diem-khong-ve-truoc-kho.md (2026-09-29)
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-4-luot-ve-bat-dong-bo-khong-tha-tieu-diem-khong-ve-truoc-kho.md`
-  summary: Ngoại lệ stub `estimate`/`persist` trong AGENTS.md vẫn ghi "không stub gì khác", trong khi Story 8.4 thêm đè setter `Document.prototype.title` (chỉ ghi rồi chuyển tiếp) và một `MutationObserver` trong cùng tab riêng.
+  summary: ~~Ngoại lệ stub `estimate`/`persist` trong AGENTS.md vẫn ghi "không stub gì khác", trong khi Story 8.4 thêm đè setter `Document.prototype.title` (chỉ ghi rồi chuyển tiếp) và một `MutationObserver` trong cùng tab riêng.~~
+  resolved: 2026-09-29 — bmad-project-context viết lại dòng AGENTS.md thành ba thứ đã duyệt (stub storage, `MutationObserver` tiêu đề, đè setter `title`), vẫn cấm mọi stub/đè khác.
   evidence: `tools/thu-bo-cuc.mjs:2983-3001`; README mục 8.3/8.4 có nhắc, AGENTS.md:50 thì không. Agent sau đọc AGENTS.md sẽ coi đó là vi phạm. Hoãn vì sửa tệp ngữ cảnh agent.
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-4-luot-ve-bat-dong-bo-khong-tha-tieu-diem-khong-ve-truoc-kho.md`
   summary: JSDoc `@param neo` của `veGiuTieuDiem` (`app/main.js:170`) chỉ liệt `{ id, vaiTro: 'than'|'xoa'|'sua' } | null`, thiếu dạng `{ id: null, vaiTro: 've-hom-nay' }` mà thân chú thích đã mô tả.
