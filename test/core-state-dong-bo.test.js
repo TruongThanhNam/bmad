@@ -359,6 +359,57 @@ describe('Story 7.1 — I/O Matrix trên hai tab', () => {
     expect(a.store.state.notes.map((m) => m.id)).toEqual(['y']);
   });
 
+  // Hai mục deferred spec-2-3/2-4: `khoiDong()` còn treo ở `readAll`, Nam chốt, rồi kho nhả ảnh
+  // chụp LẤY TRƯỚC lúc chốt. Mẩu vừa chốt phải còn trong `notes` — không nhô lên rồi biến mất.
+  it('chốt trong lúc khoiDong() còn đọc, nhả ảnh cũ: mẩu vừa chốt còn trong notes', async () => {
+    const kho = dungKho([ban('y', 'bún', '08:00:00')]);
+    const a = dungTab(kho, 'tab-a', { hoanDoc: true, anhLucGoi: true });
+    await a.store.khoiDongBanNhap();
+    const khoiDong = a.store.khoiDong();
+    let xong = false;
+    khoiDong.then(() => {
+      xong = true;
+    });
+    await new Promise((giai) => setTimeout(giai, 0));
+    a.store.datBanNhap('vừa chốt');
+    await a.store.chotGhiChu();
+    expect(a.store.state.notes.map((m) => m.text)).toEqual(['vừa chốt']);
+    for (let i = 0; i < 10 && !xong; i += 1) {
+      a.nhaDoc();
+      await new Promise((giai) => setTimeout(giai, 0));
+    }
+    expect(xong).toBe(true);
+    expect(a.store.state.notes.map((m) => m.text)).toEqual(['vừa chốt', 'bún']);
+  });
+
+  it('sửa (tự lưu) trong lúc một lượt đọc còn treo, nhả ảnh cũ: chữ đã sửa còn trong notes', async () => {
+    vi.useFakeTimers();
+    const kho = dungKho([ban('x', 'phở')]);
+    const a = dungTab(kho, 'tab-a', { hoanDoc: true, anhLucGoi: true });
+    let xong = false;
+    a.store.khoiDong().then(() => {
+      xong = true;
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    a.nhaDoc();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(xong).toBe(true);
+    // Một tin từ tab khác mở lượt đọc mới và nó treo ở `readAll` với ảnh chụp lấy lúc gọi.
+    const docLai = a.store.nhanBanTin(tin('notes-changed', 'tab-b'));
+    await vi.advanceTimersByTimeAsync(0);
+    a.store.vaoCheDoSua('x');
+    const hen = a.store.tuLuuNoiDung('x', 'phở bò');
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_MS);
+    await hen;
+    expect(kho.notes.get('x').text).toBe('phở bò');
+    for (let i = 0; i < 10; i += 1) {
+      a.nhaDoc();
+      await vi.advanceTimersByTimeAsync(0);
+    }
+    await docLai;
+    expect(a.store.state.notes.find((m) => m.id === 'x').text).toBe('phở bò');
+  });
+
   it('mẩu đã rời ô sửa nhưng còn chữ chờ ghi, bị xóa ở tab khác: cũng dải băng', async () => {
     vi.useFakeTimers();
     const kho = dungKho([ban('x', 'phở')]);

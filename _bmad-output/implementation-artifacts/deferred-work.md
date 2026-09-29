@@ -51,7 +51,8 @@
   evidence: Dòng "Chưa giành được bản nháp" của I/O Matrix đã đóng băng cách xử lý (`draft: null`, chỉ ghi `notes`), nên sửa là renegotiate ý định. Cửa sổ chạm tới chỉ kéo dài tới lúc `claimDraft` trả lời. Sẽ ngã ngũ nếu đo được: chốt ngay trong vài trăm ms đầu rồi tải lại có thấy chữ cũ quay lại không.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-3-chot-ban-nhap-thanh-ghi-chu.md`
-  summary: `Ctrl+Enter` trong lúc `khoiDong()` còn đang đọc kho thì `datLai({ notes })` của nó đè mất mẩu vừa chốt.
+  summary: ~~`Ctrl+Enter` trong lúc `khoiDong()` còn đang đọc kho thì `datLai({ notes })` của nó đè mất mẩu vừa chốt.~~
+  resolved: 2026-09-29 — đã được Story 7.1 vá từ trước: mọi phép ghi thành công của chính tab (`put`, `remove`, `commitDraft`, `replaceAll`) gọi `baoGhiChuDoi()` (`app/core/state.js`), nó bật `docThem` khi một lượt đọc đang bay nên ảnh chụp cũ bị bỏ và đọc lại (bộ đếm mới là thừa). Chỉ thêm hai ca ghim kịch bản chốt/tự lưu chen giữa `readAll` treo trong test/core-state-dong-bo.test.js (đỏ khi gỡ `docThem` trong `baoGhiChuDoi`); không đổi mã app.
   evidence: Hành vi sẵn có của `khoiDong` từ Story 1.6 (`state.js:394-409`), không do Story 2.3 gây ra — `themGhiChu` cũ cũng vậy. Bản sửa đúng chỗ là cho `khoiDong` gộp thay vì đè.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-3-chot-ban-nhap-thanh-ghi-chu.md`
@@ -60,7 +61,8 @@
   evidence: Cùng gốc với lỗ hổng đã vá cho `put`/`remove`, nhưng `replaceAll` chưa có chỗ gọi nào trong repo — nó là việc của Epic 4 (nạp file sao lưu), và story đó phải tự mang phép kiểm cho nó.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-4-luoi-ghi-chu-cua-hom-nay.md`
-  summary: Chốt trong lúc `khoiDong()` còn đang đọc thì mẩu vừa chốt bị đè mất — và từ Story 2.4 nó NHÌN THẤY ĐƯỢC: mẩu nhô lên rồi biến mất khỏi lưới.
+  summary: ~~Chốt trong lúc `khoiDong()` còn đang đọc thì mẩu vừa chốt bị đè mất — và từ Story 2.4 nó NHÌN THẤY ĐƯỢC: mẩu nhô lên rồi biến mất khỏi lưới.~~
+  resolved: 2026-09-29 — đã được Story 7.1 vá từ trước: mọi phép ghi thành công của chính tab (`put`, `remove`, `commitDraft`, `replaceAll`) gọi `baoGhiChuDoi()` (`app/core/state.js`), nó bật `docThem` khi một lượt đọc đang bay nên ảnh chụp cũ bị bỏ và đọc lại (bộ đếm mới là thừa). Chỉ thêm hai ca ghim kịch bản chốt/tự lưu chen giữa `readAll` treo trong test/core-state-dong-bo.test.js (đỏ khi gỡ `docThem` trong `baoGhiChuDoi`); không đổi mã app.
   evidence: Đã xác nhận lại ở `app/core/state.js:403-418` — `datLai({ notes: sapGiamDan(danhSach) })` thay nguyên mảng chứ không gộp. Cùng khiếm khuyết mà vòng review 2.3 đã hoãn, nhưng cái giá đã đổi: trước 2.4 không ai thấy, giờ nó phá đúng lời hứa "mẩu giấy nhô lên là bằng chứng duy nhất" trong giây đầu của trang. Bản sửa đúng chỗ vẫn là cho `khoiDong` gộp theo `id` thay vì đè, và nó đụng `state.js` — thứ khối đóng băng của 2.4 cấm chạm.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-4-luoi-ghi-chu-cua-hom-nay.md`
