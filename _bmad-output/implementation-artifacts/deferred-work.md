@@ -223,14 +223,16 @@
 - Thân AD-10 trong `ARCHITECTURE-SPINE.md` chưa ghi các chốt của Story 8.1: giá trị cờ `'1'` (khác là tắt), ngưỡng 3 ngày, không bao giờ dải băng, Q3A (state theo `persist()` dù ghi kho hỏng), xin lại mỗi lần khởi động. Spine là nguồn thắng nên các chốt này nên nằm ở AD-10, không chỉ trong comment mã.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-2-canh-bao-truoc-nguong-dung-luong.md`
-  summary: AGENTS.md chưa ghi ngoại lệ hẹp mới `CHON_DAI_BANG` (`main.js` khai lại `'.dai-bang'` để hỏi tiêu điểm có nằm trong dải băng không), trong khi nó là ngoại lệ thứ hai của một luật có test quét chặn.
+  summary: ~~AGENTS.md chưa ghi ngoại lệ hẹp mới `CHON_DAI_BANG` (`main.js` khai lại `'.dai-bang'` để hỏi tiêu điểm có nằm trong dải băng không), trong khi nó là ngoại lệ thứ hai của một luật có test quét chặn.~~
+  resolved: 2026-09-29 — AGENTS.md mục "Quy ước khác mặc định" đã ghi `CHON_DAI_BANG` là ngoại lệ có tên DUY NHẤT, kèm ràng buộc của `test/banner.test.js`.
   evidence: Xác minh thật — `test/banner.test.js` gỡ đúng dòng khai trước khi quét "chỉ `view/banner.js` chạm dải băng", và AGENTS.md liệt kê các ngoại lệ có tên kiểu này ở mục "Quy ước"/"Bẫy". Hoãn vì sửa file ngữ cảnh agent; làm ở lượt refresh AGENTS.md hoặc retro Epic 8.
 
 ## Deferred from: code review of spec-8-2-canh-bao-truoc-nguong-dung-luong.md (2026-09-28)
 
 - ~~Hành vi Q5 của `kiemRoiVe` (`app/main.js:414-419`: tiêu điểm trong `.dai-bang` → neo `null` về `#o-soan`, ngoài → `undefined`) chỉ ghim bằng regex quét mã nguồn; không ca nào chạy thật việc lần kiểm gỡ hàng 7 khi `✕` đang giữ tiêu điểm, và README (d) chỉ thử bấm `✕`. Đóng bằng một wrapper export kiểu `noiLuongXoa` (vd `noiKiemDungLuong(store, goc, veTatCa)`) thử trên gốc giả sẵn có của `core-state-dung-luong.test.js`, hoặc một ca trong `npm run thu-bo-cuc`.~~
   resolved: 2026-09-28 — Story 8.3 (khối "Story 8.1/8.2" của tools/thu-bo-cuc.mjs, ca "Story 8.2 — Q5: lần kiểm gỡ hàng 7 lúc ✕ giữ tiêu điểm → tiêu điểm về #o-soan, không <body>"; đỏ khi neo `kiemRoiVe` đổi thành `undefined` trần).
-- Bổ sung cho mục `CHON_DAI_BANG` ở trên: AGENTS.md cũng chưa ghi ngoại lệ hàng 7 (`DUNG_LUONG_SAP_HET`) miễn khỏi luật "ghi thành công tắt dải băng" (Q3, `tatSauKhiGhi` trong `core/state.js`) — agent sau dễ "sửa" nó về `banner: null`. Làm cùng lượt refresh AGENTS.md / retro Epic 8.
+- ~~Bổ sung cho mục `CHON_DAI_BANG` ở trên: AGENTS.md cũng chưa ghi ngoại lệ hàng 7 (`DUNG_LUONG_SAP_HET`) miễn khỏi luật "ghi thành công tắt dải băng" (Q3, `tatSauKhiGhi` trong `core/state.js`) — agent sau dễ "sửa" nó về `banner: null`. Làm cùng lượt refresh AGENTS.md / retro Epic 8.~~
+  resolved: 2026-09-29 — AGENTS.md mục "Bẫy đã gặp" đã ghi `tatSauKhiGhi()` và ngoại lệ hàng 7 (Story 8.2 Q3); `core/state.js:655` khớp.
 
 ## Deferred from: code review of spec-8-3-khoi-kiem-dung-luong-chay-that-trong-thu-bo-cuc.md (2026-09-28)
 
