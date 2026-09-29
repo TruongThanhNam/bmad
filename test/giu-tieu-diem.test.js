@@ -485,3 +485,70 @@ describe('veGiuTieuDiem — ba dạng neo', () => {
     expect(tieuDiem).toBe(c.mauCua('x'));
   });
 });
+
+// ---------------------------------------------------------------------------
+// Story 8.4 (F3) — neo `undefined` khi tiêu điểm ở nút `✕` của dải băng
+// ---------------------------------------------------------------------------
+
+describe('veGiuTieuDiem — tiêu điểm trong dải băng (Story 8.4)', () => {
+  /** Dải băng giả với một nút `✕` đang giữ tiêu điểm. */
+  function dungDaiBang(c) {
+    const daiBang = phanTuGia('div');
+    daiBang.className = 'dai-bang';
+    daiBang.gocTaiLieu = true;
+    const nutDong = phanTuGia('button');
+    nutDong.className = 'dai-bang-dong';
+    daiBang.append(nutDong);
+    nutDong.focus();
+    return { daiBang, nutDong, c };
+  }
+
+  /** Gỡ `✕` khỏi DOM như trình duyệt: phần tử đang giữ tiêu điểm rời tài liệu → `<body>`. */
+  function goNut({ daiBang, nutDong }) {
+    nutDong.cha = null;
+    daiBang.con = [];
+    tieuDiem = THAN_TRANG;
+  }
+
+  it('lượt vẽ GỠ `✕` (dải băng tắt hay đổi loại) → tiêu điểm về #o-soan, không <body>', async () => {
+    const c = await dungCanh();
+    const b = dungDaiBang(c);
+    const veGoNut = () => {
+      c.veTatCa();
+      goNut(b);
+    };
+    veGiuTieuDiem(c.goc, veGoNut);
+    expect(tieuDiem).toBe(c.oSoan);
+    expect(tieuDiem).not.toBe(THAN_TRANG);
+  });
+
+  it('lượt vẽ THAY `✕` bằng một `✕` mới (đổi loại dải băng) → tiêu điểm về #o-soan', async () => {
+    const c = await dungCanh();
+    const b = dungDaiBang(c);
+    const veThayNut = () => {
+      c.veTatCa();
+      goNut(b);
+      const nutMoi = phanTuGia('button');
+      nutMoi.className = 'dai-bang-dong';
+      b.daiBang.append(nutMoi);
+    };
+    veGiuTieuDiem(c.goc, veThayNut);
+    expect(tieuDiem).toBe(c.oSoan);
+  });
+
+  it('lượt vẽ KHÔNG gỡ `✕` (dải băng không đổi) → tiêu điểm ở yên trên `✕`', async () => {
+    const c = await dungCanh();
+    const b = dungDaiBang(c);
+    const soLanTruoc = c.oSoan.soLanNhanTieuDiem;
+    veGiuTieuDiem(c.goc, c.veTatCa);
+    expect(tieuDiem).toBe(b.nutDong);
+    expect(c.oSoan.soLanNhanTieuDiem).toBe(soLanTruoc);
+  });
+
+  it('neo `null` hay `{ id, vaiTro }` không đổi nghĩa khi tiêu điểm đang ở `✕`', async () => {
+    const c = await dungCanh();
+    dungDaiBang(c);
+    veGiuTieuDiem(c.goc, c.veTatCa, null);
+    expect(tieuDiem).toBe(c.oSoan);
+  });
+});

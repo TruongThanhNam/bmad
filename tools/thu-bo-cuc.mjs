@@ -2980,6 +2980,25 @@ try {
     const TIEN_TO = 'thu-8-3:';
     const STUB = `
       (() => {
+        // Chỉ QUAN SÁT (Story 8.4): chuỗi giá trị document.title cùng số mẩu trên lưới, ghi từ lúc
+        // tài liệu mới được tạo — không đổi hành vi nào của trang.
+        window.__chuoiTieuDe = [];
+        const ghiTieuDe = () => {
+          const t = document.title;
+          const n = document.querySelectorAll('.luoi > [data-mau]').length;
+          const cuoi = window.__chuoiTieuDe.at(-1);
+          if (cuoi === undefined || cuoi.t !== t || cuoi.n !== n) window.__chuoiTieuDe.push({ t, n });
+        };
+        new MutationObserver(ghiTieuDe).observe(document, { childList: true, subtree: true, characterData: true });
+        ghiTieuDe();
+        // MỌI lần gán document.title (kể cả gán lại cùng giá trị): mỗi lượt vẽ của tiêu đề tab là
+        // một lần gán, nên đây là dấu vết đếm được của "lượt vẽ nào chạy trước lượt đầu của kho".
+        window.__ganTieuDe = [];
+        const moTa = Object.getOwnPropertyDescriptor(Document.prototype, 'title');
+        Object.defineProperty(Document.prototype, 'title', {
+          ...moTa,
+          set(v) { window.__ganTieuDe.push(v); moTa.set.call(this, v); },
+        });
         const kho = navigator.storage;
         if (!kho) return;
         const uocThat = kho.estimate.bind(kho);
@@ -3174,6 +3193,33 @@ try {
         'Story 8.1 — persist() được cấp lại: cờ bị xóa, sau lượt vẽ đầu của kho dòng nhắc rỗng (ngưỡng 7)',
         (nhacTruoc ?? '').includes('cách đây 4 ngày') && goCo && veDau3 && nhacSau === '',
         `chân trước ${JSON.stringify(nhacTruoc)} · cờ gỡ=${goCo} · vẽ đầu=${veDau3} · chân sau ${JSON.stringify(nhacSau)}`,
+      );
+
+      // Story 8.4 F4: `persist()` resolve NGAY (trước khi `readAll` xong) trên kho có N mẩu hôm nay.
+      // Chuỗi `document.title` từ lúc tài liệu được tạo không được mang số nào khác N (`''` là lúc
+      // `<head>` chưa parse; `tieuDe(0)` trùng chuỗi tĩnh nên lượt vẽ từ `notes = []` không đổi tiêu đề).
+      await datCauHinh({ persist: true, uoc: DUOI });
+      await cdp.taiLai(s);
+      const veDauF4 = await doiVeDau();
+      const soHomNay = await chay(`${M}
+        const q = await import('/app/core/query.js');
+        const g = await import('/app/core/time.js');
+        return q.locGhiChu(m.store.state.notes, { keyword: null, date: null }, g.nowIso()).total;`);
+      const chuoiF4 = await chay(`return window.__chuoiTieuDe;`);
+      const ganF4 = await chay(`return window.__ganTieuDe;`);
+      const tieuHopLe = new Set(['', 'Ghi chú hàng ngày', `${soHomNay} - Ghi chú hàng ngày`]);
+      const tieuN = `${soHomNay} - Ghi chú hàng ngày`;
+      ghi(
+        'Story 8.4 — persist() resolve ngay: document.title không bao giờ mang số khác N sau khi tài liệu được tạo',
+        veDauF4 && soHomNay > 0 && chuoiF4.length > 0 && chuoiF4.every((x) => tieuHopLe.has(x.t)),
+        `N=${soHomNay} · vẽ đầu=${veDauF4} · chuỗi ${JSON.stringify(chuoiF4)}`,
+      );
+      // `tieuDe(0)` trùng chuỗi tĩnh nên chuỗi giá trị không thấy lượt vẽ từ `notes = []`; dấu vết
+      // các LẦN GÁN thì thấy: lượt gán đầu tiên đã phải mang N (lượt vẽ đầu của kho), không phải 0.
+      ghi(
+        'Story 8.4 — persist() resolve ngay: lượt vẽ đầu tiên của tiêu đề đã mang N, không lượt nào dựng từ notes = []',
+        ganF4.length > 0 && ganF4[0] === tieuN,
+        `các lần gán ${JSON.stringify(ganF4)} · mong lần đầu ${JSON.stringify(tieuN)}`,
       );
 
       // 8.1 persist muộn: cờ vắng, `persist` TREO, tải lại. Đợi lượt vẽ đầu của kho, khẳng định

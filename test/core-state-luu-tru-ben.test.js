@@ -303,7 +303,12 @@ describe('Story 8.1 — main.js gọi xinLuuTruBen đúng một lần, sau khoiD
     const lan = [...nguon.matchAll(/xinLuuTruBen\(/g)];
     expect(lan).toHaveLength(1);
     expect(lan[0].index).toBeGreaterThan(nguon.indexOf('store.khoiDong('));
-    expect(nguon).toMatch(/store\.xinLuuTruBen\(\)\.then\(\(\) => veGiuTieuDiem\(document, veTatCa\)\)/);
+    // Story 8.4: lượt vẽ chờ CẢ `khoiDong` — không lượt vẽ nào dựng lưới từ `notes = []`.
+    expect(nguon).toMatch(/const (\w+) = store\.khoiDong\([^)]*\)\.then\(veTatCa\);/);
+    const daNap = /const (\w+) = store\.khoiDong\(/.exec(nguon)[1];
+    expect(nguon).toContain(
+      `Promise.all([${daNap}, store.xinLuuTruBen()]).then(() => veGiuTieuDiem(document, veTatCa));`,
+    );
   });
 
   it('adapter quota đứng SAU ...congTam()', () => {

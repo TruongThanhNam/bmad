@@ -147,7 +147,8 @@ function neoTuTieuDiem(goc) {
  *
  * - `undefined` — giữ chỗ đang đứng. Neo chụp từ `goc.activeElement` TRƯỚC khi vẽ (sau thì
  *   phần tử đã bị gỡ và `activeElement` là `<body>`). Tiêu điểm ở ngoài mọi mẩu thì không đụng
- *   tới: `replaceChildren` của lưới không chạm được nó.
+ *   tới: `replaceChildren` của lưới không chạm được nó. Riêng tiêu điểm trong dải băng (nút `✕`,
+ *   Story 8.4): còn nguyên sau lượt vẽ thì ở yên, bị gỡ hay thay bằng loại khác thì về `#o-soan`.
  * - `null` — về ô soạn thảo: tầng 1, thứ `autofocus` của `index.html` đã chọn, chỗ Nam làm việc.
  * - `{ id, vaiTro }` — về đúng phần tử mang vai trò đó của mẩu `id`: `'than'` là chính mẩu,
  *   `'xoa'` là nút `xóa`, `'sua'` là ô sửa (không còn ô sửa thì lấy thân).
@@ -171,10 +172,22 @@ function neoTuTieuDiem(goc) {
  */
 export function veGiuTieuDiem(goc, veTatCa, neo) {
   const dich = neo === undefined ? neoTuTieuDiem(goc) : neo;
+  // Tiêu điểm ở trong dải băng (nút `✕`) — chụp CÙNG lúc với neo, trước khi vẽ (Story 8.4, F3).
+  const dangDung = neo === undefined ? (goc.activeElement ?? null) : null;
+  const trongDaiBang =
+    dangDung !== null &&
+    typeof dangDung.closest === 'function' &&
+    dangDung.closest(CHON_DAI_BANG) !== null;
   // Chụp xong mới vẽ — thứ tự này là toàn bộ điểm của nhánh `undefined`.
   veTatCa();
-  // Tiêu điểm đang ở ngoài mọi mẩu: lượt vẽ không chạm tới nó, nên không có gì để trả.
-  if (neo === undefined && dich === null) return;
+  // Dải băng đổi dưới tay người dùng: `✕` còn nguyên (banner.js bỏ qua lượt vẽ) thì ở yên; bị
+  // gỡ hay thay bằng loại khác thì rơi xuống đường lui `#o-soan` ở cuối (`dich` là `null`).
+  if (trongDaiBang) {
+    if (goc.activeElement === dangDung) return;
+  } else if (neo === undefined && dich === null) {
+    // Tiêu điểm đang ở ngoài mọi mẩu: lượt vẽ không chạm tới nó, nên không có gì để trả.
+    return;
+  }
   // Nút `về hôm nay` vừa được dựng lại: về nút MỚI; nút không còn (điều kiện đã rỗng) thì về
   // `#o-soan` — không để tiêu điểm rơi về `<body>`.
   const dichMoi = phanTuTheoNeo(goc, dich);
@@ -409,14 +422,8 @@ if (typeof document !== 'undefined') {
   // Kiểm dung lượng rồi vẽ lại (Story 8.2) — helper DUY NHẤT, gọi SAU lượt vẽ sẵn có của bốn
   // đường ghi: chốt, tự lưu sửa, nạp file, xóa qua hộp thoại. Lõi tự no-op khi không có phép ghi
   // thành công nào, nên chỗ gọi không cần biết phép ghi ra sao. Lượt vẽ có thể gỡ nút `✕` của
-  // hàng 7 đang giữ tiêu điểm: tiêu điểm trong dải băng thì về `#o-soan` (neo `null`), ngược lại
-  // giữ chỗ đang đứng (neo `undefined`) — qua `veGiuTieuDiem`, không tự `focus()` (Q5).
-  const tieuDiemTrongDaiBang = () =>
-    (document.activeElement?.closest(CHON_DAI_BANG) ?? null) !== null;
-  const kiemRoiVe = () =>
-    store
-      .kiemDungLuong()
-      .then(() => veGiuTieuDiem(document, veTatCa, tieuDiemTrongDaiBang() ? null : undefined));
+  // hàng 7 đang giữ tiêu điểm: neo `undefined` của `veGiuTieuDiem` tự xử lý (Story 8.4).
+  const kiemRoiVe = () => store.kiemDungLuong().then(() => veGiuTieuDiem(document, veTatCa));
   // Nút theme là view THỨ TƯ, và nó nối SAU ba view trên: thứ tự nối của chúng không đổi một
   // dòng. Nó vẽ từ đúng MỘT giá trị state (`theme`) và đặt `data-theme` trên `<html>` — nên nó
   // không biết gì về lưới, tiêu đề lẫn dải băng, đúng như chúng không biết gì về nó.
@@ -496,10 +503,12 @@ if (typeof document !== 'undefined') {
   // không chạm `document`. Vẽ ngay sau khi gọi (chứ không chỉ trong `.then`) là thứ đưa nhãn
   // nút về đúng chiều ở khung hình đầu: `khoiDong` đặt theme ĐỒNG BỘ, `notes` mới là phần chờ.
   const themeLucTai = document.documentElement.getAttribute('data-theme');
-  store.khoiDong(themeLucTai).then(veTatCa);
+  const daNapKho = store.khoiDong(themeLucTai).then(veTatCa);
   // Xin lưu trữ bền ở MỌI lần khởi động (Story 8.1, AD-10). Trên Firefox lời hứa có thể resolve
-  // vài phút sau, lúc Nam đang gõ — nên lượt vẽ GIỮ TIÊU ĐIỂM. Không bao giờ bị từ chối.
-  store.xinLuuTruBen().then(() => veGiuTieuDiem(document, veTatCa));
+  // vài phút sau, lúc Nam đang gõ — nên lượt vẽ GIỮ TIÊU ĐIỂM. Không bao giờ bị từ chối. Lượt vẽ
+  // chỉ chạy SAU `khoiDong` (Story 8.4): Chromium có thể resolve `persist()` trước khi `readAll`
+  // xong, và một lượt vẽ đi trước sẽ dựng lưới từ `notes = []` — bất biến của khối trên.
+  Promise.all([daNapKho, store.xinLuuTruBen()]).then(() => veGiuTieuDiem(document, veTatCa));
   // Chiều NHẬN của kênh liên tab (Story 7.1) — người nghe DUY NHẤT, nối sau `khoiDong`. Lõi lọc
   // tin rác và tin của chính tab, đọc lại kho, rồi lượt vẽ GIỮ TIÊU ĐIỂM: bản tin đến bất đồng
   // bộ, lúc tiêu điểm có thể đang ở bất cứ đâu. `nhanBanTin` không bao giờ bị từ chối. Hàm gỡ

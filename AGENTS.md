@@ -86,7 +86,7 @@ gốc: `README.md` (vận hành + checklist thủ công) và
   gọi riêng một nửa; test đếm mỗi lời gọi trần chỉ được xuất hiện một lần.
 - Lượt vẽ nào có thể gỡ phần tử đang giữ tiêu điểm (lưới `replaceChildren`, hộp thoại, nút
   `✕`, nút `về hôm nay` của hàng chip) phải đi qua `veGiuTieuDiem(goc, veTatCa, neo)` của `main.js`, không tự `focus()`:
-  `undefined` giữ chỗ đang đứng theo id mẩu + vai trò (thân / `xóa` / ô sửa), `null` về
+  `undefined` giữ chỗ đang đứng theo id mẩu + vai trò (thân / `xóa` / ô sửa; đang ở `✕` của dải băng thì ở yên khi `✕` còn, về `#o-soan` khi lượt vẽ gỡ hay thay nó — phép thử nằm trong hàm, `kiemRoiVe` gọi neo trần), `null` về
   `#o-soan`, `{ id, vaiTro }` về đúng phần tử đó; mẩu mất thì về `#o-soan`. Neo vào mẩu mà
   quên vai trò là lỗi B2 (Shift+Tab sang `xóa` bị giật về thân). Ngoại lệ có tên DUY NHẤT:
   `vaoSuaRoiVe` (`main.js`) vẽ rồi tự focus ô sửa MỚI — đặt tiêu điểm vào phần tử mới,

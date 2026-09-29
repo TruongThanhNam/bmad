@@ -359,6 +359,8 @@ bằng đồng hồ **trong tab**, tính từ lúc điều hướng tới lúc *
 *và* bộ nghe `input` của `o-soan.js` đã gắn xong. Trần là **2 giây**. Dọn theo `id` đã bơm trong
 `finally`, rồi tải lại để các khối sau không thừa hưởng 2.000 bản ghi.
 
+Từ Story 8.4 nó còn quan sát `document.title` (chuỗi giá trị và mọi lần gán, chỉ ghi, trên cùng tab riêng) để ghim rằng khi `persist()` resolve ngay, lượt vẽ đầu tiên của tiêu đề đã mang N chứ không dựng từ `notes = []`.
+
 Từ Story 8.3 nó lái thật các chỗ nối 8.1/8.2 của `main.js` (`xinLuuTruBen().then(...)`,
 `kiemRoiVe` và neo tiêu điểm của nó) trong một **tab riêng**, đóng khi xong. Tab đó mang một stub
 của `navigator.storage.estimate`/`persist` cài bằng `Page.addScriptToEvaluateOnNewDocument` —

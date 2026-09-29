@@ -696,10 +696,13 @@ describe('app/main.js — nối lần kiểm dung lượng (quét mã nguồn)',
     expect(main).not.toMatch(/\.then\s*\(\s*kiemRoiVe\s*\)/);
   });
 
-  it('kiemRoiVe: kiểm rồi vẽ giữ tiêu điểm, neo null khi tiêu điểm trong dải băng (Q5)', () => {
+  it('kiemRoiVe: kiểm rồi vẽ giữ tiêu điểm bằng neo undefined trần (Story 8.4)', () => {
+    // Phép thử "tiêu điểm trong dải băng" nằm TRONG `veGiuTieuDiem` — ca chạy thật ở
+    // `test/giu-tieu-diem.test.js`; ở đây chỉ ghim rằng `kiemRoiVe` không còn nhánh riêng.
     expect(main).toMatch(
-      /\bkiemRoiVe\s*=\s*\(\s*\)\s*=>\s*store\s*\.\s*kiemDungLuong\s*\(\s*\)\s*\.\s*then\s*\(\s*\(\s*\)\s*=>\s*veGiuTieuDiem\s*\(\s*document\s*,\s*veTatCa\s*,\s*tieuDiemTrongDaiBang\s*\(\s*\)\s*\?\s*null\s*:\s*undefined\s*\)\s*\)/,
+      /\bkiemRoiVe\s*=\s*\(\s*\)\s*=>\s*store\s*\.\s*kiemDungLuong\s*\(\s*\)\s*\.\s*then\s*\(\s*\(\s*\)\s*=>\s*veGiuTieuDiem\s*\(\s*document\s*,\s*veTatCa\s*\)\s*\)/,
     );
+    expect(main).not.toMatch(/tieuDiemTrongDaiBang/);
   });
 
   it('bốn điểm nối, mỗi cái SAU lượt vẽ sẵn có', () => {
