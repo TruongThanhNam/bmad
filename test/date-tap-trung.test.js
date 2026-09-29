@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { boChuThichJs } from './helpers/quet-nguon.js';
+import { boChuThichJs, thanScriptNoiTuyen } from './helpers/quet-nguon.js';
 
 // AD-4: `daysBetween` là nơi DUY NHẤT trong toàn bộ mã được dựng `Date`. AC nói "grep toàn
 // repo", nên nó phải là một test — một lời hứa không chặn được story sau lỡ tay gọi
@@ -78,6 +78,30 @@ describe('dựng Date tập trung ở app/core/time.js', () => {
       }
     }
     expect(viPham).toEqual([]);
+  });
+
+  it('script nội tuyến của index.html cũng không dựng hay đọc Date', () => {
+    const html = readFileSync(join(repoRoot, 'index.html'), 'utf8');
+    const than = thanScriptNoiTuyen(html);
+    // Có ít nhất script theme — không thì bộ lấy thân hỏng và test này xanh rỗng.
+    expect(than.length).toBeGreaterThan(0);
+    const viPham = than.flatMap((ma) =>
+      dungDateTrongFile(ma).map(({ dong, dang }) => `index.html:${dong} — ${dang}`),
+    );
+    expect(viPham).toEqual([]);
+  });
+
+  it('bộ lấy script nội tuyến bỏ script có src và script trong chú thích, giữ số dòng', () => {
+    const html = [
+      '<!-- <script>new Date()</script> -->',
+      '<script src="a.js">Date.now()</script>',
+      '<script>',
+      'const t = new Date();',
+      '</script>',
+    ].join('\n');
+    const than = thanScriptNoiTuyen(html);
+    expect(than).toHaveLength(1);
+    expect(than.flatMap(dungDateTrongFile)).toEqual([{ dong: 4, dang: 'new Date(' }]);
   });
 
   it('bộ quét bắt được cả bốn cửa và bỏ qua chú thích/khoảng trắng lạ', () => {

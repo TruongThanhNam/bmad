@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { boChuThichJs } from './helpers/quet-nguon.js';
+import { boChuThichJs, thanScriptNoiTuyen } from './helpers/quet-nguon.js';
 
 // AD-5: `fold()` ở `app/core/fold.js` là nơi DUY NHẤT bỏ dấu. AC nói "grep toàn repo", nên nó
 // phải là một test — một lời hứa không chặn được Story 1.6 lỡ tay tự `normalize('NFD')` khi
@@ -100,6 +100,22 @@ describe('bỏ dấu tập trung ở app/core/fold.js', () => {
       }
     }
     expect(viPham).toEqual([]);
+  });
+
+  it('script nội tuyến của index.html cũng không tự bỏ dấu', () => {
+    const html = readFileSync(join(repoRoot, 'index.html'), 'utf8');
+    const than = thanScriptNoiTuyen(html);
+    // Có ít nhất script theme — không thì bộ lấy thân hỏng và test này xanh rỗng.
+    expect(than.length).toBeGreaterThan(0);
+    const viPham = than.flatMap((ma) =>
+      boDauTrongFile(ma).map(({ dong, dang }) => `index.html:${dong} — ${dang}`),
+    );
+    expect(viPham).toEqual([]);
+    // Cùng bộ lấy thân, script nội tuyến có bỏ dấu tự chế thì phải đỏ.
+    const xau = '<script>\nvar s = x.normalize("NFD");\n</script>';
+    expect(thanScriptNoiTuyen(xau).flatMap(boDauTrongFile)).toEqual([
+      { dong: 2, dang: 'normalize(' },
+    ]);
   });
 
   it('bộ quét bắt được cả ba cửa, kể cả khi viết dãn ra', () => {

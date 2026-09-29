@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { boChuThichJs, laViTriRegex } from './helpers/quet-nguon.js';
+import { boChuThichJs, laViTriRegex, thanScriptNoiTuyen } from './helpers/quet-nguon.js';
 
 // AC "grep toàn repo không ra ngưỡng nào ngoài limits.js" phải là một test, không phải lời hứa.
 // Test chỉ đọc `limits.js` nghiệm thu được "các hằng có mặt" nhưng không nghiệm thu được
@@ -168,6 +168,16 @@ describe('ngưỡng tập trung ở app/core/limits.js', () => {
         viPham.push(`${tuongDoi}:${dong} — số ${so} (chuyển vào ${FILE_MIEN_TRU})`);
       }
     }
+    expect(viPham).toEqual([]);
+  });
+
+  it('script nội tuyến của index.html cũng không mang số literal nào', () => {
+    const html = readFileSync(join(repoRoot, 'index.html'), 'utf8');
+    const than = thanScriptNoiTuyen(html);
+    expect(than.length).toBeGreaterThan(0);
+    const viPham = than.flatMap((ma) =>
+      soTrongFile(ma).map(({ so, dong }) => `index.html:${dong} — số ${so}`),
+    );
     expect(viPham).toEqual([]);
   });
 

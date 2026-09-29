@@ -144,6 +144,23 @@ export function boChuThichHtml(ma) {
   return ma.replace(/<!--[\s\S]*?-->/g, (khoi) => '\n'.repeat(khoi.split('\n').length - 1));
 }
 
+/**
+ * Thân của mọi `<script>` KHÔNG có `src` trong một trang HTML (script nội tuyến, kể cả
+ * `type="module"`), sau khi bỏ chú thích HTML — một `<script>` nằm trong `<!-- … -->` không chạy
+ * nên không phải vi phạm. Mỗi thân được đệm bằng đúng số xuống dòng đứng trước nó, để số dòng
+ * mà bộ quét báo (`quet.slice(0, index).split('\n').length`) là số dòng thật trong file HTML.
+ */
+export function thanScriptNoiTuyen(html) {
+  const sach = boChuThichHtml(html);
+  const ketQua = [];
+  for (const khop of sach.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)) {
+    if (/\bsrc\s*=/i.test(khop[1])) continue;
+    const truocThan = khop.index + khop[0].indexOf('>') + 1;
+    ketQua.push('\n'.repeat(sach.slice(0, truocThan).split('\n').length - 1) + khop[2]);
+  }
+  return ketQua;
+}
+
 /** Chọn bộ bỏ chú thích theo phần mở rộng của file. */
 export function boChuThich(duongDan, ma) {
   if (duongDan.endsWith('.css')) return boChuThichCss(ma);
