@@ -1695,6 +1695,92 @@ try {
         sau.an === true && sau.tim === '' && sau.ngay === '' && sau.loiAn === true && sau.dung === 'o-soan' && sau.goiY === false,
         JSON.stringify(sau),
       );
+      // ── Đường CHỐT xóa điều kiện: `veSauChot(daXoaDieuKien)` → `xoaHetDieuKienVaNhap` ──────
+      //
+      // Chỗ nối thứ hai của cùng một hàm dùng chung. Chữ gõ dở của ô ngày không nằm trong state
+      // (date vẫn `null`), nên lõi tự xóa `dieuKien` khi chốt còn ô ngày thì chỉ `xoaNhap()` của
+      // main.js dọn được — đường này chỉ sống ở đó, và regex quét mã nguồn không chạy nó.
+      const CHU_CHOT = 'mẩu đo đường chốt xóa điều kiện';
+      const khoTruocChot = await cdp.chay(
+        tab.sessionId,
+        `const m = await import('/app/main.js'); return m.store.state.notes.length;`,
+      );
+      let idChot = null;
+      try {
+        await cdp.chay(
+          tab.sessionId,
+          `const o = document.getElementById('o-tim'); o.value = 'zzz-thu-chot';
+           o.dispatchEvent(new Event('input', { bubbles: true }));
+           const n = document.getElementById('o-ngay'); n.value = '03/09/20';
+           n.dispatchEvent(new Event('input', { bubbles: true }));
+           n.dispatchEvent(new Event('blur'));
+           return true;`,
+        );
+        await nghi(100);
+        const truoc = await cdp.chay(
+          tab.sessionId,
+          `return { hang: !document.querySelector('.hang-chip').hidden,
+                    ngay: document.getElementById('o-ngay').value,
+                    loi: !document.getElementById('o-ngay-loi').hidden,
+                    goiY: document.getElementById('o-soan').hasAttribute('placeholder') };`,
+        );
+        ghi(
+          'chuẩn bị đường chốt: có điều kiện + ngày gõ dở (chữ lỗi hiện, placeholder cảnh báo)',
+          truoc.hang && truoc.ngay === '03/09/20' && truoc.loi && truoc.goiY,
+          JSON.stringify(truoc),
+        );
+        await cdp.chay(
+          tab.sessionId,
+          `const o = document.getElementById('o-soan');
+           o.value = ${JSON.stringify(CHU_CHOT)};
+           o.dispatchEvent(new Event('input', { bubbles: true }));
+           o.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true }));
+           return true;`,
+        );
+        // Đợi tới khi mẩu vào state — một phép ghi chậm phải hỏng thành TIMEOUT, không thành
+        // một phép so sai lúc lượt vẽ sau chốt chưa chạy.
+        for (let i = 0; i < 50 && idChot === null; i += 1) {
+          await nghi(100);
+          idChot = await cdp.chay(
+            tab.sessionId,
+            `const m = await import('/app/main.js');
+             const n = m.store.state.notes.find((x) => x.text === ${JSON.stringify(CHU_CHOT)});
+             return n === undefined ? null : n.id;`,
+          );
+        }
+        await nghi(150);
+        const sauChot = await cdp.chay(
+          tab.sessionId,
+          `return { an: document.querySelector('.hang-chip').hidden,
+                    tim: document.getElementById('o-tim').value,
+                    ngay: document.getElementById('o-ngay').value,
+                    loiAn: document.getElementById('o-ngay-loi').hidden,
+                    goiY: document.getElementById('o-soan').hasAttribute('placeholder') };`,
+        );
+        ghi(
+          'chốt khi có điều kiện: hàng chip biến mất, ô tìm VÀ ô ngày gõ dở về rỗng, chữ lỗi ẩn, placeholder gỡ',
+          idChot !== null &&
+            sauChot.an === true &&
+            sauChot.tim === '' &&
+            sauChot.ngay === '' &&
+            sauChot.loiAn === true &&
+            sauChot.goiY === false,
+          JSON.stringify({ idChot, ...sauChot }),
+        );
+      } finally {
+        const conLai = await cdp.chay(
+          tab.sessionId,
+          `const m = await import('/app/main.js');
+           if (${JSON.stringify(idChot)} !== null) await m.store.xoaGhiChu(${JSON.stringify(idChot)});
+           return m.store.state.notes.length;`,
+        );
+        ghi(
+          'dọn mẩu của phép đo đường chốt — kho trở lại y như trước',
+          conLai === khoTruocChot,
+          `kho ${khoTruocChot} → ${conLai} bản ghi`,
+        );
+      }
+
       // Trả lưới về ba mẩu giả cho các khối đo vòng sáng bên dưới.
       await cdp.chay(tab.sessionId, BOM_MAU_CAT);
     }

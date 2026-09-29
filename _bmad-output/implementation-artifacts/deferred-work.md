@@ -173,7 +173,8 @@
 
 ## Deferred from: code review of spec-6-3-khoi-dieu-kien-hang-chip-va-duong-ve (2026-09-24)
 
-- Nối `veHomNay`/`veTatCa`/placeholder trong `app/main.js` chỉ được ghim bằng regex mã nguồn; hành vi thật (xóa ô ngày gõ dở, trả focus về `#o-soan`, gỡ placeholder sau chốt) chỉ kiểm ở `tools/thu-bo-cuc.mjs` ngoài `npm test`. Chạy `npm run thu-bo-cuc` trước khi deploy 0.7.0.
+- ~~Nối `veHomNay`/`veTatCa`/placeholder trong `app/main.js` chỉ được ghim bằng regex mã nguồn; hành vi thật (xóa ô ngày gõ dở, trả focus về `#o-soan`, gỡ placeholder sau chốt) chỉ kiểm ở `tools/thu-bo-cuc.mjs` ngoài `npm test`. Chạy `npm run thu-bo-cuc` trước khi deploy 0.7.0.~~
+  resolved: 2026-09-29 — khối Story 6.3 của tools/thu-bo-cuc.mjs đã đo `về hôm nay`; thêm ca đường CHỐT (`veSauChot` → `xoaHetDieuKienVaNhap`): điều kiện + ngày gõ dở, chốt bằng Ctrl+Enter, hàng chip ẩn, ô tìm và ô ngày về rỗng, placeholder gỡ. Đột biến `xoaHetDieuKienVaNhap()` → `store.xoaHetDieuKien()` trong `veSauChot` làm ca đỏ (`ngay` còn `03/09/20`). Câu "chạy trước deploy 0.7.0" đã cũ, luật push nằm trong AGENTS.md.
 
 - ~~AGENTS.md còn ghi checklist thủ công "1–32"; README đã có mục 33 (Story 6.2) và 34 (Story 6.3).~~
   resolved: 2026-09-29 — AGENTS.md hiện không còn ghi dải số checklist (chỉ "checklist thủ công" trong `README.md`); refresh bmad-project-context.
