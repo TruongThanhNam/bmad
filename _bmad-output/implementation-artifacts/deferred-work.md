@@ -23,7 +23,8 @@
   evidence: `editing` chỉ có MỘT ô và `seq` là một số đếm chung, nên hẹn của mẩu trước luôn bị bỏ khi bắt đầu sửa mẩu khác. Thật, nhưng fix nhỏ nhất là một phép flush hẹn treo, không tầm thường, và AD-8 giao đúng loại việc đó cho story tiêu thụ (Story 2.3 phải "hủy hẹn đang treo trước khi làm gì khác"). Story 5.1 (sửa nội dung tại chỗ) và 5.3 (xóa) là nơi hành vi "rời một lần sửa" được định nghĩa.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-6-kho-ghi-chu-ben-va-luong-ghi-chuan.md`
-  summary: `maCuaLoi` của `app/adapters/indexeddb.js` không có test — đột biến nó thành `MA_LOI.DB` vẫn xanh toàn suite, nên đường `QuotaExceededError` → `QUOTA` của luồng ghi ghi chú chỉ có bằng chứng là bước 5 danh sách thử tay.
+  summary: ~~`maCuaLoi` của `app/adapters/indexeddb.js` không có test — đột biến nó thành `MA_LOI.DB` vẫn xanh toàn suite, nên đường `QuotaExceededError` → `QUOTA` của luồng ghi ghi chú chỉ có bằng chứng là bước 5 danh sách thử tay.~~
+  resolved: 2026-09-29 — tách ánh xạ tên lỗi → mã thành hàm thuần `maLoiTuTen(ten)` trong `app/core/errors.js`; `maCuaLoi` của adapter chỉ còn gọi nó (hành vi giữ nguyên, không nới ngoại lệ adapter). Test lõi ở `test/core-errors.test.js` (QuotaExceededError → QUOTA, tên khác và đầu vào lạ → DB). `APP_VERSION` 0.7.11 → 0.7.12.
   evidence: `test/adapter-session-store.test.js` phủ đúng ánh xạ này cho `localstorage.js` như một ngoại lệ hẹp đã duyệt. Làm tương tự cho `indexeddb.js` cần export `maCuaLoi` (thêm bề mặt công khai) hoặc dựng một IndexedDB giả — đúng thứ luật "adapters không có test tự động" sinh ra để tránh. Mở rộng ngoại lệ là quyết định của người dùng.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-1-6-kho-ghi-chu-ben-va-luong-ghi-chuan.md`

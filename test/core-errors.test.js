@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import * as errors from '../app/core/errors.js';
-import { MA_LOI, MICROCOPY, loiUngDung, microcopyLoi } from '../app/core/errors.js';
+import { MA_LOI, MICROCOPY, loiUngDung, maLoiTuTen, microcopyLoi } from '../app/core/errors.js';
 import { MAX_NOTE_CHARS } from '../app/core/limits.js';
 
-const XUAT_MONG_DOI = ['MA_LOI', 'MICROCOPY', 'microcopyLoi', 'loiUngDung'];
+const XUAT_MONG_DOI = ['MA_LOI', 'MICROCOPY', 'microcopyLoi', 'loiUngDung', 'maLoiTuTen'];
 
 const SAU_MA = ['VERSION_SKEW', 'QUOTA', 'DB', 'BAD_FILE', 'BAD_VERSION', 'TOO_LONG'];
 
@@ -19,7 +19,7 @@ const NGUYEN_VAN = {
 };
 
 describe('core/errors.js — tập mã', () => {
-  it('xuất ra ĐÚNG bốn tên — một `microcopyOrDefault` lẻn vào là đỏ', () => {
+  it('xuất ra ĐÚNG năm tên — một `microcopyOrDefault` lẻn vào là đỏ', () => {
     expect(Object.keys(errors).sort()).toEqual([...XUAT_MONG_DOI].sort());
   });
 
@@ -101,6 +101,30 @@ describe('core/errors.js — loiUngDung', () => {
 
   it('mỗi lần gọi trả một đối tượng mới — stack không dùng chung', () => {
     expect(loiUngDung('DB')).not.toBe(loiUngDung('DB'));
+  });
+});
+
+describe('core/errors.js — maLoiTuTen (ánh xạ tên lỗi kho → mã)', () => {
+  it('QuotaExceededError → QUOTA', () => {
+    expect(maLoiTuTen('QuotaExceededError')).toBe(MA_LOI.QUOTA);
+  });
+
+  it('tên lỗi kho khác → DB', () => {
+    for (const ten of ['VersionError', 'AbortError', 'UnknownError', 'ConstraintError', 'Error']) {
+      expect(maLoiTuTen(ten)).toBe(MA_LOI.DB);
+    }
+  });
+
+  it('đầu vào lạ (không phải chuỗi, rỗng, khác hoa thường) → DB, không ném', () => {
+    for (const xau of [undefined, null, 0, {}, '', 'quotaexceedederror', ' QuotaExceededError']) {
+      expect(maLoiTuTen(xau)).toBe(MA_LOI.DB);
+    }
+  });
+
+  it('luôn ra một mã thuộc tập đóng để loiUngDung không ném', () => {
+    for (const ten of ['QuotaExceededError', 'x', undefined]) {
+      expect(() => loiUngDung(maLoiTuTen(ten))).not.toThrow();
+    }
   });
 });
 

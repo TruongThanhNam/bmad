@@ -23,7 +23,7 @@
 // bản nháp thuộc Story 1.7, nhưng nếu schema không chừa sẵn chỗ thì story đó phải bump phiên
 // bản kho — tức một đường nâng cấp thật, cho một object store rỗng.
 
-import { MA_LOI, loiUngDung } from '../core/errors.js';
+import { MA_LOI, loiUngDung, maLoiTuTen } from '../core/errors.js';
 import { fold } from '../core/fold.js';
 import { quyetDinhBanNhap } from '../core/draft.js';
 import { localDate } from '../core/time.js';
@@ -37,17 +37,9 @@ const KHOA_NOTES = 'id';
 const KHOA_DRAFTS = 'tabId';
 const INDEX_NGAY = 'localDate';
 
-/** Tên lỗi mà trình duyệt dùng cho "hết dung lượng" — cửa duy nhất vào mã `QUOTA` (AD-10). */
-const TEN_LOI_HET_CHO = 'QuotaExceededError';
-
-/**
- * Mã AD-18 cho một lỗi thô của kho: hết chỗ thì `QUOTA`, mọi hỏng hóc khác thì `DB`.
- *
- * Không có nhánh thứ ba: một lỗi không đoán được tên vẫn phải ra một mã thuộc tập đóng, vì
- * `errors.js` ném khi gặp mã lạ và người dùng sẽ thấy một trang vỡ thay vì một dải băng.
- */
+/** Mã AD-18 cho một lỗi thô của kho; phép ánh xạ tên → mã nằm ở `core/errors.js` để có test. */
 function maCuaLoi(loi) {
-  return loi != null && loi.name === TEN_LOI_HET_CHO ? MA_LOI.QUOTA : MA_LOI.DB;
+  return maLoiTuTen(loi != null ? loi.name : undefined);
 }
 
 /** Bản ghi đúng năm trường của AD-13, với hai trường dẫn xuất tính lại tại chỗ. */

@@ -58,6 +58,20 @@ export function microcopyLoi(code) {
   return MICROCOPY[code];
 }
 
+/** Tên lỗi mà trình duyệt dùng cho "hết dung lượng" — cửa duy nhất vào mã `QUOTA` (AD-10). */
+const TEN_LOI_HET_CHO = 'QuotaExceededError';
+
+/**
+ * Mã AD-18 cho TÊN của một lỗi thô của kho (`loi.name`): hết chỗ thì `QUOTA`, mọi thứ khác —
+ * kể cả đầu vào không phải chuỗi — thì `DB`.
+ *
+ * Không có nhánh thứ ba: một lỗi không đoán được tên vẫn phải ra một mã thuộc tập đóng, vì
+ * `loiUngDung` ném khi gặp mã lạ và người dùng sẽ thấy một trang vỡ thay vì một dải băng.
+ */
+export function maLoiTuTen(ten) {
+  return ten === TEN_LOI_HET_CHO ? MA_LOI.QUOTA : MA_LOI.DB;
+}
+
 /** Dựng `Error` mang `code` và message là microcopy tương ứng. Mã ngoài tập → `TypeError`. */
 export function loiUngDung(code) {
   kiemTraMa(code);
