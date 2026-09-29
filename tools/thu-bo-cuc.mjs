@@ -3171,6 +3171,26 @@ try {
     `;
     const DOC_LS = `return Object.fromEntries(Object.keys(localStorage).sort().map((k) => [k, localStorage.getItem(k)]));`;
     const DOC_CHAN = `return document.querySelector('.chan-nhac')?.textContent ?? null;`;
+    // Mép trái nút theme khi `.chan` co vừa khít nội dung (`max-content`): lề `auto` của nút không
+    // còn chỗ trống để nuốt, nên mọi `gap` ma của chỗ đứng dòng nhắc dồn thẳng vào mép trái. Đo
+    // ở bề rộng thường thì lề `auto` che mất nó và phép đo xanh dù luật `:empty` bị gỡ.
+    // `goi: true` gỡ tạm chỗ đứng khỏi DOM (đường cơ sở "không có phần tử") rồi đặt lại đúng chỗ.
+    const DO_MEP_NUT = (goi) => `
+      const c = document.querySelector('.chan');
+      const nut = c.querySelector('.nut-theme');
+      const cho = c.querySelector('.chan-nhac');
+      const cu = c.style.width;
+      const lien = cho.nextSibling;
+      c.style.width = 'max-content';
+      if (${goi}) cho.remove();
+      const ra = {
+        trai: nut.getBoundingClientRect().left,
+        hienThi: ${goi} ? null : getComputedStyle(cho).display,
+        chu: cho.textContent,
+      };
+      if (${goi}) c.insertBefore(cho, lien);
+      if (cu === '') c.style.removeProperty('width'); else c.style.width = cu;
+      return ra;`;
 
     let anhChup = null;
     let tabR = null;
@@ -3313,6 +3333,7 @@ try {
         coBat && veDau2 && nhac3,
         `cờ bật trước=${coBat} · vẽ đầu=${veDau2} · chân ${JSON.stringify(await chan())}`,
       );
+      const mepCoChu = await chay(DO_MEP_NUT(false));
 
       // 8.1 được cấp lại: `persist` → true, tải lại → cờ bị xóa, dòng nhắc rỗng (4 ≤ 7).
       const nhacTruoc = await chan();
@@ -3325,6 +3346,21 @@ try {
         'Story 8.1 — persist() được cấp lại: cờ bị xóa, sau lượt vẽ đầu của kho dòng nhắc rỗng (ngưỡng 7)',
         (nhacTruoc ?? '').includes('cách đây 4 ngày') && goCo && veDau3 && nhacSau === '',
         `chân trước ${JSON.stringify(nhacTruoc)} · cờ gỡ=${goCo} · vẽ đầu=${veDau3} · chân sau ${JSON.stringify(nhacSau)}`,
+      );
+
+      // Story 4.1 (deferred) — "rỗng thì không chiếm chỗ" trên trình duyệt thật: mép trái nút
+      // theme lúc chỗ đứng rỗng phải bằng lúc không có phần tử, và khác lúc nó có chữ (chứng
+      // minh phép đo đủ nhạy để thấy một `gap` ma).
+      const mepRong = await chay(DO_MEP_NUT(false));
+      const mepVang = await chay(DO_MEP_NUT(true));
+      ghi(
+        'Story 4.1 — chỗ đứng dòng nhắc rỗng không chiếm chỗ: mép trái nút theme bằng lúc không có phần tử, và khác lúc có chữ',
+        mepRong.chu === '' &&
+          mepRong.hienThi === 'none' &&
+          Math.abs(mepRong.trai - mepVang.trai) < 0.5 &&
+          mepCoChu.chu.includes('cách đây 4 ngày') &&
+          mepCoChu.trai - mepRong.trai > 1,
+        `rỗng=${mepRong.trai} (display ${mepRong.hienThi}) · không phần tử=${mepVang.trai} · có chữ=${mepCoChu.trai}`,
       );
 
       // Story 8.4 F4: `persist()` resolve NGAY (trước khi `readAll` xong) trên kho có N mẩu hôm nay.

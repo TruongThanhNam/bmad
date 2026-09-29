@@ -123,7 +123,8 @@
   evidence: Nếu wrapper cắt ngang mà thẻ con mang chữ không tự tràn (`scrollWidth <= clientWidth + 1`), không phần tử nào bị bắt. Chưa dựng được ca chạm tới: chỗ cắt duy nhất hôm nay — `.o-luoi` của Story 2.5 — cắt theo chiều DỌC, không phải chiều ngang. Thứ chốt được: dựng một wrapper `overflow-x` ẩn bọc một thẻ con mang chữ, xem ca có còn xanh không. Sẽ là medium nếu thật.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-1-chan-trang-voi-hai-link-thuong-truc.md`
-  summary: `npm run thu-bo-cuc` chưa đo khoảng `gap` ma của chỗ đứng dòng nhắc trên trình duyệt thật — cam kết "rỗng thì không chiếm chỗ" mới chỉ được chứng minh bằng quét nguồn.
+  summary: ~~`npm run thu-bo-cuc` chưa đo khoảng `gap` ma của chỗ đứng dòng nhắc trên trình duyệt thật — cam kết "rỗng thì không chiếm chỗ" mới chỉ được chứng minh bằng quét nguồn.~~
+  resolved: 2026-09-29 — thêm ca "Story 4.1 — chỗ đứng dòng nhắc rỗng không chiếm chỗ" vào khối 8.1/8.2 của `tools/thu-bo-cuc.mjs`: đo mép trái `.nut-theme` với `.chan` co `max-content` (lề `auto` không còn chỗ nuốt `gap` ma; đo ở bề rộng thường thì đột biến vẫn xanh) ở ba cảnh — rỗng, gỡ tạm phần tử, có chữ (mốc sao lưu 4 ngày). Rỗng = không phần tử (402.67), có chữ khác (503.16). Kiểm đột biến: đổi `.chan-nhac:empty` thành `display: block` → ca ĐỎ (406.67 so với 402.67, lệch đúng một `gap`), đã hoàn nguyên. Không đụng `app/`, không bump `APP_VERSION`.
   evidence: `tools/thu-bo-cuc.mjs` đã khóa hai `button.chan-link` trong thứ tự tab thật (dòng 1322) và kiểm chúng sống sót ở các bề rộng (dòng 1516), nhưng không đọc `.chan-nhac` hay `columnGap` của `.chan`. Phép đo thật chỉ dựng được khi Story 4.4 có chữ để so hai cảnh: mép trái nút theme không đổi giữa lúc chỗ đứng rỗng và lúc nó có chữ.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-1-chan-trang-voi-hai-link-thuong-truc.md`
