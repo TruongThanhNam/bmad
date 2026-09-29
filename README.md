@@ -857,3 +857,18 @@ Còn lại là thứ không con số nào nói: lần tải lại có **nháy m�
     mẩu nào thêm; sửa một mẩu, xóa, lật theme, xuất, nạp: không cái nào có tác dụng xuống kho.
     Tải lại A: dải băng biến mất, và chữ gõ lúc chỉ đọc không còn (đúng như dải băng đã nói).
     Đối xứng: B cũng vào chỉ đọc nếu nhận tin từ A — tải lại cả hai.
+
+### Nghe lưới bằng trình đọc màn hình — một mục phải làm bằng tai (deferred spec-2-4 / spec-5-1)
+
+`npm run thu-bo-cuc` đã đo cây trợ năng thật của Chrome (`.luoi` là `list`, mỗi mẩu là `listitem`
+tên `ghi chú lúc HH:mm`, vùng `.luoi-thong-bao` mang đúng câu sau chốt và không bị chạm ở lượt vẽ
+khác). Nó không nghe được thứ trình đọc thật *nói ra*:
+
+39. **Chốt thì được đọc, còn lại im lặng.** Bật NVDA (Windows) hoặc VoiceOver (macOS) trên trang
+    mở qua HTTP (mục 1). Gõ `phở` rồi `Ctrl+Enter`: trình đọc nói đúng một câu
+    **"Đã thêm ghi chú lúc HH:mm."** — không nhắc lại chữ `phở`. Chốt tiếp một mẩu trong cùng
+    phút: câu đó được đọc **lại**. `Tab` vào lưới: mỗi mẩu được đọc là **"ghi chú lúc HH:mm"**, rồi
+    mô tả là **chữ của ghi chú**, và trình đọc báo đây là một mục trong danh sách (`n / N`). Mở
+    rộng một mẩu, tìm chữ, lọc ngày, đổi theme, xóa một mẩu: **không** câu "Đã thêm…" nào được đọc
+    (dải băng, khi có, vẫn đọc theo luật riêng của nó). Vào chế độ sửa: ô sửa được đọc là
+    "nội dung ghi chú".

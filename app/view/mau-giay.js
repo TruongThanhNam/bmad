@@ -76,6 +76,33 @@ export const THUOC_TINH_MAU = 'data-mau';
 const THUOC_TINH_NHAN = 'aria-label';
 const NHAN_SUA = 'nội dung ghi chú';
 
+/** Ngữ nghĩa danh sách của mẩu cho trình đọc màn hình (Story a11y, deferred spec-2-4/5-1).
+ *
+ *  Mỗi mẩu là một `listitem` của `.luoi` (`role="list"` khai TĨNH ở `index.html`). Mẩu vào thứ tự
+ *  Tab nên cần một TÊN: nhãn ngắn `ghi chú lúc HH:mm`, còn chữ của ghi chú nối bằng
+ *  `aria-describedby` vào thân — `aria-label` trên phần tử focus được sẽ THAY nội dung khi đọc,
+ *  nên đặt cả chữ vào nhãn hay để nhãn một mình là làm người nghe mất nội dung. */
+const THUOC_TINH_VAI = 'role';
+const VAI_MUC = 'listitem';
+const THUOC_TINH_MO_TA = 'aria-describedby';
+const THUOC_TINH_ID = 'id';
+const TIEN_TO_ID_THAN = 'mau-than-';
+const NHAN_MAU_TRUOC = 'ghi chú lúc ';
+
+/**
+ * Nhãn trợ năng của một mẩu: `ghi chú lúc 09:05`, hay `ghi chú lúc 14/09/2026 09:05` khi đang có
+ * điều kiện (cùng mốc mà mắt thấy trên ô giờ).
+ *
+ * Hàm thuần, EXPORT để test kiểm câu chữ không cần DOM.
+ *
+ * @param {{ createdAt: string }} note Bản ghi ghi chú.
+ * @param {boolean} dayDu Mốc đầy đủ (`dd/MM/yyyy HH:mm`) hay chỉ `HH:mm`.
+ * @returns {string}
+ */
+export function nhanMau(note, dayDu) {
+  return `${NHAN_MAU_TRUOC}${dayDu ? localDateTime(note) : localTime(note)}`;
+}
+
 /** Nhãn của nút xóa — nguyên văn microcopy đã chốt, chữ thường, không dấu chấm. */
 const NHAN_XOA = 'xóa';
 
@@ -328,6 +355,7 @@ export function veMau(
   const mau = ownerDocument.createElement(THE_MAU);
   mau.className = LOP_MAU;
   mau.setAttribute(THUOC_TINH_MAU, note.id);
+  mau.setAttribute(THUOC_TINH_VAI, VAI_MUC);
 
   const dau = ownerDocument.createElement(THE_DAU);
   dau.className = LOP_DAU;
@@ -387,6 +415,11 @@ export function veMau(
   // MỌI mẩu vào thứ tự Tab và nghe click, vì từ Story 5.1 mọi mẩu có một hành vi: click để sửa.
   // Mẩu ĐANG sửa là ngoại lệ duy nhất — xem chú thích của `TAB_CO`.
   if (!dangSua) {
+    // Tên + mô tả chỉ cho mẩu CHỮ CHẾT: mẩu đang sửa có `<textarea>` mang nhãn riêng, và một
+    // `id` trên ô sửa để `aria-describedby` trỏ vào là mô tả một ô bằng chính nó.
+    than.setAttribute(THUOC_TINH_ID, `${TIEN_TO_ID_THAN}${note.id}`);
+    mau.setAttribute(THUOC_TINH_NHAN, nhanMau(note, tim.dayDu));
+    mau.setAttribute(THUOC_TINH_MO_TA, `${TIEN_TO_ID_THAN}${note.id}`);
     mau.setAttribute(THUOC_TINH_TAB, TAB_CO);
     mau.addEventListener('click', (suKien) => {
       khiClick(viTriConTroTuDiem(ownerDocument, than, suKien));

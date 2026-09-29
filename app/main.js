@@ -538,6 +538,10 @@ if (typeof document !== 'undefined') {
   // thì điều kiện còn nguyên, và ngày đang gõ dở cũng phải còn nguyên.
   const veSauChot = (daXoaDieuKien) => {
     if (daXoaDieuKien) xoaHetDieuKienVaNhap();
+    // `daXoaDieuKien === true` chỉ khi kho ĐÃ nhận mẩu (xem `chotGhiChu`) — chốt thoát sớm hay
+    // ghi hỏng thì im lặng, đúng lời hứa của sản phẩm. Mẩu vừa chốt là mẩu đầu của `notes` (sắp
+    // giảm dần theo `createdAt`), và state đã có nó trước khi lượt vẽ chạy.
+    if (daXoaDieuKien) luoi.thongBao(store.state.notes[0]);
     veTatCa();
     kiemRoiVe();
   };

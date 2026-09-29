@@ -153,7 +153,12 @@
              `state.notes`, nên không nội dung mẫu nào ở đây, kể cả tạm. Story 2.6 đã chốt
              trạng thái rỗng: hôm nay chưa có gì thì vùng này KHÔNG một ký tự nào — không lời
              nhắn, không hình minh họa, không skeleton. Hình dạng mẩu giấy là Story 2.5. -->
-        <div class="luoi"></div>
+        <div class="luoi" role="list"></div>
+        <!-- Vùng thông báo RIÊNG của lưới (không phải `.dai-bang`, nơi chỉ `view/banner.js` được
+             ghi). Rỗng nguyên ở dạng tĩnh và phải CÓ SẴN trong DOM trước khi được điền chữ, nếu
+             không trình đọc màn hình không đọc lần đầu. `app/view/luoi.js` chỉ ghi vào đây khi một
+             mẩu vừa được chốt: sản phẩm im lặng ở mọi trường hợp khác. Ẩn khỏi mắt bằng CSS. -->
+        <div class="luoi-thong-bao" role="status" aria-live="polite"></div>
       </div>
     </section>
   </main>

@@ -25,7 +25,7 @@
 
 import { COLLAPSED_LINES, MAX_RESULTS } from '../core/limits.js';
 import { locGhiChu } from '../core/query.js';
-import { nowIso } from '../core/time.js';
+import { localTime, nowIso } from '../core/time.js';
 // Tên thuộc tính và mệnh đề chọn của ô sửa đi VÀO từ `mau-giay.js` — nơi chúng được ĐẶT — chứ
 // không khai lại ở đây: hai bản chép tay là hai chỗ có thể trôi khỏi nhau, và khi chúng trôi
 // thì phép gác không-vẽ-lại bên dưới lặng lẽ tắt, tức triệu chứng "gõ ngược" quay lại.
@@ -34,6 +34,33 @@ import { CHON_SUA, THUOC_TINH_SUA, caoTheoNoiDungSua, soDong, veMau } from './ma
 /** Lưới trong DOM. Phần tử rỗng nguyên ở dạng tĩnh; mọi ô do lượt vẽ sinh ra lúc chạy.
  *  EXPORT để `app/main.js` dùng lại thay vì khai lần thứ hai. */
 export const CHON_LUOI = '.luoi';
+
+/** Vùng thông báo cho trình đọc màn hình — RIÊNG, không phải `.dai-bang` (chỉ `view/banner.js`
+ *  được chạm dải băng). Khai TĨNH ở `index.html` cạnh `.luoi` với `role="status"` và
+ *  `aria-live="polite"`: một vùng live chèn vào DOM cùng lúc với chữ thì không được đọc lên.
+ *  EXPORT để `app/main.js` và test dùng lại thay vì khai lần hai. */
+export const CHON_THONG_BAO = '.luoi-thong-bao';
+
+const THUOC_TINH_VAI = 'role';
+/** Dòng chữ chen giữa `role="list"` không phải `listitem` — `none` gỡ ngữ nghĩa của thẻ `<p>`
+ *  nhưng chữ vẫn được đọc. */
+const VAI_TRUNG_TINH = 'none';
+
+const CHU_THONG_BAO_TRUOC = 'Đã thêm ghi chú lúc ';
+const CHU_THONG_BAO_SAU = '.';
+
+/**
+ * Câu vùng live đọc khi một mẩu VỪA được chốt: `Đã thêm ghi chú lúc 09:05.`
+ *
+ * Hàm thuần, EXPORT để test kiểm câu chữ không cần DOM. Cố ý KHÔNG nhắc lại nội dung ghi chú
+ * (có thể rất dài, hay riêng tư khi trình đọc bật loa ngoài).
+ *
+ * @param {{ createdAt: string }} note Mẩu vừa chốt.
+ * @returns {string}
+ */
+export function cauThongBao(note) {
+  return `${CHU_THONG_BAO_TRUOC}${localTime(note)}${CHU_THONG_BAO_SAU}`;
+}
 
 /** Dòng duy nhất lưới được nói (Story 6.1): CHỈ khi đang có điều kiện VÀ không mẩu nào khớp.
  *  Khung nhìn mặc định rỗng vẫn không một chữ (Story 2.6, AD-16). */
@@ -61,13 +88,27 @@ const CHU_THEM = `Hiện ${MAX_RESULTS} ghi chú đầu, còn nhiều hơn. Thê
  *   5.3 và móc `moRong` của Story 8.0, do `app/main.js` nối vào — chúng gọi action của
  *   lõi VÀ gọi lượt vẽ, hai việc mà một view không được tự làm cả hai. Vắng mặt thì lưới vẫn vẽ
  *   được, chỉ không sửa và không xóa được (đường của test bố cục).
- * @returns {{ ve: () => void }} `ve` dựng lại toàn bộ ô của lưới từ state.
+ * @returns {{ ve: () => void, thongBao: (note: object) => void }} `ve` dựng lại toàn bộ ô của
+ *   lưới từ state; `thongBao` đọc lên vùng live rằng `note` vừa được chốt — do `app/main.js`
+ *   gọi ĐÚNG ở nhánh chốt thành công, không bao giờ từ `ve()`, nên mọi lượt vẽ khác im lặng.
  */
 export function noiLuoi(store, goc = document, mocHienTai = nowIso, mocSua = {}) {
   const luoi = goc.querySelector(CHON_LUOI);
   // Không có lưới thì không có gì để vẽ — và cũng không có gì để ném. `ve` vẫn phải gọi được,
   // vì `app/main.js` treo nó vào một lời hứa không bao giờ bị từ chối. Cùng khuôn `noiOSoan`.
-  if (luoi === null || luoi === undefined) return { ve() {} };
+  if (luoi === null || luoi === undefined) return { ve() {}, thongBao() {} };
+  const vungThongBao = goc.querySelector(CHON_THONG_BAO);
+
+  /**
+   * Đọc lên `Đã thêm ghi chú lúc HH:mm.` — thay CẢ node chữ chứ không gán `textContent`, để hai
+   * lần chốt trong cùng một phút (cùng một câu) vẫn là hai lần thay đổi mà trình đọc thấy.
+   * Không có vùng (test bố cục cũ) hay không có mẩu thì không làm gì.
+   */
+  function thongBao(note) {
+    if (vungThongBao === null || vungThongBao === undefined) return;
+    if (note === null || note === undefined) return;
+    vungThongBao.replaceChildren(luoi.ownerDocument.createTextNode(cauThongBao(note)));
+  }
 
   /**
    * Vẽ lại lưới từ state.
@@ -164,12 +205,14 @@ export function noiLuoi(store, goc = document, mocHienTai = nowIso, mocSua = {})
     if (coDieuKien && total === 0) {
       const khongKhop = luoi.ownerDocument.createElement(THE_KHONG_KHOP);
       khongKhop.className = LOP_KHONG_KHOP;
+      khongKhop.setAttribute(THUOC_TINH_VAI, VAI_TRUNG_TINH);
       khongKhop.textContent = CHU_KHONG_KHOP;
       o.push(khongKhop);
     }
     if (total > MAX_RESULTS) {
       const them = luoi.ownerDocument.createElement(THE_THEM);
       them.className = LOP_THEM;
+      them.setAttribute(THUOC_TINH_VAI, VAI_TRUNG_TINH);
       them.textContent = CHU_THEM;
       o.push(them);
     }
@@ -185,5 +228,5 @@ export function noiLuoi(store, goc = document, mocHienTai = nowIso, mocSua = {})
     if (dangSua !== null) caoTheoNoiDungSua(luoi.querySelector(CHON_SUA));
   }
 
-  return { ve };
+  return { ve, thongBao };
 }

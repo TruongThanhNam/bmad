@@ -721,6 +721,27 @@ try {
       throw new Error(`lưới không đạt ${mong} mẩu sau 5s — phép ghi hỏng hoặc lưới không vẽ lại`);
     };
 
+    // ── Cây trợ năng của lưới (deferred spec-2-4 / spec-5-1) ─────────────────────────────
+    // Vùng thông báo có sẵn từ HTML tĩnh. KHÔNG đòi nó rỗng ở đây: các ca chốt phía trên trong
+    // cùng tab đã đọc lên câu của chúng và câu đó ở lại trong vùng; sự im lặng của mọi lượt vẽ
+    // khác được đo bên dưới bằng danh tính của node chữ.
+    const vungTruoc = await cdp.chay(
+      tab.sessionId,
+      `const v = document.querySelector('.luoi-thong-bao');
+       return v === null ? null : { vai: v.getAttribute('role'),
+         live: v.getAttribute('aria-live'), trongDaiBang: v.closest('.dai-bang') !== null,
+         luoi: document.querySelector('.luoi').getAttribute('role') };`,
+    );
+    ghi(
+      'trợ năng: vùng thông báo có sẵn (status + polite) ngoài .dai-bang; .luoi là list',
+      vungTruoc !== null &&
+        vungTruoc.vai === 'status' &&
+        vungTruoc.live === 'polite' &&
+        vungTruoc.trongDaiBang === false &&
+        vungTruoc.luoi === 'list',
+      JSON.stringify(vungTruoc),
+    );
+
     const idMau = [];
     try {
       for (const chu of CHU_MAU) {
@@ -776,6 +797,34 @@ try {
         JSON.stringify(thuGon.map((m) => [m.gio, m.tab])),
       );
 
+      // Cây trợ năng THẬT của Chrome, không đoán từ thuộc tính: `.luoi` là `list`, mỗi mẩu là
+      // `listitem` có TÊN `ghi chú lúc HH:mm`, và vùng thông báo mang đúng câu của lần chốt cuối.
+      const { nodes: cayAx } = await cdp.goi('Accessibility.getFullAXTree', {}, tab.sessionId);
+      const vaiAx = (n) => n.role?.value;
+      const tenAx = (n) => n.name?.value ?? '';
+      const muc = cayAx.filter(
+        (n) => !n.ignored && vaiAx(n) === 'listitem' && /^ghi chú lúc \d{2}:\d{2}$/.test(tenAx(n)),
+      );
+      ghi(
+        'trợ năng: cây có list và ít nhất bấy nhiêu listitem tên "ghi chú lúc HH:mm"',
+        cayAx.some((n) => !n.ignored && vaiAx(n) === 'list') && muc.length >= CHU_MAU.length,
+        `listitem có tên: ${muc.length}`,
+      );
+      const vungSau = await cdp.chay(
+        tab.sessionId,
+        `const v = document.querySelector('.luoi-thong-bao');
+         const m = document.querySelector('.luoi > *');
+         return { chu: v.textContent, gio: m.querySelector('.mau-gio').textContent,
+           mota: document.getElementById(m.getAttribute('aria-describedby'))?.textContent ?? null,
+           text: m.querySelector('.mau-than').textContent,
+           nho: (window.__nodeThongBao = v.firstChild) !== null };`,
+      );
+      ghi(
+        'trợ năng: sau chốt vùng live đọc "Đã thêm ghi chú lúc HH:mm." của mẩu mới nhất; mô tả mẩu là chữ của nó',
+        vungSau.chu === `Đã thêm ghi chú lúc ${vungSau.gio}.` && vungSau.mota === vungSau.text,
+        JSON.stringify(vungSau),
+      );
+
       /** Click mẩu thứ `i` đúng đường của người dùng — kèm TOẠ ĐỘ THẬT ở giữa thân mẩu.
        *
        *  Toạ độ không phải trang trí: `caretPositionFromPoint` đọc `clientX`/`clientY`, và một
@@ -806,6 +855,12 @@ try {
           motMo[hangDuoi].dinh > thuGon[hangDuoi].dinh,
         `cao ${thuGon[0].cao}→${motMo[0].cao} · đỉnh hàng dưới ${thuGon[hangDuoi].dinh}→${motMo[hangDuoi].dinh}`,
       );
+      // Lượt vẽ lại do mở rộng KHÔNG đọc lại gì: node chữ của vùng thông báo vẫn là node cũ.
+      const imLang = await cdp.chay(
+        tab.sessionId,
+        `return document.querySelector('.luoi-thong-bao').firstChild === window.__nodeThongBao;`,
+      );
+      ghi('trợ năng: lượt vẽ khác (mở rộng mẩu) im lặng — vùng thông báo không bị chạm', imLang === true, String(imLang));
 
       await cdp.chay(tab.sessionId, CLICK(2));
       await nghi(100);
@@ -2406,13 +2461,14 @@ try {
       // xong muộn một khung hình là đủ để một phép đo chiều rộng lệch rồi tự đúng.
       const DO_PHONG = `
         const goc = document.documentElement;
-        const bo = new Set(['.o-soan', '.tang-luoi']);
+        const bo = new Set(['.o-soan', '.tang-luoi', '.luoi-thong-bao']);
         const coChuRieng = (e) => [...e.childNodes]
           .some((n) => n.nodeType === 3 && n.textContent.trim() !== '');
         const catChu = [...document.querySelectorAll('body *')]
           .filter((e) => !['SCRIPT', 'STYLE'].includes(e.tagName))
           // Hai vùng này CUỘN theo thiết kế đã ghim (ô soạn thảo có trần chiều cao, tầng lưới
-          // là vùng cuộn của trang), nên scrollWidth của chúng không nói lên chữ bị cắt.
+          // là vùng cuộn của trang), nên scrollWidth của chúng không nói lên chữ bị cắt. Vùng
+          // thông báo chỉ-cho-trình-đọc (1×1 px, cắt bằng clip-path) cũng vậy: bị cắt là thiết kế.
           .filter((e) => ![...bo].some((s) => e.matches(s)))
           .filter(coChuRieng)
           // Ngưỡng là "> clientWidth + 1", không phải "> clientWidth": một điểm ảnh lẻ là phần

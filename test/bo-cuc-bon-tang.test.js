@@ -68,7 +68,7 @@ describe('Bốn tầng có mặt, đúng thứ tự đọc', () => {
   });
 
   it('lưới rỗng thật — không nội dung mẫu nào bên trong (trạng thái rỗng là Story 2.6)', () => {
-    const luoi = /<div class="luoi"\s*>([\s\S]*?)<\/div>/i.exec(html);
+    const luoi = /<div class="luoi"[^>]*>([\s\S]*?)<\/div>/i.exec(html);
     expect(luoi).not.toBeNull();
     expect(luoi[1].trim()).toBe('');
   });

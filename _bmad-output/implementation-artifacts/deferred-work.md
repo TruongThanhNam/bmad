@@ -68,7 +68,8 @@
   evidence: Đã xác nhận lại ở `app/core/state.js:403-418` — `datLai({ notes: sapGiamDan(danhSach) })` thay nguyên mảng chứ không gộp. Cùng khiếm khuyết mà vòng review 2.3 đã hoãn, nhưng cái giá đã đổi: trước 2.4 không ai thấy, giờ nó phá đúng lời hứa "mẩu giấy nhô lên là bằng chứng duy nhất" trong giây đầu của trang. Bản sửa đúng chỗ vẫn là cho `khoiDong` gộp theo `id` thay vì đè, và nó đụng `state.js` — thứ khối đóng băng của 2.4 cấm chạm.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-4-luoi-ghi-chu-cua-hom-nay.md`
-  summary: Lưới không có `role="list"`/`listitem` và không vùng `aria-live`, nên mẩu vừa chốt hiện ra hoàn toàn vô hình với trình đọc màn hình.
+  summary: ~~Lưới không có `role="list"`/`listitem` và không vùng `aria-live`, nên mẩu vừa chốt hiện ra hoàn toàn vô hình với trình đọc màn hình.~~
+  resolved: 2026-09-29 — `.luoi` có `role="list"`, mỗi mẩu `role="listitem"` (`app/view/mau-giay.js`), vùng live RIÊNG `.luoi-thong-bao` (role=status, polite) khai tĩnh ở index.html và chỉ `view/luoi.js` ghi, `main.js` gọi `luoi.thongBao` ở nhánh chốt thành công; APP_VERSION 0.7.17. Ca thu-bo-cuc đo cây trợ năng thật; README mục 39 là bước nghe bằng trình đọc.
   evidence: Thật, và nặng hơn bình thường vì sản phẩm cố ý IM LẶNG khi thành công — mẩu giấy là phản hồi duy nhất, nên không có gì khác để nghe. Hoãn vì ý định của epic đặt accessibility ở Epic 3 (`3-2-focus-ring-và-thứ-tự-tab`, `3-4-màu-không-phải-tín-hiệu-duy-nhất`); story nào trong epic đó nhận việc này phải nhận cả vùng thông báo.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-4-luoi-ghi-chu-cua-hom-nay.md`
@@ -164,7 +165,8 @@
   evidence: Xác minh thật — ngưỡng đo bằng NGÀY còn `chanTrang.ve()` chỉ chạy theo `veTatCa()`, tức theo đổi `notes`/`theme`/dải băng, và sau một lần xuất. Không vá ở story này vì bản sửa nhỏ nhất vẫn là một cơ chế MỚI (một cái hẹn ở ranh giới ngày, cùng đường dọn dẹp của nó), trong khi dự án chỉ có đúng một hẹn lặp đã cân nhắc kỹ — `setInterval` nhịp tim bản nháp ở `app/main.js`, cố ý đặt ngoài `taoStore`. Cùng họ với khoảng trống liên tab ngay trên: cả hai đều là "state bền đổi mà lượt vẽ không biết". Mở lại cùng Epic 7, hoặc sớm hơn nếu có người dùng thật báo đã gặp.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-5-1-sua-noi-dung-tai-cho.md`
-  summary: Mẩu giấy vào được thứ tự Tab nhưng không có `role` lẫn nhãn cho trình đọc màn hình, và `<textarea class="mau-sua">` không có `aria-label`.
+  summary: ~~Mẩu giấy vào được thứ tự Tab nhưng không có `role` lẫn nhãn cho trình đọc màn hình, và `<textarea class="mau-sua">` không có `aria-label`.~~
+  resolved: 2026-09-29 — ô sửa đã có `aria-label` "nội dung ghi chú" từ trước (`mau-giay.js`, xác minh, không làm lại); phần còn thiếu đã thêm: mẩu có `role="listitem"`, nhãn "ghi chú lúc HH:mm" (mốc đầy đủ khi có điều kiện) và `aria-describedby` trỏ vào thân để vẫn nghe được chữ. Cùng commit với mục 2-4 phía trên.
   evidence: "`grep 'aria-\|role='` trong `app/view/mau-giay.js` không có một kết quả nào, trong khi `index.html:91` cho ô soạn thảo một `aria-label`. Lỗ này có TRƯỚC Story 5.1 (mẩu bị cắt đã mang `tabindex=\"0\"` từ Story 2.5 mà cũng không có nhãn); 5.1 chỉ nới nó ra mọi mẩu. Câu chữ của nhãn là microcopy tiếng Việt nên phải do người chốt — thuộc về một story a11y, không phải 5.1."
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-5-1-sua-noi-dung-tai-cho.md`

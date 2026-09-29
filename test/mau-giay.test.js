@@ -599,8 +599,11 @@ describe('app/view/mau-giay.js — luật của tầng view, cưỡng chế đư
     expect(nguon).not.toMatch(/innerHTML|insertAdjacentHTML|outerHTML/);
   });
 
-  it('không dải băng, không aria-live, không role="list" — Epic 3 và epic dải băng', () => {
-    expect(nguon).not.toMatch(/aria-live|role\s*=|setAttribute\(\s*['"]role/i);
+  it('không dải băng, không aria-live; role chỉ là listitem (a11y spec-2-4/5-1, vùng live ở luoi.js)', () => {
+    expect(nguon).not.toMatch(/aria-live/i);
+    expect(nguon).not.toMatch(/role\s*=|setAttribute\(\s*['"]role/i);
+    expect(nguon).toMatch(/VAI_MUC\s*=\s*'listitem'/);
+    expect(nguon).not.toMatch(/'(?:status|alert|list)'/);
   });
 });
 

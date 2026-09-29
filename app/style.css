@@ -361,6 +361,8 @@ body {
 }
 
 .tang-luoi {
+  /* Neo cho `.luoi-thong-bao` (tuyệt đối): thiếu nó vùng ẩn định vị theo trang và kéo trang cuộn. */
+  position: relative;
   flex: 1;
   min-block-size: 0;
   overflow-y: auto;
@@ -558,6 +560,21 @@ body {
   overflow: hidden;
   clip-path: inset(50%);
   opacity: 0;
+}
+
+/* Vùng thông báo của lưới (a11y): chỉ dành cho trình đọc màn hình, không chiếm chỗ, không
+   `display: none` (sẽ gỡ nó khỏi cây trợ năng và vùng live thôi đọc). */
+
+.luoi-thong-bao {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  margin: -1px;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /* Lỗi ô ngày: viền `--danger` LUÔN đi kèm chữ `.o-ngay-loi-chu` ngay dưới khay. */
