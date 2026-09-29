@@ -464,7 +464,9 @@ if (typeof document !== 'undefined') {
   // (Story 7.1 sẽ thêm) gọi hàm này, không gọi riêng một nửa — `test/luoi.test.js` ghim rằng
   // `xoaHetDieuKien(` và `xoaNhap(` mỗi thứ chỉ xuất hiện đúng một lần trong tệp này.
   //
-  // `store.xoaHetDieuKien()` ở đường chốt là lần thứ hai (`chotBanNhap` đã tự xóa trong lõi).
+  // `store.xoaHetDieuKien()` ở đường chốt là lần thứ hai: lõi đã tự xóa ở nhánh ghi THÀNH CÔNG
+  // của `chotGhiChu`, còn ghi hỏng thì `chotGhiChu` trả `false`, đường này không chạy và bộ lọc
+  // ở lại.
   // Thường thì lần thứ hai đó không đổi gì vì điều kiện đã rỗng. Có một khe: điều kiện gõ vào ô
   // tìm trong lúc `commitDraft` còn đang ghi xuống kho (vài ms) cũng bị xóa theo. Khe này được
   // nhận có chủ ý (spec 7.0): đường chốt phải đi qua hàm chung.

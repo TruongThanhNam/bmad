@@ -804,10 +804,41 @@ describe('chotGhiChu — ghi trước, đổi state sau, và hai kho trong MỘT
     });
     await store.khoiDong();
     const truoc = store.state.notes;
-    await expect(store.chotGhiChu()).resolves.toBe(true);
+    // `false`: khối điều kiện KHÔNG bị xóa (xem ca ngay dưới), nên khay tìm không có gì để dọn.
+    await expect(store.chotGhiChu()).resolves.toBe(false);
     expect(store.state.notes).toBe(truoc);
     expect(store.state.draft.text).toBe('phở');
     expect(store.state.banner).toBe(MA_LOI.QUOTA);
+  });
+
+  it('cổng từ chối: bộ lọc đang bật Ở LẠI nguyên vẹn (ghi trước, đổi state sau — AD-8)', async () => {
+    vi.useFakeTimers();
+    const { store } = await storeDaGo('phở', {
+      banDau: banGhiMau(),
+      tuChoi: { commitDraft: MA_LOI.QUOTA },
+    });
+    await store.khoiDong();
+    store.datDieuKien({ keyword: 'bún', date: '2026-09-10' });
+    const dieuKienTruoc = store.state.dieuKien;
+    await expect(store.chotGhiChu()).resolves.toBe(false);
+    expect(store.state.dieuKien).toBe(dieuKienTruoc);
+    expect(store.state.dieuKien).toEqual({ keyword: 'bún', date: '2026-09-10' });
+    expect(store.state.banner).toBe(MA_LOI.QUOTA);
+  });
+
+  it('chốt thành công: bộ lọc bị xóa CÙNG lúc mẩu mới vào notes, trong một lần đổi state', async () => {
+    vi.useFakeTimers();
+    const { store } = await storeDaGo('phở', { banDau: banGhiMau() });
+    await store.khoiDong();
+    store.datDieuKien({ keyword: 'bún', date: '2026-09-10' });
+    // Còn treo ở phép ghi: bộ lọc CHƯA bị xóa, mẩu CHƯA vào notes.
+    const dangChot = store.chotGhiChu();
+    expect(store.state.dieuKien).toEqual({ keyword: 'bún', date: '2026-09-10' });
+    const nSauKhiChot = store.state.notes.length;
+    await expect(dangChot).resolves.toBe(true);
+    expect(store.state.dieuKien).toEqual({ keyword: null, date: null });
+    expect(store.state.notes).toHaveLength(nSauKhiChot + 1);
+    expect(store.state.notes.some((m) => m.text === 'phở')).toBe(true);
   });
 
   it('cổng từ chối: một hẹn tự lưu được đặt LẠI, để chữ chưa an toàn còn đường xuống kho', async () => {
@@ -2118,7 +2149,7 @@ describe('app/main.js — điểm nối duy nhất, chạy được thật', () 
     // Ca này đứng CUỐI mục và chạm `banner` — một trường mà các ca hàng xóm không đọc, nên
     // chúng không bị nó làm nhiễu.
     storeCuaApp.datBanNhap('x');
-    await expect(storeCuaApp.chotGhiChu()).resolves.toBe(true);
+    await expect(storeCuaApp.chotGhiChu()).resolves.toBe(false);
     expect(storeCuaApp.state.banner).toBe(MA_LOI.DB);
     expect(storeCuaApp.state.notes).toEqual([]);
   });

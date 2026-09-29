@@ -43,7 +43,8 @@
   evidence: Hành vi lõi có từ Story 1.7 (`app/core/state.js:527` và `:620` chặn mọi phép ghi khi chưa có danh tính), không do Story 2.2 gây ra. Lõi đã đặt `banner`; chỗ nói ra nó là dải băng của Story 3.1. Vá ở tầng view sẽ cần một trường state mới, thứ khối đóng băng của 2.2 cấm.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-3-chot-ban-nhap-thanh-ghi-chu.md`
-  summary: Một lần chốt HỎNG vẫn xóa mất bộ lọc đang bật, vì `xoaHetDieuKien()` chạy trước phép ghi.
+  summary: ~~Một lần chốt HỎNG vẫn xóa mất bộ lọc đang bật, vì `xoaHetDieuKien()` chạy trước phép ghi.~~
+  resolved: 2026-09-29 — bộ lọc nay bị xóa trong nhánh ghi thành công của `themGhiChu` (`app/core/state.js`), cùng một `datLai` với mẩu mới; `chotGhiChu` trả `true` chỉ khi kho đã nhận mẩu nên `main.js` không đổi lối nối. Hai ca mới trong test/core-state.test.js (ghi hỏng giữ bộ lọc, ghi thành công xóa cùng lúc mẩu vào); APP_VERSION 0.7.15.
   evidence: Thật, nhưng Epic 2 không có cách nào đặt điều kiện nên chưa chạm tới được. Epic 6 (tra cứu) phải quyết: hoặc hoàn nguyên `dieuKien` khi ghi hỏng, hoặc dời `xoaHetDieuKien()` vào nhánh thành công — cả hai đều đụng thứ tự năm bước đang nằm trong khối đóng băng của spec 2.3.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-3-chot-ban-nhap-thanh-ghi-chu.md`

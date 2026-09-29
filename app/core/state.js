@@ -1458,6 +1458,9 @@ export function taoStore(ports) {
         // Lọc `id` trùng: một lượt đọc lại (tin từ tab khác) có thể đã mang bản ghi này về
         // trước khi nhánh này chạy — thêm lần hai là một mẩu hiện đôi.
         notes: sapGiamDan([banGhi, ...noiBo.notes.filter((mau) => mau.id !== banGhi.id)]),
+        // Bộ lọc đi cùng mẩu MỚI trong đúng MỘT phép đổi state: mẩu vừa chốt phải nhìn thấy được
+        // ngay, và chỉ khi kho đã nhận nó — ghi hỏng thì bộ lọc Nam đang bật ở lại (AD-8).
+        dieuKien: { keyword: null, date: null },
         draft:
           noiBo.draft.seq === seqLucChot ? { text: '', seq: noiBo.draft.seq } : noiBo.draft,
       }),
@@ -1482,24 +1485,26 @@ export function taoStore(ports) {
    *    xảy ra giữa hai phím gõ, và một hẹn cũ nổ ra SAU lúc chốt sẽ ghi lại xuống `drafts` đúng
    *    chữ vừa biến thành ghi chú — một bản nháp ma, và cú chốt sau sinh ra một mẩu trùng.
    *    Hủy bằng `seq` chứ không bằng `clearTimeout` là cơ chế chính thức của AD-8.
-   * 2. Gác rỗng — không có gì để chốt thì thoát ngay, TRƯỚC `xoaHetDieuKien()`. AC của epic gọi
-   *    `xoaHetDieuKien()` là "bước đầu tiên", nhưng đó là bước đầu tiên của một lần chốt THẬT:
-   *    một cú bấm nhầm trên ô trống không được âm thầm xóa bộ lọc đang bật (Epic 6).
+   * 2. Gác rỗng — không có gì để chốt thì thoát ngay, không đụng bộ lọc: một cú bấm nhầm trên ô
+   *    trống không được âm thầm xóa bộ lọc đang bật (Epic 6).
    * 3. Gác trần — cổng KHÔNG bị gọi, chữ nằm nguyên trong ô, dải băng `TOO_LONG` (AD-14).
-   * 4. `xoaHetDieuKien()` — mẩu vừa chốt phải nhìn thấy được ngay, kể cả khi bộ lọc đang bật.
-   * 5. Dựng bản ghi và ghi xuống kho, rồi mới đổi state.
+   * 4. Dựng bản ghi và ghi xuống kho (`commitDraft`).
+   * 5. Ghi XONG mới đổi state, trong MỘT phép `datLai`: chèn mẩu mới, làm rỗng bản nháp, và xóa
+   *    khối điều kiện — mẩu vừa chốt phải nhìn thấy được ngay, kể cả khi bộ lọc đang bật. "Ghi
+   *    trước, đổi state sau" (AD-8) áp cho cả bộ lọc: AC của epic gọi `xoaHetDieuKien()` là "bước
+   *    đầu tiên", nhưng để nó chạy trước phép ghi thì một lần chốt HỎNG vẫn xóa mất bộ lọc.
    *
-   * Hỏng thì chữ KHÔNG mất: `notes` không đổi, `draft.text` còn nguyên, dải băng mang mã lỗi, và
-   * một hẹn tự lưu được đặt lại để chữ chưa an toàn còn một đường xuống kho.
+   * Hỏng thì chữ KHÔNG mất: `notes` và `dieuKien` không đổi, `draft.text` còn nguyên, dải băng
+   * mang mã lỗi, và một hẹn tự lưu được đặt lại để chữ chưa an toàn còn một đường xuống kho.
    *
    * Một lần chốt ĐANG BAY thì cú bấm thứ hai không làm gì cả: phím tự lặp của bàn phím gửi
    * `Ctrl+Enter` nhiều lần trong vài chục mili giây, và giao dịch chưa chốt xong thì `draft.text`
    * vẫn còn nguyên chữ — hai lời gọi cổng, hai ghi chú trùng nội dung với hai `id` khác nhau.
    *
    * @returns {Promise<boolean>} Hoàn tất khi state đã phản ánh kết quả — không bao giờ bị từ
-   *   chối. `true` khi đã đi tới bước (4), tức khối điều kiện ĐÃ bị xóa (kể cả khi ghi kho hỏng
-   *   sau đó); `false` khi thoát sớm và điều kiện còn nguyên. Khay tìm cần đúng cờ này: ô ngày
-   *   gõ dở chưa từng vào state, nên `ve()` không tự thấy được lần xóa này.
+   *   chối. `true` khi kho đã nhận mẩu, tức khối điều kiện ĐÃ bị xóa; `false` khi thoát sớm hay
+   *   ghi kho hỏng, và điều kiện còn nguyên. Khay tìm cần đúng cờ này: ô ngày gõ dở chưa từng
+   *   vào state, nên `ve()` không tự thấy được lần xóa này.
    */
   function chotGhiChu() {
     // Chỉ đọc: không đụng state — chữ ở lại trong ô, điều kiện lọc giữ nguyên.
@@ -1518,14 +1523,13 @@ export function taoStore(ports) {
       datLai({ banner: MA_LOI.TOO_LONG });
       return Promise.resolve(false);
     }
-    xoaHetDieuKien();
     dangChot = true;
     return themGhiChu(text, seqMoi).then((daChot) => {
       dangChot = false;
       // Ghi hỏng: chữ còn trên màn hình và chưa an toàn ở đâu cả. Đặt lại hẹn tự lưu cho nó —
       // nhưng chỉ khi Nam chưa gõ tiếp, vì một phím gõ sau đó đã tự đặt hẹn của nó rồi.
       if (!daChot && noiBo.draft.seq === seqMoi) henGhiBanNhapDiSau(seqMoi);
-      return true;
+      return daChot;
     });
   }
 
