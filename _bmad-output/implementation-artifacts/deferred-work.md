@@ -49,7 +49,8 @@
   evidence: Hành vi sẵn có của `khoiDong` từ Story 1.6 (`state.js:394-409`), không do Story 2.3 gây ra — `themGhiChu` cũ cũng vậy. Bản sửa đúng chỗ là cho `khoiDong` gộp thay vì đè.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-3-chot-ban-nhap-thanh-ghi-chu.md`
-  summary: `replaceAll` bị viết lại theo chữ ký mới của `trongGiaoDich` mà không phép kiểm nào chạm tới.
+  summary: ~~`replaceAll` bị viết lại theo chữ ký mới của `trongGiaoDich` mà không phép kiểm nào chạm tới.~~
+  resolved: 2026-09-29 — Story 4.3 đã mang phép kiểm ở tầng lõi (`test/core-state-nap.test.js`, cổng giả ghi thật vào kho RAM và từ chối là cuộn ngược): "`replaceAll` từ chối `QUOTA` → dải băng `QUOTA`, `notes` giữ nguyên tham chiếu" (kho vẫn đúng `id-1`,`id-2`), "`replaceAll` từ chối `DB` đi cùng một đường", "không bao giờ ghi mốc khi phép ghi kho đã hỏng"; thêm `test/core-state-dung-luong.test.js` ("nạp: replaceAll reject QUOTA → banner QUOTA, không kiểm"). Việc cuộn ngược thật của transaction IndexedDB là của adapter, không có test tự động theo luật — chỉ kiểm tay.
   evidence: Cùng gốc với lỗ hổng đã vá cho `put`/`remove`, nhưng `replaceAll` chưa có chỗ gọi nào trong repo — nó là việc của Epic 4 (nạp file sao lưu), và story đó phải tự mang phép kiểm cho nó.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-4-luoi-ghi-chu-cua-hom-nay.md`
