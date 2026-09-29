@@ -333,16 +333,20 @@ action_items:
     action: "Chuyen phep thu tieu diem trong dai bang vao neoTuTieuDiem de ve neo
       undefined ve o-soan (F3)"
     owner: "namtt"
-    status: in-progress
-    note: "Gop vao Story 8.4 (sprint-change-proposal-2026-09-28)."
+    status: done
+    note: "Gop vao Story 8.4 (sprint-change-proposal-2026-09-28). Xong o e7805f5,
+      09-29-2026: phep thu dat trong nhanh neo undefined cua veGiuTieuDiem (khong
+      phai neoTuTieuDiem), X con thi o yen, bi go/dung lai thi ve o-soan."
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-09-28.md"
   - id: "epic-8-retro-item-36-kiem-roi-sua-luot-ve-khoi-dong-cua-xinlu"
     epic: 8
     action: "Kiem roi sua luot ve khoi dong cua xinLuuTruBen chay truoc khi notes
       nap xong (F4)"
     owner: "namtt"
-    status: in-progress
-    note: "Gop vao Story 8.4 (sprint-change-proposal-2026-09-28)."
+    status: done
+    note: "Gop vao Story 8.4 (sprint-change-proposal-2026-09-28). Xong o e7805f5,
+      09-29-2026: do truoc khi sua thay luot ve tu notes = [] la that (so tren tab
+      khong sai); luot ve persist nay cho Promise.all([daNapKho, xinLuuTruBen])."
     ref: "_bmad-output/implementation-artifacts/epic-8-retro-2026-09-28.md"
   - id: "epic-8-retro-item-37-them-vao-epics-md-8-2-kiem-sau-xoa-q6-ha"
     epic: 8

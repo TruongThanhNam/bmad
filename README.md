@@ -359,9 +359,8 @@ bằng đồng hồ **trong tab**, tính từ lúc điều hướng tới lúc *
 *và* bộ nghe `input` của `o-soan.js` đã gắn xong. Trần là **2 giây**. Dọn theo `id` đã bơm trong
 `finally`, rồi tải lại để các khối sau không thừa hưởng 2.000 bản ghi.
 
-Từ Story 8.4 nó còn quan sát `document.title` (chuỗi giá trị và mọi lần gán, chỉ ghi, trên cùng tab riêng) để ghim rằng khi `persist()` resolve ngay, lượt vẽ đầu tiên của tiêu đề đã mang N chứ không dựng từ `notes = []`.
-
-Từ Story 8.3 nó lái thật các chỗ nối 8.1/8.2 của `main.js` (`xinLuuTruBen().then(...)`,
+Từ Story 8.3 nó lái thật các chỗ nối 8.1/8.2 của `main.js` (từ 8.4 là
+`Promise.all([daNapKho, xinLuuTruBen()]).then(...)`,
 `kiemRoiVe` và neo tiêu điểm của nó) trong một **tab riêng**, đóng khi xong. Tab đó mang một stub
 của `navigator.storage.estimate`/`persist` cài bằng `Page.addScriptToEvaluateOnNewDocument` —
 ngoại lệ có tên đã duyệt, không phải giấy phép dựng trình duyệt giả: không IndexedDB giả, không
@@ -377,6 +376,10 @@ giữ tiêu điểm đưa tiêu điểm về `#o-soan`, không `<body>` (Q5); `E
 tác đi qua phím và DOM thật. Dọn bằng **ảnh chụp** chụp từ tab chính trước khi tab riêng tới origin
 (`notes`, bản nháp có chữ, `localStorage`), không `deleteDatabase` — tab chính còn cầm kết nối —
 rồi tải lại tab chính và đo lại.
+
+Từ Story 8.4 stub của tab riêng đó còn quan sát `document.title` (chuỗi giá trị và mọi lần gán,
+chỉ ghi) để ghim rằng khi `persist()` resolve ngay, mọi lần gán tiêu đề đều mang N — không lượt vẽ
+nào dựng từ `notes = []` trước lượt đầu của kho.
 
 Nó **không** đo được phóng trình duyệt: CDP không đặt được mức zoom thật (`width` của
 `Emulation.setDeviceMetricsOverride` đã tính bằng điểm ảnh CSS, `deviceScaleFactor` chỉ đổi mật

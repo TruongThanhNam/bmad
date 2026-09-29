@@ -148,7 +148,7 @@ function neoTuTieuDiem(goc) {
  * - `undefined` — giữ chỗ đang đứng. Neo chụp từ `goc.activeElement` TRƯỚC khi vẽ (sau thì
  *   phần tử đã bị gỡ và `activeElement` là `<body>`). Tiêu điểm ở ngoài mọi mẩu thì không đụng
  *   tới: `replaceChildren` của lưới không chạm được nó. Riêng tiêu điểm trong dải băng (nút `✕`,
- *   Story 8.4): còn nguyên sau lượt vẽ thì ở yên, bị gỡ hay thay bằng loại khác thì về `#o-soan`.
+ *   Story 8.4): còn nguyên sau lượt vẽ thì ở yên, bị gỡ hay dựng lại thì về `#o-soan`.
  * - `null` — về ô soạn thảo: tầng 1, thứ `autofocus` của `index.html` đã chọn, chỗ Nam làm việc.
  * - `{ id, vaiTro }` — về đúng phần tử mang vai trò đó của mẩu `id`: `'than'` là chính mẩu,
  *   `'xoa'` là nút `xóa`, `'sua'` là ô sửa (không còn ô sửa thì lấy thân).
@@ -181,7 +181,8 @@ export function veGiuTieuDiem(goc, veTatCa, neo) {
   // Chụp xong mới vẽ — thứ tự này là toàn bộ điểm của nhánh `undefined`.
   veTatCa();
   // Dải băng đổi dưới tay người dùng: `✕` còn nguyên (banner.js bỏ qua lượt vẽ) thì ở yên; bị
-  // gỡ hay thay bằng loại khác thì rơi xuống đường lui `#o-soan` ở cuối (`dich` là `null`).
+  // gỡ hay dựng lại (đổi loại, hay cùng loại mà đổi `bannerSo`) thì rơi xuống đường lui
+  // `#o-soan` ở cuối (`dich` là `null`).
   if (trongDaiBang) {
     if (goc.activeElement === dangDung) return;
   } else if (neo === undefined && dich === null) {

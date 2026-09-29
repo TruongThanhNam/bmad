@@ -2953,8 +2953,8 @@ try {
 
   // ── Story 8.1/8.2: `persist()` và `estimate()` lái bằng stub, trong một tab RIÊNG ─────────
   //
-  // Chỗ nối 8.1/8.2 của `main.js` (`xinLuuTruBen().then(...)`, `kiemRoiVe` và neo Q5 của nó) chỉ
-  // chạy được trong trình duyệt thật, và trên máy phát triển ngưỡng dung lượng không bao giờ nổ.
+  // Chỗ nối 8.1/8.2 của `main.js` (`Promise.all([daNapKho, xinLuuTruBen()]).then(...)`,
+  // `kiemRoiVe` và neo Q5 của nó) chỉ chạy được trong trình duyệt thật, và trên máy phát triển ngưỡng dung lượng không bao giờ nổ.
   // Nên tab riêng mang một stub của `navigator.storage.estimate`/`persist`, cài bằng
   // `Page.addScriptToEvaluateOnNewDocument` — NGOẠI LỆ CÓ TÊN đã duyệt (Story 8.3, Q1 proposal
   // 2026-09-28), không phải giấy phép dựng trình duyệt giả: không IndexedDB giả, không gì khác
@@ -2980,14 +2980,12 @@ try {
     const TIEN_TO = 'thu-8-3:';
     const STUB = `
       (() => {
-        // Chỉ QUAN SÁT (Story 8.4): chuỗi giá trị document.title cùng số mẩu trên lưới, ghi từ lúc
-        // tài liệu mới được tạo — không đổi hành vi nào của trang.
+        // Chỉ QUAN SÁT (Story 8.4): chuỗi giá trị document.title, ghi từ lúc tài liệu mới được tạo
+        // — không đổi hành vi nào của trang.
         window.__chuoiTieuDe = [];
         const ghiTieuDe = () => {
           const t = document.title;
-          const n = document.querySelectorAll('.luoi > [data-mau]').length;
-          const cuoi = window.__chuoiTieuDe.at(-1);
-          if (cuoi === undefined || cuoi.t !== t || cuoi.n !== n) window.__chuoiTieuDe.push({ t, n });
+          if (window.__chuoiTieuDe.at(-1)?.t !== t) window.__chuoiTieuDe.push({ t });
         };
         new MutationObserver(ghiTieuDe).observe(document, { childList: true, subtree: true, characterData: true });
         ghiTieuDe();
@@ -3218,13 +3216,14 @@ try {
       // các LẦN GÁN thì thấy: lượt gán đầu tiên đã phải mang N (lượt vẽ đầu của kho), không phải 0.
       ghi(
         'Story 8.4 — persist() resolve ngay: lượt vẽ đầu tiên của tiêu đề đã mang N, không lượt nào dựng từ notes = []',
-        ganF4.length > 0 && ganF4[0] === tieuN,
-        `các lần gán ${JSON.stringify(ganF4)} · mong lần đầu ${JSON.stringify(tieuN)}`,
+        ganF4.length > 0 && ganF4.every((v) => v === tieuN),
+        `các lần gán ${JSON.stringify(ganF4)} · mong mọi lần ${JSON.stringify(tieuN)}`,
       );
 
       // 8.1 persist muộn: cờ vắng, `persist` TREO, tải lại. Đợi lượt vẽ đầu của kho, khẳng định
       // chân trang rỗng + cờ vắng + lời xin đang treo; rồi nhả `false` — dòng nhắc phải hiện
-      // KHÔNG cần tải lại (đó là lượt vẽ `xinLuuTruBen().then(...)` của `main.js`).
+      // KHÔNG cần tải lại (đó là lượt vẽ `Promise.all([daNapKho, xinLuuTruBen()]).then(...)` của
+      // `main.js`).
       const coVang4 = (await co()) === null;
       await datCauHinh({ persist: 'treo', uoc: DUOI });
       await cdp.taiLai(s);

@@ -550,5 +550,8 @@ describe('veGiuTieuDiem — tiêu điểm trong dải băng (Story 8.4)', () => 
     dungDaiBang(c);
     veGiuTieuDiem(c.goc, c.veTatCa, null);
     expect(tieuDiem).toBe(c.oSoan);
+    dungDaiBang(c);
+    veGiuTieuDiem(c.goc, c.veTatCa, { id: 'x', vaiTro: 'than' });
+    expect(tieuDiem).toBe(c.mauCua('x'));
   });
 });

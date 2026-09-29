@@ -252,3 +252,12 @@
 - source_spec: `_bmad-output/implementation-artifacts/spec-8-3-khoi-kiem-dung-luong-chay-that-trong-thu-bo-cuc.md`
   summary: Ca "Story 8.1 — persist() resolve muộn" không đặt tiêu điểm/chữ vào `#o-soan` trước khi nhả, nên đổi `xinLuuTruBen().then(() => veGiuTieuDiem(...))` thành `.then(veTatCa)` trần vẫn xanh — đúng lý do chỗ nối dùng `veGiuTieuDiem` (Firefox resolve lúc Nam đang gõ) không được đo.
   evidence: `tools/thu-bo-cuc.mjs:3180-3192` chỉ khẳng định chân trang + cờ. Cùng họ với mục nhánh `undefined` của `kiemRoiVe` ở trên. Cần: focus `#o-soan`, gõ chữ, rồi nhả `false`; khẳng định `activeElement` vẫn là `#o-soan` và giá trị còn nguyên.
+
+## Deferred from: code review of spec-8-4-luot-ve-bat-dong-bo-khong-tha-tieu-diem-khong-ve-truoc-kho.md (2026-09-29)
+
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-4-luot-ve-bat-dong-bo-khong-tha-tieu-diem-khong-ve-truoc-kho.md`
+  summary: Ngoại lệ stub `estimate`/`persist` trong AGENTS.md vẫn ghi "không stub gì khác", trong khi Story 8.4 thêm đè setter `Document.prototype.title` (chỉ ghi rồi chuyển tiếp) và một `MutationObserver` trong cùng tab riêng.
+  evidence: `tools/thu-bo-cuc.mjs:2983-3001`; README mục 8.3/8.4 có nhắc, AGENTS.md:50 thì không. Agent sau đọc AGENTS.md sẽ coi đó là vi phạm. Hoãn vì sửa tệp ngữ cảnh agent.
+- source_spec: `_bmad-output/implementation-artifacts/spec-8-4-luot-ve-bat-dong-bo-khong-tha-tieu-diem-khong-ve-truoc-kho.md`
+  summary: JSDoc `@param neo` của `veGiuTieuDiem` (`app/main.js:170`) chỉ liệt `{ id, vaiTro: 'than'|'xoa'|'sua' } | null`, thiếu dạng `{ id: null, vaiTro: 've-hom-nay' }` mà thân chú thích đã mô tả.
+  evidence: Có từ Story 7.1; 8.4 không chạm dòng đó.

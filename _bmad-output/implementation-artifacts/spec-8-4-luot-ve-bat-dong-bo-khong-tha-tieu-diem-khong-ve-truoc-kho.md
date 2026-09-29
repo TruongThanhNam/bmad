@@ -47,6 +47,32 @@ context:
 - Given `persist()` resolve ngay, when tải trang có N mẩu hôm nay, then `document.title` không bao giờ mang số khác N.
 - Given `npm test` xanh và `thu-bo-cuc` chỉ đỏ ở ca chập chờn đã biết.
 
+### Review Findings
+
+_Code review lượt 2 (2026-09-29): 0 decision-needed, 6 patch, 2 defer, 11 rejected._
+
+- [x] [Review][Patch] Ca "neo `null` hay `{ id, vaiTro }` không đổi nghĩa khi tiêu điểm ở `✕`" chỉ thử `null`; thêm lời gọi `{ id, vaiTro: 'than' }` khẳng định về đúng mẩu [test/giu-tieu-diem.test.js:548]
+- [x] [Review][Patch] Ca F4 thứ hai tên "không lượt nào dựng từ notes = []" nhưng chỉ kiểm `ganF4[0]`; đổi thành `ganF4.every((v) => v === tieuN)` [tools/thu-bo-cuc.mjs:3221]
+- [x] [Review][Patch] Stub đếm số mẩu `n` (`querySelectorAll` mỗi lần DOM đổi) nhưng không ca nào đọc `n` — vượt "chỉ quan sát `document.title`" của Never; bỏ `n` [tools/thu-bo-cuc.mjs:2988]
+- [x] [Review][Patch] Chú thích/README còn gọi chỗ nối là `xinLuuTruBen().then(...)` sau khi đã thành `Promise.all([daNapKho, …])` [README.md:364, tools/thu-bo-cuc.mjs:2956, tools/thu-bo-cuc.mjs:3227]
+- [x] [Review][Patch] Đoạn README "Từ Story 8.4 … trên cùng tab riêng" đứng trước đoạn giới thiệu tab riêng (8.3) và ngay sau đoạn NFR-1 chạy ở tab khác; dời xuống sau đoạn 8.3 [README.md:362]
+- [x] [Review][Patch] Chú thích `veGiuTieuDiem` nói `✕` "thay bằng loại khác" mới về `#o-soan`, nhưng cùng loại đổi `bannerSo` (`NAP_FILE_XONG`) cũng dựng lại `✕` → về `#o-soan`; sửa chữ thành "bị gỡ hay dựng lại" [app/main.js:151, app/main.js:184]
+- [x] [Review][Defer] Ngoại lệ stub trong AGENTS.md vẫn ghi "không stub gì khác" trong khi stub nay đè setter `Document.prototype.title` (chỉ ghi, chuyển tiếp) [AGENTS.md:50] — deferred: sửa tệp ngữ cảnh agent
+- [x] [Review][Defer] JSDoc `@param neo` của `veGiuTieuDiem` thiếu dạng `{ id: null, vaiTro: 've-hom-nay' }` [app/main.js:170] — deferred: có từ trước (Story 7.1), 8.4 không chạm
+
+**Rejected:**
+- `Promise.all` bỏ lượt vẽ persist khi `veTatCa` ném ở lượt đầu — false: trước bản sửa lượt vẽ persist gọi đúng `veTatCa` đó nên cũng ném; lượt đầu ném là app đã hỏng (triage lượt 1 #1).
+- Ca "thay `✕`" không thêm phủ so với "gỡ" — false: nó ghim rằng `✕` mới không nhận tiêu điểm, đúng hành vi Q2.
+- Ghi chú `CHON_DAI_BANG` trong AGENTS.md lỗi thời — false: lần dùng vẫn nằm trong `main.js`, qua `.closest(...)`, một lần.
+- Ba đường gọi (`nhanBanTin`, `mocSua.go`, persist) thiếu ca trình duyệt với `✕` giữ tiêu điểm — false: cùng hàm dùng chung, có ca chạy thật + Q5 (triage lượt 1 #6).
+- `MutationObserver`/setter không gỡ, có thể làm chậm ca sau — maybe-false, nếu thật chỉ low; P3 đã thu hẹp observer.
+- Ca F4 không ép `persist()` thắng `readAll` — không ép được nếu không dựng IndexedDB giả (cấm); thử đột biến đã đỏ.
+- Ca F4 thứ nhất không phân biệt trước/sau bản sửa — low: chú thích ca đã nói rõ, ca đếm lần gán là cổng thật.
+- "Thay hai regex bằng ca chạy thật" nhưng vẫn quét nguồn — false: epic-context cho phép regex `luu-tru-ben` được thay cho khớp đường mới; ca chạy thật ở `giu-tieu-diem` + `thu-bo-cuc`.
+- Spec tự mâu thuẫn (AC3 thiếu when/then, "ba ca" vs bốn, `review_loop_iteration`) — reject: sửa là sửa spec đang review.
+- Epic 8 đóng mà retro có trước 8.4 — false: epic-context ghi "không chạy retro lần hai".
+- `✕` cùng loại dựng lại nên focus `✕` mới — reject: Q2 đã duyệt "gỡ/thay → `#o-soan`"; chỉ phần chú thích là P6.
+
 ## Implementation Notes
 
 - **Kết luận F4 (đo TRƯỚC khi sửa, Chromium/Edge headless):** chuỗi `document.title` từ lúc tài liệu được tạo là `""` → `"Ghi chú hàng ngày"` → `"1 - Ghi chú hàng ngày"` (N=1), không bao giờ mang số sai — F4 **về con số trên tab là giả**: `tieuDe(0)` trùng chuỗi tĩnh của `index.html`. Nhưng **lượt vẽ trước kho là thật**: dấu vết các lần gán `document.title` (mỗi lượt vẽ của `tieu-de.js` gán một lần) khi `persist()` resolve ngay và chưa có bản sửa là `["Ghi chú hàng ngày", "1 - Ghi chú hàng ngày"]` — lần gán đầu là lượt dựng từ `notes = []`. Sau bản sửa: `["1 - …", "1 - …"]`. Ca chỉ đo chuỗi giá trị xanh cả hai bên; ca đếm lần gán mới phân biệt được (thử đột biến: đưa `xinLuuTruBen().then(...)` về bản cũ → ca đỏ, hoàn tác → xanh).
