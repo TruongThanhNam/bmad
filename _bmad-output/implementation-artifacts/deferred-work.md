@@ -33,7 +33,8 @@
   evidence: `npm test` chỉ gom `test/**/*.test.js`, và phần trong suite chỉ quét văn bản nguồn — đổi `--note-min-col` hay bỏ `min-block-size: 0` vẫn xanh. Đây là cùng quy ước đã chốt cho `npm run thu-tay` (cần trình duyệt thật trên máy, không thêm dependency), nên nối nó vào một runner là quyết định cấp dự án chứ không phải của Story 2.1.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-2-o-soan-thao-san-con-tro-chu-tu-luu.md`
-  summary: Khi `tabIdentity()` ném hoặc `claimDraft` bị từ chối, `tabCuaMinh` ở lại `null` và mọi phím gõ chỉ nằm trong RAM — không một dấu hiệu nào trên màn hình.
+  summary: ~~Khi `tabIdentity()` ném hoặc `claimDraft` bị từ chối, `tabCuaMinh` ở lại `null` và mọi phím gõ chỉ nằm trong RAM — không một dấu hiệu nào trên màn hình.~~
+  resolved: 2026-09-29 — Story 3.1 đã nói ra: `khoiDongBanNhap` đặt banner `DB` ở cả hai nhánh (`state.js` ~1777 và ~1809) và `view/banner.js` vẽ nó (`test/banner.test.js` "DB" → `tongChu()` = `microcopyLoi(DB)`). Test lõi đã có: `core-state.test.js` "lấy danh tính tab hỏng → dải băng…" và "kho hỏng → … banner DB…". Nay thêm ghim hệ quả: `core-state.test.js` "tabIdentity ném → gõ tiếp: chữ vào state, banner DB ở lại, không putDraft" và bản "claimDraft bị từ chối" (cổng giả; không đụng `tools/thu-bo-cuc.mjs`).
   evidence: Hành vi lõi có từ Story 1.7 (`app/core/state.js:527` và `:620` chặn mọi phép ghi khi chưa có danh tính), không do Story 2.2 gây ra. Lõi đã đặt `banner`; chỗ nói ra nó là dải băng của Story 3.1. Vá ở tầng view sẽ cần một trường state mới, thứ khối đóng băng của 2.2 cấm.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-3-chot-ban-nhap-thanh-ghi-chu.md`

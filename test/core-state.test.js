@@ -1860,6 +1860,31 @@ describe('khoiDongBanNhap — nối danh tính tab với bản nháp giành đư
     expect(store.state.banner).toBe(MA_LOI.DB);
   });
 
+  // Deferred spec-2-2: chưa có danh tính thì phím gõ chỉ nằm trong RAM — dải băng phải là dấu
+  // hiệu DUY NHẤT trên màn hình, và gõ tiếp không được tắt nó hay lén ghi xuống kho.
+  for (const [ten, tuyChon] of [
+    ['tabIdentity ném', { phien: { nem: { tabIdentity: MA_LOI.DB } } }],
+    ['claimDraft bị từ chối', { tuChoi: { claimDraft: MA_LOI.DB } }],
+  ]) {
+    it(`${ten} → gõ tiếp: chữ vào state, banner DB ở lại, không putDraft`, async () => {
+      vi.useFakeTimers();
+      const { store, kho } = storeVoiKho(tuyChon);
+      await store.khoiDongBanNhap();
+      expect(store.state.banner).toBe(MA_LOI.DB);
+      kho.nhatKy.length = 0;
+
+      store.datBanNhap('phở');
+      store.datBanNhap('phở bò');
+      await vi.advanceTimersByTimeAsync(AUTOSAVE_MS * 2);
+      await store.nhipTimBanNhap();
+
+      expect(store.state.draft).toEqual({ text: 'phở bò', seq: 2 });
+      expect(store.state.banner).toBe(MA_LOI.DB);
+      expect(kho.nhatKy).toEqual([]);
+      vi.useRealTimers();
+    });
+  }
+
   it('danh tính KHÔNG phải một trường state — tập khóa không nới ra', async () => {
     const { store } = storeVoiKho({ ketQuaClaim: { tabId: 'tab-moi', text: 'phở' } });
     await store.khoiDongBanNhap();
