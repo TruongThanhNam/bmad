@@ -110,7 +110,8 @@
   evidence: Mỗi lời gọi bọc listener trong một arrow mới rồi `addEventListener`, không trả về gì. Chưa ai đăng ký nghe nên hôm nay vô hại, nhưng Epic 7 (nạp lại theo tin, phát hiện lệch phiên bản) sẽ cần cả hai — và một test đăng ký nhiều lần sẽ tích listener trên cùng một kênh.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-3-nut-theme-va-tuong-phan-o-ca-hai-bang-mau.md`
-  summary: `tools/thu-bo-cuc.mjs` có hai hàm đi ngược cây tìm nền gần như trùng nhau (`nenSau` trong `HAM_TEN`, `nenThat` trong `DO_CHU`).
+  summary: ~~`tools/thu-bo-cuc.mjs` có hai hàm đi ngược cây tìm nền gần như trùng nhau (`nenSau` trong `HAM_TEN`, `nenThat` trong `DO_CHU`).~~
+  resolved: 2026-09-29 — gộp thành `nenSau(el, tinhCaNo = false)` trong `HAM_TEN`; `DO_CHU` gọi `nenSau(el, true)`, `nenThat` bỏ. Refactor thuần, chỉ đụng tools/: `npm run thu-bo-cuc` trước 130/130 và sau 130/130, từng ca cùng tên và cùng kết quả (tương phản thấp nhất 4.92 light / 5.61 dark trên 15 phần tử ở cả hai lần); không đụng `app/`, không bump `APP_VERSION`.
   evidence: Thân hai hàm giống nhau, chỉ khác điểm bắt đầu (`el.parentElement` so với `el`). Gộp thành một hàm nhận cờ là phép sửa đúng, nhưng nó là refactor trên mã harness đang xanh chứ không phải một phép sửa thẳng, nên để riêng.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-3-3-nut-theme-va-tuong-phan-o-ca-hai-bang-mau.md`

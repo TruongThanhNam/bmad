@@ -128,8 +128,10 @@ const HAM_TEN = `
     return (x + 0.05) / (y + 0.05);
   };
   // Nền THẬT phía sau một phần tử: leo lên tổ tiên cho tới màu đầu tiên không trong suốt.
-  const nenSau = (el) => {
-    for (let n = el.parentElement; n !== null; n = n.parentElement) {
+  // Mặc định bắt đầu từ cha (nền phía SAU phần tử); \`tinhCaNo\` = true bắt đầu từ chính nó
+  // (nền THẬT dưới chữ của phần tử, kể cả nền nó tự vẽ).
+  const nenSau = (el, tinhCaNo = false) => {
+    for (let n = tinhCaNo ? el : el.parentElement; n !== null; n = n.parentElement) {
       const c = getComputedStyle(n).backgroundColor;
       if (c !== 'transparent' && !/rgba\\(\\s*0\\s*,\\s*0\\s*,\\s*0\\s*,\\s*0\\s*\\)/.test(c)) return c;
     }
@@ -1078,6 +1080,10 @@ try {
         const yenNgua = JSON.stringify(lai) === JSON.stringify(sauTaiLai);
         sauTaiLai = lai;
         if (yenNgua) break;
+      }
+      if (JSON.stringify(sauTaiLai.map((m) => m.cao)) !== JSON.stringify(thuGon.map((m) => m.cao))) {
+        console.log('DEBUG', JSON.stringify(sauTaiLai.map((m) => [m.chu.slice(0, 6), m.cao, m.gap, m.dinh])), JSON.stringify(thuGon.map((m) => [m.chu.slice(0, 6), m.cao, m.gap, m.dinh])));
+        for (let k = 0; k < 5; k += 1) { await nghi(300); console.log('DEBUG+', JSON.stringify((await cdp.chay(tab.sessionId, DO_MAU)).slice(0, 4).map((m) => [m.chu.slice(0, 6), m.cao, m.gap]))); }
       }
       const dauVet = await cdp.chay(
         tab.sessionId,
@@ -2212,13 +2218,6 @@ try {
     // Ô nhập tính riêng — chữ của chúng nằm trong shadow tree, không phải một nút con.
     const DO_CHU = `
       ${HAM_TEN}
-      const nenThat = (el) => {
-        for (let n = el; n !== null; n = n.parentElement) {
-          const c = getComputedStyle(n).backgroundColor;
-          if (c !== 'transparent' && !/rgba\\(\\s*0\\s*,\\s*0\\s*,\\s*0\\s*,\\s*0\\s*\\)/.test(c)) return c;
-        }
-        return getComputedStyle(document.body).backgroundColor;
-      };
       const coChuRieng = (el) =>
         [...el.childNodes].some((n) => n.nodeType === 3 && n.textContent.trim() !== '');
       const ra = [];
@@ -2228,7 +2227,7 @@ try {
         if (r.width === 0 || r.height === 0) continue;
         const s = getComputedStyle(el);
         if (s.visibility === 'hidden') continue;
-        const nen = nenThat(el);
+        const nen = nenSau(el, true);
         ra.push({
           ten: ten(el),
           mau: s.color,
