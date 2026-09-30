@@ -49,7 +49,8 @@
   evidence: Thật, nhưng Epic 2 không có cách nào đặt điều kiện nên chưa chạm tới được. Epic 6 (tra cứu) phải quyết: hoặc hoàn nguyên `dieuKien` khi ghi hỏng, hoặc dời `xoaHetDieuKien()` vào nhánh thành công — cả hai đều đụng thứ tự năm bước đang nằm trong khối đóng băng của spec 2.3.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-3-chot-ban-nhap-thanh-ghi-chu.md`
-  summary: Chốt trong lúc `claimDraft` chưa trả lời thì bản ghi `drafts` giành được sau đó vẫn giữ chữ vừa chốt — một bản nháp ma hẹp.
+  summary: ~~Chốt trong lúc `claimDraft` chưa trả lời thì bản ghi `drafts` giành được sau đó vẫn giữ chữ vừa chốt — một bản nháp ma hẹp.~~
+  resolved: 2026-09-29 — đo bằng test lõi, không tái hiện: `putDraft` bị chặn bởi `tabCuaMinh === null` nên chữ vừa chốt không bao giờ xuống `drafts`; `claimDraft` chỉ giành bản ghi kiếp trước (chưa từng chốt), rồi `seq` đã đổi khiến bản nháp bị ghi rỗng ở nhịp sau, tải lại ô trống. Hai ca ghim trong test/core-state-chot-cho-gianh.test.js; không đổi mã app, không bump APP_VERSION.
   evidence: Dòng "Chưa giành được bản nháp" của I/O Matrix đã đóng băng cách xử lý (`draft: null`, chỉ ghi `notes`), nên sửa là renegotiate ý định. Cửa sổ chạm tới chỉ kéo dài tới lúc `claimDraft` trả lời. Sẽ ngã ngũ nếu đo được: chốt ngay trong vài trăm ms đầu rồi tải lại có thấy chữ cũ quay lại không.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-2-3-chot-ban-nhap-thanh-ghi-chu.md`
