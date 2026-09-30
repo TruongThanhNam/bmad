@@ -501,6 +501,17 @@ describe('cauNhacSaoLuu — chỉ lên tiếng khi đã QUÁ ngưỡng', () => {
     );
   });
 
+  it('qua nửa đêm ĐỊA PHƯƠNG (múi +05:30) là đủ để con số nhảy — không cần đủ 24 giờ', () => {
+    // Mốc sao lưu 23:50 ngày 1; hai phút sau nửa đêm của ngày `1 + N` chỉ cách 24h+ vài phút mà
+    // đã là ngày thứ N. Tab mở qua nửa đêm phải thấy con số này ngay khi vẽ lại (spec-4-4).
+    const sao = '2026-09-01T23:50:00+05:30';
+    const ngay = (n, gio) => `2026-09-${String(1 + n).padStart(2, '0')}T${gio}+05:30`;
+    expect(cauNhacSaoLuu(sao, ngay(BACKUP_NUDGE_DAYS, '23:59:00'))).toBeNull();
+    expect(cauNhacSaoLuu(sao, ngay(BACKUP_NUDGE_DAYS + 1, '00:10:00'))).toBe(
+      `Lần sao lưu gần nhất cách đây ${BACKUP_NUDGE_DAYS + 1} ngày.`,
+    );
+  });
+
   it('không có `bayGio` thì đọc đồng hồ máy, và không ném', () => {
     expect(() => cauNhacSaoLuu(null)).not.toThrow();
     expect(cauNhacSaoLuu(null)).toBeNull();

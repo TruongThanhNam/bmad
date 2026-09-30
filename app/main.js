@@ -584,6 +584,14 @@ if (typeof document !== 'undefined') {
   // trong MỌI ca test tạo store, và không có đường nào dừng nó. Action thì "gọi mới chạy",
   // nên test gọi thẳng nó.
   setInterval(() => store.nhipTimBanNhap(), DRAFT_BEAT_MS);
+  // Dòng nhắc sao lưu đo bằng NGÀY nhưng chỉ tính lại theo `veTatCa`, nên tab mở qua nửa đêm giữ
+  // con số cũ (deferred spec-4-4). Tab hiện lại thì vẽ lại: KHÔNG giữ hẹn nào — tab ẩn thì không ai
+  // nhìn, và tab lúc nào cũng hiện thì mọi lượt vẽ khác vẫn kéo con số theo. Ranh giới ngày do
+  // `cauNhacSaoLuu` (qua `core/time.js`) tính ở lượt vẽ; ở đây chỉ kích nó. GIỮ tiêu điểm: tab lấy
+  // lại thị giác lúc tiêu điểm có thể đang ở bất cứ đâu, và lượt vẽ chung dựng lại lưới.
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') veGiuTieuDiem(document, veTatCa);
+  });
 }
 
 // Các view còn lại của Epic 2+ nối vào cùng một cửa `document` ở trên, cùng một cách: nhận

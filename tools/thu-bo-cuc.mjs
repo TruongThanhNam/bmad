@@ -3419,6 +3419,21 @@ try {
         coBat && veDau2 && nhac3,
         `cờ bật trước=${coBat} · vẽ đầu=${veDau2} · chân ${JSON.stringify(await chan())}`,
       );
+      // spec-4-4: tab hiện lại thì dòng nhắc tính lại. Mốc lùi thêm 6 ngày (thay cho
+      // "thời gian trôi", vì không được đè `Date`) và state đọc lại qua `nhanBanTin` gọi thẳng, không vẽ: chữ đứng yên; sự kiện
+      // `visibilitychange` khi tab đang hiện mới kéo nó theo, và tiêu điểm ở lại `#o-soan`.
+      await chay(`document.querySelector('#o-soan').focus(); const m = await import('/app/main.js'); localStorage.setItem('ghichu.lastBackupAt', new Date(Date.now() - 10 * 86400000).toISOString()); const { APP_VERSION } = await import('/app/core/limits.js'); await m.store.nhanBanTin({ appVersion: APP_VERSION, from: 'tab-khac-thu-tay', type: 'session-changed', v: 1 }); return true;`);
+      const yenTruoc = (await chan()).includes('cách đây 4 ngày');
+      await chay(`document.dispatchEvent(new Event('visibilitychange')); return true;`);
+      const theoSau = await doi(`(document.querySelector('.chan-nhac')?.textContent ?? '').includes('cách đây 10 ngày')`);
+      const giuTieuDiem = await chay(`return document.activeElement?.id === 'o-soan';`);
+      // Trả mốc về 4 ngày, cả kho lẫn state lẫn chữ trên trang: ca 8.x phía sau đọc chân trang.
+      await chay(`localStorage.setItem('ghichu.lastBackupAt', new Date(Date.now() - 4 * 86400000).toISOString()); const { APP_VERSION } = await import('/app/core/limits.js'); const m = await import('/app/main.js'); await m.store.nhanBanTin({ appVersion: APP_VERSION, from: 'tab-khac-thu-tay', type: 'session-changed', v: 1 }); document.dispatchEvent(new Event('visibilitychange')); return true;`);
+      ghi(
+        'Story 4.4 (deferred) — tab hiện lại: dòng nhắc tính lại theo visibilitychange, tiêu điểm ở #o-soan',
+        yenTruoc && theoSau && giuTieuDiem,
+        `đứng yên trước sự kiện=${yenTruoc} · theo sau=${theoSau} · tiêu điểm=${giuTieuDiem}`,
+      );
       const mepCoChu = await chay(DO_MEP_NUT(false));
 
       // 8.1 được cấp lại: `persist` → true, tải lại → cờ bị xóa, dòng nhắc rỗng (4 ≤ 7).
