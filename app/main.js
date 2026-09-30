@@ -592,6 +592,16 @@ if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') veGiuTieuDiem(document, veTatCa);
   });
+  // Xả ngay chữ còn chờ hẹn `AUTOSAVE_MS` (ô sửa + bản nháp) khi tab ẩn hay đóng (deferred
+  // spec-5-1). NỖ LỰC TỐI ĐA: IndexedDB không bảo đảm xong khi trang đóng. Không đụng heartbeat
+  // hay `navigator.locks`; không vẽ lại — trang đang đi, và lời hứa trả về không ai đợi.
+  const xaKhiAn = () => {
+    store.ghiNgayKhiAn();
+  };
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') xaKhiAn();
+  });
+  window.addEventListener('pagehide', xaKhiAn);
 }
 
 // Các view còn lại của Epic 2+ nối vào cùng một cửa `document` ở trên, cùng một cách: nhận

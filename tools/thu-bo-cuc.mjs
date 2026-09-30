@@ -3171,6 +3171,117 @@ try {
     }
   }
 
+  // ── deferred spec-5-1: xả chữ chờ hẹn khi tab ẩn / đóng ──────────────────────────────────
+  //
+  // Chỗ nối mới của `main.js`: `visibilitychange` (khi `hidden`) và `pagehide` gọi
+  // `store.ghiNgayKhiAn()`. Đo bằng KHO THẬT: gõ (qua action của store — chữ vào RAM, hẹn
+  // `AUTOSAVE_MS` = 400 ms đang treo), phát sự kiện, rồi thăm dò IndexedDB mỗi 10 ms. Chữ mới phải
+  // xuống kho TRƯỚC 300 ms (hẹn chưa nổ). Ca đối chứng không phát sự kiện: chữ chỉ xuống sau ≥ 400 ms
+  // — chứng minh phép đo đủ nhạy để phân biệt xả với hẹn. `hidden` giả bằng cách đè `visibilityState`
+  // TRÊN CHÍNH `document` (không đổi prototype) rồi gỡ ngay; `pagehide` là sự kiện tổng hợp.
+  {
+    const A = tab.sessionId;
+    const M = `const m = await import('/app/main.js');`;
+    const GOC = 'xa-khi-an-5-1 gốc';
+    const DOC_KHO = `
+      const docKho = async (ten) => {
+        const kho = await new Promise((ok, no) => {
+          const y = indexedDB.open('ghichu');
+          y.onsuccess = () => ok(y.result);
+          y.onerror = () => no(y.error);
+        });
+        const hang = await new Promise((ok, no) => {
+          const y = kho.transaction([ten], 'readonly').objectStore(ten).getAll();
+          y.onsuccess = () => ok(y.result);
+          y.onerror = () => no(y.error);
+        });
+        kho.close();
+        return hang;
+      };
+      const doiChu = async (ten, chu) => {
+        const t0 = performance.now();
+        while (performance.now() - t0 < 2000) {
+          if ((await docKho(ten)).some((b) => b.text === chu)) return Math.round(performance.now() - t0);
+          await new Promise((ok) => setTimeout(ok, 10));
+        }
+        return null;
+      };
+      const phat = (kieu) => {
+        if (kieu === 'pagehide') { window.dispatchEvent(new Event('pagehide')); return; }
+        if (kieu === 'hidden') {
+          Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => 'hidden' });
+          document.dispatchEvent(new Event('visibilitychange'));
+          delete document.visibilityState;
+        }
+      };
+    `;
+    let id = null;
+    try {
+      await cdp.chay(
+        A,
+        `const o = document.querySelector('#o-soan'); o.focus(); o.value = ${JSON.stringify(GOC)};
+         o.dispatchEvent(new Event('input', { bubbles: true }));
+         o.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', ctrlKey: true, bubbles: true, cancelable: true }));
+         return true;`,
+      );
+      for (let i = 0; i < 50 && id === null; i += 1) {
+        id = await cdp.chay(A, `${M} return m.store.state.notes.find((x) => x.text === ${JSON.stringify(GOC)})?.id ?? null;`);
+        if (id === null) await nghi(100);
+      }
+      await nghi(600); // chốt xong hẳn, không còn hẹn nào treo
+      const doSua = async (kieu, chu) =>
+        cdp.chay(
+          A,
+          `${M} ${DOC_KHO}
+           m.store.vaoCheDoSua(${JSON.stringify(id)});
+           m.store.tuLuuNoiDung(${JSON.stringify(id)}, ${JSON.stringify(chu)});
+           ${kieu === null ? '' : `phat(${JSON.stringify(kieu)});`}
+           return await doiChu('notes', ${JSON.stringify(chu)});`,
+        );
+      const doiChung = await doSua(null, 'xa-khi-an-5-1 đối chứng');
+      await nghi(600);
+      const hidden = await doSua('hidden', 'xa-khi-an-5-1 hidden');
+      await nghi(600);
+      const pagehide = await doSua('pagehide', 'xa-khi-an-5-1 pagehide');
+      await nghi(600);
+      ghi(
+        'spec-5-1 — ô sửa: đối chứng chỉ xuống kho sau hẹn (≥ 400 ms), còn visibilitychange:hidden và pagehide xả chữ TRƯỚC hẹn (< 300 ms)',
+        doiChung !== null && doiChung >= 350 && hidden !== null && hidden < 300 && pagehide !== null && pagehide < 300,
+        `đối chứng=${doiChung} ms · hidden=${hidden} ms · pagehide=${pagehide} ms`,
+      );
+
+      const doNhap = async (kieu, chu) =>
+        cdp.chay(
+          A,
+          `${M} ${DOC_KHO}
+           const o = document.querySelector('#o-soan'); o.focus(); o.value = ${JSON.stringify(chu)};
+           o.dispatchEvent(new Event('input', { bubbles: true }));
+           ${kieu === null ? '' : `phat(${JSON.stringify(kieu)});`}
+           return await doiChu('drafts', ${JSON.stringify(chu)});`,
+        );
+      const nhapChung = await doNhap(null, 'xa-khi-an-5-1 nháp đối chứng');
+      const nhapHidden = await doNhap('hidden', 'xa-khi-an-5-1 nháp hidden');
+      const nhapPagehide = await doNhap('pagehide', 'xa-khi-an-5-1 nháp pagehide');
+      ghi(
+        'spec-5-1 — bản nháp ô soạn: đối chứng chờ hẹn, còn hidden và pagehide xả chữ xuống kho trước hẹn',
+        nhapChung !== null && nhapChung >= 350 && nhapHidden !== null && nhapHidden < 300 && nhapPagehide !== null && nhapPagehide < 300,
+        `đối chứng=${nhapChung} ms · hidden=${nhapHidden} ms · pagehide=${nhapPagehide} ms`,
+      );
+    } finally {
+      await cdp
+        .chay(
+          A,
+          `${M}
+           await m.store.roiCheDoSua();
+           ${id === null ? '' : `await m.store.xoaGhiChu(${JSON.stringify(id)});`}
+           const o = document.querySelector('#o-soan'); o.value = '';
+           o.dispatchEvent(new Event('input', { bubbles: true })); return true;`,
+        )
+        .catch(() => {});
+      await nghi(1500);
+    }
+  }
+
   // ── Story 8.1/8.2: `persist()` và `estimate()` lái bằng stub, trong một tab RIÊNG ─────────
   //
   // Chỗ nối 8.1/8.2 của `main.js` (`Promise.all([daNapKho, xinLuuTruBen()]).then(...)`,

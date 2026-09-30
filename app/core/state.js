@@ -139,6 +139,7 @@ export const ACTION_GHI = Object.freeze([
   'khoiDongBanNhap',
   'datBanNhap',
   'nhipTimBanNhap',
+  'ghiNgayKhiAn',
   'xinLuuTruBen',
 ]);
 
@@ -408,7 +409,7 @@ function ngayHopLe(giaTri, giaTriCu) {
  *   xuatSaoLuu: Function, napSaoLuu: Function,
  *   chotGhiChu: Function, xoaGhiChu: Function, tuLuuNoiDung: Function,
  *   vaoCheDoSua: Function, roiCheDoSua: Function,
- *   khoiDongBanNhap: Function, datBanNhap: Function, nhipTimBanNhap: Function }}
+ *   khoiDongBanNhap: Function, datBanNhap: Function, nhipTimBanNhap: Function, ghiNgayKhiAn: Function }}
  *   Store với `state` chỉ đọc và các action. Story sau thêm action vào ĐÂY, không nơi khác.
  */
 export function taoStore(ports) {
@@ -501,6 +502,9 @@ export function taoStore(ports) {
    * đúng hành vi cần: chữ vượt trần vẫn là chữ mới nhất Nam đang nhìn.
    */
   const chuDangCho = new Map();
+
+  /** `draft.seq` của lần ghi bản nháp gần nhất đã xuống kho thật — để `ghiNgayKhiAn` biết còn chữ chưa xuống. */
+  let seqBanNhapXuongKho = 0;
 
   /**
    * Lượt đọc lại ghi chú đang bay (lời hứa), hay `null` — cùng khuôn `dangNap`, không phải state.
@@ -810,6 +814,39 @@ export function taoStore(ports) {
   }
 
   /**
+   * Một phép ghi chữ sửa xuống kho rồi mới đổi state (AD-8) — dùng chung cho hẹn `henGhiDiSau` và
+   * cho phép xả lúc ẩn/đóng tab `ghiNgayKhiAn`, để không có đường ghi thứ hai. Không bao giờ ném.
+   */
+  function ghiSuaXuongKho(banGhi, xong) {
+    const luot = batDauGhi();
+    return ports.noteStore.put(banGhi).then(
+      () => {
+        // CHỈ ở đây mục mới rời `chuDangCho`: chữ đã xuống kho thật, nên `notes` từ giờ là
+        // nguồn đúng. Dọn TRƯỚC khi gọi cổng thì một lần ghi HỎNG sẽ trả chữ vừa gõ về bản
+        // cũ ở lần mở lại kế tiếp — đúng thứ ràng buộc "ghi hỏng thì chữ không bị trả lại"
+        // cấm, và nó lặng lẽ vì dải băng vẫn lên đúng như phải thế.
+        // Và CHỈ khi chữ vừa ghi vẫn là chữ mới nhất: nhánh vượt trần không tăng `seq`, nên
+        // hẹn của chữ hợp lệ liền trước vẫn nổ tới đây trong khi `chuDangCho` đã mang chữ vượt
+        // trần mới hơn — dọn nó là nuốt chữ vừa dán trong im lặng (retro Epic 5, B1).
+        if (chuDangCho.get(banGhi.id) === banGhi.text) chuDangCho.delete(banGhi.id);
+        // Cùng quy tắc với `ghiTruocDatSau`: một phép ghi thành công tắt dải băng (AD-8),
+        // trừ hàng 7 (`tatSauKhiGhi`, Story 8.2 Q3).
+        datLai({
+          notes: noiBo.notes.map((mau) => (mau.id === banGhi.id ? banGhi : mau)),
+          ...tatSauKhiGhi(luot),
+        });
+        canKiem = true;
+        baoGhiChuDoi();
+        xong();
+      },
+      (loi) => {
+        datLai({ banner: maBanner(loi) });
+        xong();
+      },
+    );
+  }
+
+  /**
    * HELPER DÙNG CHUNG 2 — luồng "tự lưu": state đã đổi rồi, phép ghi đi sau (AD-8).
    *
    * `seqCuaHen` là số đếm CỦA RIÊNG `id` đó tại lúc hẹn được đặt, và phép so cũng theo đúng
@@ -840,32 +877,7 @@ export function taoStore(ports) {
           xong();
           return;
         }
-        const luot = batDauGhi();
-        ports.noteStore.put(banGhi).then(
-          () => {
-            // CHỈ ở đây mục mới rời `chuDangCho`: chữ đã xuống kho thật, nên `notes` từ giờ là
-            // nguồn đúng. Dọn TRƯỚC khi gọi cổng thì một lần ghi HỎNG sẽ trả chữ vừa gõ về bản
-            // cũ ở lần mở lại kế tiếp — đúng thứ ràng buộc "ghi hỏng thì chữ không bị trả lại"
-            // cấm, và nó lặng lẽ vì dải băng vẫn lên đúng như phải thế.
-            // Và CHỈ khi chữ vừa ghi vẫn là chữ mới nhất: nhánh vượt trần không tăng `seq`, nên
-            // hẹn của chữ hợp lệ liền trước vẫn nổ tới đây trong khi `chuDangCho` đã mang chữ vượt
-            // trần mới hơn — dọn nó là nuốt chữ vừa dán trong im lặng (retro Epic 5, B1).
-            if (chuDangCho.get(id) === banGhi.text) chuDangCho.delete(id);
-            // Cùng quy tắc với `ghiTruocDatSau`: một phép ghi thành công tắt dải băng (AD-8),
-            // trừ hàng 7 (`tatSauKhiGhi`, Story 8.2 Q3).
-            datLai({
-              notes: noiBo.notes.map((mau) => (mau.id === banGhi.id ? banGhi : mau)),
-              ...tatSauKhiGhi(luot),
-            });
-            canKiem = true;
-            baoGhiChuDoi();
-            xong();
-          },
-          (loi) => {
-            datLai({ banner: maBanner(loi) });
-            xong();
-          },
-        );
+        ghiSuaXuongKho(banGhi, xong);
       }, AUTOSAVE_MS);
     });
   }
@@ -1757,10 +1769,12 @@ export function taoStore(ports) {
    */
   function ghiBanNhap(tatDaiBang) {
     const luot = batDauGhi();
+    const seqLucGhi = noiBo.draft.seq;
     return ports.noteStore
       .putDraft({ tabId: tabCuaMinh, text: noiBo.draft.text, heartbeat: nowIso() })
       .then(
         () => {
+          seqBanNhapXuongKho = seqLucGhi;
           if (tatDaiBang) datLai(tatSauKhiGhi(luot));
         },
         (loi) => {
@@ -1882,6 +1896,35 @@ export function taoStore(ports) {
     return ghiBanNhap(false);
   }
 
+  /**
+   * Xả ngay những chữ còn chờ hẹn `AUTOSAVE_MS` — `main.js` gọi lúc tab ẩn hay đóng (deferred
+   * spec-5-1). NỖ LỰC TỐI ĐA, không phải bảo đảm: IndexedDB không hứa hoàn tất khi trang đóng.
+   *
+   * Dùng đúng hai đường ghi sẵn có (`ghiSuaXuongKho`, `ghiBanNhap`), không hủy hẹn nào: hẹn nổ
+   * sau đó ghi lại đúng chữ ấy (idempotent) hoặc bị `seq` bỏ. Ghi trước, đổi state sau như thường.
+   * Chữ rỗng và chữ vượt trần KHÔNG xuống kho, cùng luật với `tuLuuNoiDung`/`nhipTimBanNhap`.
+   *
+   * @returns {Promise<void>} Không bao giờ bị từ chối.
+   */
+  function ghiNgayKhiAn() {
+    if (chiDoc) return Promise.resolve();
+    const cho = [];
+    for (const [id, text] of [...chuDangCho]) {
+      if (text.trim() === '' || text.length > MAX_NOTE_CHARS) continue;
+      const cu = noiBo.notes.find((mau) => mau.id === id);
+      if (cu === undefined || cu.text === text) continue;
+      cho.push(new Promise((xong) => ghiSuaXuongKho(banGhiSua(cu, text), xong)));
+    }
+    if (
+      tabCuaMinh !== null &&
+      noiBo.draft.seq !== seqBanNhapXuongKho &&
+      noiBo.draft.text.length <= MAX_NOTE_CHARS
+    ) {
+      cho.push(ghiBanNhap(false));
+    }
+    return Promise.all(cho).then(() => {});
+  }
+
   // Đóng băng chính store: gán thêm một action từ bên ngoài là dựng đường đổi state thứ hai.
   return Object.freeze({
     get state() {
@@ -1907,6 +1950,7 @@ export function taoStore(ports) {
     khoiDongBanNhap,
     datBanNhap,
     nhipTimBanNhap,
+    ghiNgayKhiAn,
     xinLuuTruBen,
     kiemDungLuong,
   });

@@ -177,7 +177,8 @@
   evidence: Khối nối nằm sau `if (typeof document !== 'undefined')` ở `app/main.js:84`, luôn sai dưới Vitest, và dự án cố ý không có jsdom. Hành vi thật được `tools/thu-bo-cuc.mjs` đo (bốn phép đo mới của Story 5.1 đều xanh trên Chrome thật), nhưng nó KHÔNG nằm trong `npm test` và phải chạy tay. Đây là lựa chọn có ý thức của dự án về dụng cụ kiểm, không phải một lỗ hổng của story — mở lại nếu có lúc dựng một bộ khung DOM cho `npm test`.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-5-1-sua-noi-dung-tai-cho.md`
-  summary: Đóng tab trong `AUTOSAVE_MS` sau phím cuối thì những ký tự cuối chưa kịp xuống kho.
+  summary: ~~Đóng tab trong `AUTOSAVE_MS` sau phím cuối thì những ký tự cuối chưa kịp xuống kho.~~
+  resolved: 2026-09-29 — action `ghiNgayKhiAn` (vào `ACTION_GHI`, gác `chiDoc`) xả chữ ô sửa + bản nháp qua đúng hai đường ghi sẵn có (`ghiSuaXuongKho` tách từ `henGhiDiSau`, `ghiBanNhap`); `main.js` gọi lúc `visibilitychange:hidden` và `pagehide`. NỖ LỰC TỐI ĐA, không phải bảo đảm — IndexedDB không hứa hoàn tất khi trang đóng (chủ repo đã chấp nhận). Phạm vi: cả ô sửa lẫn bản nháp. Ca `thu-bo-cuc` chạy thật đo kho: xả sau 1–2 ms so với 405 ms của hẹn.
   evidence: Tính chất có sẵn của luồng tự lưu "đổi state ngay, ghi đi sau" (AD-8) — bản nháp của ô soạn thảo cũng vậy từ Story 1.7. Story 5.1 chỉ thừa hưởng, không gây ra. Bản sửa nhỏ nhất là một phép flush lúc `beforeunload`, tức một cơ chế MỚI cho cả hai cửa ghi — thuộc về một quyết định chung, không phải story này.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-5-3-xoa-qua-hop-thoai-xac-nhan.md`

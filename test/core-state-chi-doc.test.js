@@ -236,6 +236,7 @@ describe('Story 7.2 — chế độ chỉ đọc từ chối mọi action ghi', 
     await expect(t.store.xuatSaoLuu()).resolves.toBeUndefined();
     await expect(t.store.napSaoLuu()).resolves.toBeUndefined();
     await expect(t.store.nhipTimBanNhap()).resolves.toBeUndefined();
+    await expect(t.store.ghiNgayKhiAn()).resolves.toBeUndefined();
     await expect(t.store.khoiDongBanNhap()).resolves.toBeUndefined();
     t.store.vaoCheDoSua('x');
     t.store.tuLuuNoiDung('x', '');
@@ -307,6 +308,7 @@ describe('Story 8.0 — ACTION_GHI là tập action ghi, mỗi cái gác chỉ �
     khoiDongBanNhap: (t) => t.store.khoiDongBanNhap(),
     datBanNhap: (t) => t.store.datBanNhap('nháp'),
     nhipTimBanNhap: (t) => t.store.nhipTimBanNhap(),
+    ghiNgayKhiAn: (t) => t.store.ghiNgayKhiAn(),
     xinLuuTruBen: (t) => t.store.xinLuuTruBen(),
   });
 
