@@ -186,7 +186,8 @@
 
 ## Deferred from: code review of spec-5-3-xoa-qua-hop-thoai-xac-nhan.md (2026-09-24)
 
-- Bấm `xóa` trên một mẩu ĐANG sửa có thể mất cú bấm đầu. `blur` chạy `roiCheDoSua().then(setTimeout(veGiuTieuDiem))`, lượt này dựng lại lưới sau vài ms, trong khi một cú bấm người thật cách `mousedown`→`mouseup` cỡ 50–100ms, nên nút bị thay trước khi `click` tới. Chưa kiểm chứng (maybe-false); nếu đúng thì `medium`. Cùng cơ chế với cú bấm mẩu A → mẩu B của Story 5.1. Cách kiểm: trình duyệt thật với độ trễ `mousedown`→`mouseup` ~100ms; CDP của `thu-bo-cuc` phát hai sự kiện sát nhau nên không bắt được.
+- ~~Bấm `xóa` trên một mẩu ĐANG sửa có thể mất cú bấm đầu. `blur` chạy `roiCheDoSua().then(setTimeout(veGiuTieuDiem))`, lượt này dựng lại lưới sau vài ms, trong khi một cú bấm người thật cách `mousedown`→`mouseup` cỡ 50–100ms, nên nút bị thay trước khi `click` tới. Chưa kiểm chứng (maybe-false); nếu đúng thì `medium`. Cùng cơ chế với cú bấm mẩu A → mẩu B của Story 5.1. Cách kiểm: trình duyệt thật với độ trễ `mousedown`→`mouseup` ~100ms; CDP của `thu-bo-cuc` phát hai sự kiện sát nhau nên không bắt được.~~
+  resolved: 2026-09-29 — đã tái hiện: ca `thu-bo-cuc` giữ chuột 150ms giữa `mousePressed` và `mouseReleased` trên `xóa` của mẩu đang sửa → hộp KHÔNG mở (đỏ). Sửa ở `main.js`: lượt vẽ hoãn của `blur` (`veSauRoiSua`) đợi `mouseup` khi chuột còn giữ rồi mới gọi `veGiuTieuDiem`; ca đó giữ làm hồi quy, cập nhật ghim ở `test/luoi.test.js`. Bump `APP_VERSION` 0.7.19.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-6-1-tim-bang-chu-tren-toan-bo-du-lieu.md`
   summary: ~~`AGENTS.md` vẫn ghi "checklist thủ công 1–29" trong khi README đã tới mục 32.~~

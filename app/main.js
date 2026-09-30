@@ -352,9 +352,36 @@ if (typeof document !== 'undefined') {
       // Và lượt vẽ đó GIỮ tiêu điểm ở chỗ nó vừa tới (neo `undefined`): `Tab` ra khỏi ô sửa đưa
       // tiêu điểm tới một điểm dừng NẰM TRONG lưới — thân mẩu kế, hay nút `xóa` của chính mẩu
       // này khi đi `Shift+Tab` — và `replaceChildren` sắp gỡ đúng phần tử đó.
-      setTimeout(() => veGiuTieuDiem(document, veTatCa));
+      //
+      // Nhưng một nhịp chưa đủ với người thật: họ giữ chuột 50–100ms giữa `mousedown` và
+      // `mouseup`, nên khi chuột còn đang giữ thì lượt vẽ đợi `mouseup` (xem `chuotDangGiu`),
+      // nếu không nút `xóa` vừa bấm bị thay ra trước khi `click` tới và cú bấm đầu mất.
+      setTimeout(veSauRoiSua);
     });
   };
+  // Chuột đang giữ hay không — chỉ để hoãn lượt vẽ của `blur`, không phải state của ứng dụng.
+  let chuotDangGiu = false;
+  let veDangHoan = false;
+  const veSauRoiSua = () => {
+    if (chuotDangGiu) {
+      veDangHoan = true;
+      return;
+    }
+    veGiuTieuDiem(document, veTatCa);
+  };
+  document.addEventListener('mousedown', () => { chuotDangGiu = true; }, true);
+  document.addEventListener(
+    'mouseup',
+    () => {
+      chuotDangGiu = false;
+      // Sau `click`: `mouseup` và `click` là hai sự kiện liền nhau, `setTimeout` chạy sau cả hai.
+      if (veDangHoan) {
+        veDangHoan = false;
+        setTimeout(() => veGiuTieuDiem(document, veTatCa));
+      }
+    },
+    true,
+  );
   const mocSua = {
     vao: vaoSuaRoiVe,
     roi: roiSuaRoiVe,

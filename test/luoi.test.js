@@ -706,9 +706,13 @@ describe('app/view/luoi.js — luật của tầng view, cưỡng chế được
 
     // (4) — Story 7.0: lượt vẽ hoãn gọi hàm giữ tiêu điểm DÙNG CHUNG với neo `undefined` (giữ
     // chỗ đang đứng). Thân hàm đó không còn bị quét: `test/giu-tieu-diem.test.js` chạy nó.
-    expect(roi[1]).toMatch(
-      /setTimeout\s*\(\s*\(\s*\)\s*=>\s*veGiuTieuDiem\s*\(\s*document\s*,\s*veTatCa\s*\)\s*\)/,
-    );
+    // Lượt vẽ hoãn đi qua `veSauRoiSua`: nó đợi `mouseup` khi chuột còn giữ (deferred spec-5-3),
+    // rồi mới gọi hàm giữ tiêu điểm chung.
+    expect(roi[1]).toMatch(/setTimeout\s*\(\s*veSauRoiSua\s*\)/);
+    const veSau = /\bveSauRoiSua\s*=\s*\(\s*\)\s*=>\s*\{([\s\S]*?)\n  \};/.exec(main);
+    expect(veSau).not.toBeNull();
+    expect(veSau[1]).toMatch(/chuotDangGiu/);
+    expect(veSau[1]).toMatch(/veGiuTieuDiem\s*\(\s*document\s*,\s*veTatCa\s*\)/);
   });
 
   it('app/main.js: MỘT hàm giữ tiêu điểm, MỘT đường xóa điều kiện (Story 7.0)', () => {

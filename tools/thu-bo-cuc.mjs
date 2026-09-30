@@ -2791,6 +2791,41 @@ try {
         await doi(`document.querySelector('.hop-thoai') === null`);
       }
 
+      // ── Bấm CHUỘT chậm vào `xóa` của mẩu ĐANG sửa (deferred spec-5-3) ─────────────────────
+      //
+      // Người thật giữ chuột 50–100ms giữa `mousedown` và `mouseup`; `blur` của ô sửa nổ ở
+      // `mousedown`, và lượt vẽ hoãn (`setTimeout`) chạy trong khe đó. Nếu nó thay nút `xóa`
+      // trước `mouseup` thì `click` không tới nút và hộp không mở. CDP mặc định phát hai sự kiện
+      // sát nhau nên không bắt được; ở đây chèn 150ms giữa hai sự kiện.
+      {
+        await datTieuDiem(thanMau(id.shift));
+        await nhanPhim(ENTER);
+        await doi(`document.activeElement !== null && document.activeElement.matches('.mau-sua')`);
+        const tamXoa = await cdp.chay(
+          tab.sessionId,
+          `const r = document.querySelector(${JSON.stringify(nutXoa(id.shift))}).getBoundingClientRect();
+           return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };`,
+        );
+        const chuot = (type) =>
+          cdp.goi(
+            'Input.dispatchMouseEvent',
+            { type, x: tamXoa.x, y: tamXoa.y, button: 'left', clickCount: 1, buttons: type === 'mousePressed' ? 1 : 0 },
+            tab.sessionId,
+          );
+        await chuot('mousePressed');
+        await nghi(150);
+        await chuot('mouseReleased');
+        const hopMo = await doi(`document.querySelector('.hop-thoai') !== null`, 20);
+        const sauChuotXoa = await dung();
+        ghi(
+          'bấm CHUỘT chậm (giữ 150ms) vào `xóa` của mẩu đang sửa: hộp mở cho ĐÚNG mẩu — không mất cú bấm',
+          hopMo && sauChuotXoa.hoi === id.shift,
+          JSON.stringify(sauChuotXoa),
+        );
+        await nhanPhim(ESC);
+        await doi(`document.querySelector('.hop-thoai') === null`);
+      }
+
       // ── Rời ô sửa rỗng (Story 5.2): mẩu tự biến mất, tiêu điểm về `#o-soan` ──────────────
       {
         await datTieuDiem(thanMau(id.rong));
