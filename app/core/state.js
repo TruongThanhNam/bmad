@@ -510,6 +510,13 @@ export function taoStore(ports) {
    * một lượt sau đó — ba tin dồn là tối đa hai lượt đọc, không phải ba.
    */
   let luotDocLai = null;
+
+  /**
+   * Bookkeeping của đường ghi, không phải state: `soLuotGhi` đếm các phép ghi đã BẮT ĐẦU,
+   * `luotBatBanner` là giá trị của nó lúc dải băng lỗi gần nhất được đặt (deferred spec-3-1).
+   */
+  let soLuotGhi = 0;
+  let luotBatBanner = 0;
   let docThem = false;
 
   /** Các id mẩu-đang-sửa-bị-xóa đã báo bằng dải băng — để một lượt đọc sau không báo lại. */
@@ -580,6 +587,9 @@ export function taoStore(ports) {
         delete nhanh.bannerSo;
       }
     }
+    // Dải băng vừa được đặt (không phải tắt): ghi lại lượt ghi mới nhất đã BẮT ĐẦU, để một phép
+    // ghi bắt đầu trước đó mà xong sau không tắt nó (`tatSauKhiGhi`, deferred spec-3-1).
+    if (nhanh.banner !== undefined && nhanh.banner !== null) luotBatBanner = soLuotGhi;
     noiBo = { ...noiBo, ...nhanh };
     anh = banSaoDongBang(noiBo);
   }
@@ -651,9 +661,20 @@ export function taoStore(ports) {
   /**
    * Phần dải băng của một phép ghi THÀNH CÔNG: `{ banner: null }` (AD-8), trừ khi hàng 7 đang
    * hiện — khi đó `{}`, không chạm dải băng (Story 8.2 Q3). Tính LÚC ghi xong, không lúc hẹn.
+   *
+   * `luot` là số của phép ghi, lấy bằng `batDauGhi()` LÚC BẮT ĐẦU. Dải băng được đặt sau khi phép
+   * ghi này bắt đầu (`luot <= luotBatBanner`) là chuyện của một phép ghi mới hơn, hay của một
+   * hàng khác: một phép ghi cũ xong muộn không phải "phép ghi sau đó thành công" của AD-8, nên
+   * không được tắt nó (deferred spec-3-1).
    */
-  function tatSauKhiGhi() {
-    return noiBo.banner === LOAI_BANG.DUNG_LUONG_SAP_HET ? {} : { banner: null };
+  function tatSauKhiGhi(luot) {
+    if (noiBo.banner === LOAI_BANG.DUNG_LUONG_SAP_HET) return {};
+    return luot <= luotBatBanner ? {} : { banner: null };
+  }
+
+  /** Số của một phép ghi sắp gọi cổng — gọi ĐÚNG lúc bắt đầu, trước lời gọi cổng. */
+  function batDauGhi() {
+    return ++soLuotGhi;
   }
 
   /**
@@ -777,9 +798,10 @@ export function taoStore(ports) {
    * (`tatSauKhiGhi`, Story 8.2 Q3): cảnh báo dung lượng không phải lỗi của phép ghi nào.
    */
   function ghiTruocDatSau(phepGhi, dungNhanh) {
+    const luot = batDauGhi();
     return phepGhi().then(
       () => {
-        datLai({ ...dungNhanh(), ...tatSauKhiGhi() });
+        datLai({ ...dungNhanh(), ...tatSauKhiGhi(luot) });
       },
       (loi) => {
         datLai({ banner: maBanner(loi) });
@@ -818,6 +840,7 @@ export function taoStore(ports) {
           xong();
           return;
         }
+        const luot = batDauGhi();
         ports.noteStore.put(banGhi).then(
           () => {
             // CHỈ ở đây mục mới rời `chuDangCho`: chữ đã xuống kho thật, nên `notes` từ giờ là
@@ -832,7 +855,7 @@ export function taoStore(ports) {
             // trừ hàng 7 (`tatSauKhiGhi`, Story 8.2 Q3).
             datLai({
               notes: noiBo.notes.map((mau) => (mau.id === banGhi.id ? banGhi : mau)),
-              ...tatSauKhiGhi(),
+              ...tatSauKhiGhi(luot),
             });
             canKiem = true;
             baoGhiChuDoi();
@@ -1733,11 +1756,12 @@ export function taoStore(ports) {
    *   người dùng, nên nó không được dọn một câu đang nói về chữ chưa an toàn.
    */
   function ghiBanNhap(tatDaiBang) {
+    const luot = batDauGhi();
     return ports.noteStore
       .putDraft({ tabId: tabCuaMinh, text: noiBo.draft.text, heartbeat: nowIso() })
       .then(
         () => {
-          if (tatDaiBang) datLai(tatSauKhiGhi());
+          if (tatDaiBang) datLai(tatSauKhiGhi(luot));
         },
         (loi) => {
           datLai({ banner: maBanner(loi) });
