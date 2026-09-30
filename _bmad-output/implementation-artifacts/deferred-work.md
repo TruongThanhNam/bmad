@@ -154,7 +154,8 @@
   evidence: Nút đã đứng đó từ Story 2.1 và được 4.1 khóa bằng test "hai link không bao giờ ẩn"; Story 4.2 chỉ thêm `id`. Ràng buộc sẽ tự biến mất khi 4.3 nối hành vi — chỉ cần xử lý riêng nếu 4.3 bị hoãn.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-3-nap-lai-hai-pha-gop-theo-dinh-danh-nguyen-tu.md`
-  summary: Phép nạp đọc kho ở `readAll` rồi ghi đè ở `replaceAll` bằng hai lời gọi cổng tách rời, nên bất kỳ phép ghi nào chen vào giữa hai lời gọi đó vẫn bị xóa.
+  summary: ~~Phép nạp đọc kho ở `readAll` rồi ghi đè ở `replaceAll` bằng hai lời gọi cổng tách rời, nên bất kỳ phép ghi nào chen vào giữa hai lời gọi đó vẫn bị xóa.~~
+  resolved: 2026-09-29 — chấp nhận rủi ro (low, n=1), không đổi mã; ghi giới hạn "nạp file lúc tab khác đang ghi" vào README mục 37 (chủ repo chọn phương án A, bỏ `mergeAll`).
   evidence: Thật, và làm JSDoc "nguồn để gộp là KHO nên không bao giờ mất" đúng hẹp hơn nó nghe. Cửa sổ chỉ là khoảng cách giữa hai thao tác IndexedDB kề nhau và hộp chọn file là modal nên chính Nam không chen vào được — chỉ một tab khác mới lọt. Đóng hẳn đòi một phương thức cổng đọc-và-ghi trong CÙNG một giao dịch, tức một mặt công khai mới; Epic 7 mới là chỗ đồng bộ liên tab.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-4-4-dong-nhac-thu-dong-ve-lan-sao-luu-gan-nhat.md`
@@ -241,7 +242,8 @@
 ## Deferred from: spec-7-1-dong-bo-ghi-chu-giua-cac-tab.md (2026-09-25)
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-7-1-dong-bo-ghi-chu-giua-cac-tab.md`
-  summary: Hoãn F1 — phép nạp file đọc `readAll` rồi `replaceAll` bằng hai giao dịch tách rời; một phép ghi từ tab khác chen đúng khe giữa hai giao dịch sẽ bị `replaceAll` xóa mất.
+  summary: ~~Hoãn F1 — phép nạp file đọc `readAll` rồi `replaceAll` bằng hai giao dịch tách rời; một phép ghi từ tab khác chen đúng khe giữa hai giao dịch sẽ bị `replaceAll` xóa mất.~~
+  resolved: 2026-09-29 — chấp nhận rủi ro (low, n=1), không đổi mã; ghi giới hạn "nạp file lúc tab khác đang ghi" vào README mục 37 (chủ repo chọn phương án A, bỏ `mergeAll`).
   evidence: low (n = 1, khe chỉ là giữa hai giao dịch IndexedDB kề nhau, phải ghi ở tab khác đúng lúc đang nạp). Đóng hẳn cần phương thức cổng mới (`mergeAll` đọc-và-ghi trong một giao dịch) trên adapter `indexeddb.js`, mà adapter không có test tự động — quyết định trong Design Notes của spec 7.1.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-7-1-dong-bo-ghi-chu-giua-cac-tab.md`

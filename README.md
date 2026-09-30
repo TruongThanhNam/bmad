@@ -848,6 +848,14 @@ Còn lại là thứ không con số nào nói: lần tải lại có **nháy m�
     *Mẩu đang sửa bị xóa ở tab khác.* Ở A vào chế độ sửa một mẩu và gõ thêm vài chữ. Ở B xóa đúng
     mẩu đó. A hiện dải băng `Ghi chú này vừa bị xóa ở tab khác. Chép chữ ra trước khi rời ô sửa nếu còn cần.`, ô sửa còn nguyên chữ. Rời ô sửa (`Tab`): mẩu biến mất, con trỏ ở ô soạn thảo,
     và tải lại B thì mẩu **không** sống lại. Nút `✕` đóng được dải băng.
+
+    *Giới hạn đã biết: nạp file lúc tab khác đang ghi.* Phép nạp (`nạp lại`) đọc kho rồi ghi đè
+    bằng hai giao dịch IndexedDB kề nhau (`readAll` rồi `replaceAll`). Một phép ghi từ **tab
+    khác** chen đúng vào khe giữa hai giao dịch đó sẽ bị `replaceAll` xóa mất. Khe rất hẹp (hộp
+    chọn file là modal nên chính tab đang nạp không chen vào được) và được chấp nhận ở mức thấp:
+    **đừng chốt, sửa hay xóa ở tab khác trong lúc một tab đang nạp file.** Đóng hẳn cần một
+    phương thức cổng đọc-và-ghi trong một giao dịch; đã cân nhắc và hoãn có chủ ý (deferred
+    spec-4-3 / spec-7-1 F1).
 38. **Tab mã cũ vào chế độ chỉ đọc, ồn ào.** `npm run thu-bo-cuc` đã lái phần lõi (khối
     "Story 7.2"): gửi một tin giả `appVersion: '0.0.0'` vào kênh `ghichu`, kiểm dải băng và việc
     chốt không xuống kho. Làm tay trên bản deploy thật: mở một tab (A) trước lần deploy, deploy
