@@ -247,7 +247,8 @@
   evidence: low (n = 1, khe chỉ là giữa hai giao dịch IndexedDB kề nhau, phải ghi ở tab khác đúng lúc đang nạp). Đóng hẳn cần phương thức cổng mới (`mergeAll` đọc-và-ghi trong một giao dịch) trên adapter `indexeddb.js`, mà adapter không có test tự động — quyết định trong Design Notes của spec 7.1.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-7-1-dong-bo-ghi-chu-giua-cac-tab.md`
-  summary: Giới hạn đã biết, không sửa — (1) hai tab cùng sửa một mẩu thì lần ghi sau thắng; (2) khe hồi sinh: hẹn tự lưu của A nổ sau `remove` của B nhưng trước khi A nhận tin (vài ms) thì `put` dựng lại mẩu trong kho.
+  summary: ~~Giới hạn đã biết, không sửa — (1) hai tab cùng sửa một mẩu thì lần ghi sau thắng; (2) khe hồi sinh: hẹn tự lưu của A nổ sau `remove` của B nhưng trước khi A nhận tin (vài ms) thì `put` dựng lại mẩu trong kho.~~
+  resolved: 2026-09-29 — ghi cả hai giới hạn vào README mục 37 ("Giới hạn đã biết khi dùng nhiều tab"), kèm thông điệp không mất dữ liệu. Khe hồi sinh (2) đã hẹp hơn nhờ `noteStore.put` kiểm `id` trong cùng giao dịch (mục spec-7-1 ngay dưới); README ghi vậy và không khẳng định đã hết hẳn.
   evidence: ghi trong Design Notes của spec 7.1; không mất dữ liệu.
 
 - source_spec: `_bmad-output/implementation-artifacts/spec-7-1-dong-bo-ghi-chu-giua-cac-tab.md`

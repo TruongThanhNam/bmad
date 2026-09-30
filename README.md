@@ -856,6 +856,21 @@ Còn lại là thứ không con số nào nói: lần tải lại có **nháy m�
     **đừng chốt, sửa hay xóa ở tab khác trong lúc một tab đang nạp file.** Đóng hẳn cần một
     phương thức cổng đọc-và-ghi trong một giao dịch; đã cân nhắc và hoãn có chủ ý (deferred
     spec-4-3 / spec-7-1 F1).
+
+    *Giới hạn đã biết khi dùng nhiều tab.* Hai chuyện dưới đây là chủ ý chấp nhận, và cả hai đều
+    **không làm mất ghi chú nào đã chốt**:
+
+    - **Hai tab cùng sửa một mẩu thì lần lưu sau thắng.** Tab A và tab B cùng đang sửa một mẩu,
+      cả hai lưu: kho giữ chữ của lần lưu sau, chữ của lần lưu trước bị thay chứ không được trộn.
+      Muốn tránh: chỉ sửa một mẩu ở một tab một lúc.
+    - **Xóa ở tab này lúc tab kia đang sửa đúng mẩu đó.** Tab A xóa mẩu; tab B đang sửa nó và
+      hẹn tự lưu đúng vài mili-giây trước khi nhận tin. Kho **không** dựng lại mẩu đã xóa (phép
+      ghi kiểm `id` còn trong kho ngay trong cùng giao dịch, nên khe hồi sinh hẹp hơn trước, chỉ
+      còn đúng một hệ quả: mẩu vẫn hiện ở B tới khi tin của A tới, rồi biến như mọi lần xóa, kèm
+      dải băng nếu đang sửa). Chữ vừa gõ dở ở B cho mẩu đó không được giữ lại trong kho; chép ra
+      trước khi rời ô sửa nếu còn cần. Điều này đã kiểm trên kho thật bằng ca `23c` của
+      `tools/thu-tay-ban-nhap.mjs`, nhưng khe ở tầng trình duyệt không thể chứng minh là đã
+      hết hoàn toàn.
 38. **Tab mã cũ vào chế độ chỉ đọc, ồn ào.** `npm run thu-bo-cuc` đã lái phần lõi (khối
     "Story 7.2"): gửi một tin giả `appVersion: '0.0.0'` vào kênh `ghichu`, kiểm dải băng và việc
     chốt không xuống kho. Làm tay trên bản deploy thật: mở một tab (A) trước lần deploy, deploy
